@@ -186,7 +186,7 @@
       <div class="viewing" id="viewing"><span id="viewing-txt"></span><button id="back-today">回到今日</button></div>
       <div id="out-news"></div>
       <div class="archive" id="archive" hidden>
-        <div class="lab">往期日报</div>
+        <div class="lab">日报存档</div>
         <div class="chips" id="chips"></div>
       </div>
       <div class="subscribe">
@@ -293,7 +293,7 @@ async function loadArchive(){
     const list=(d.items||[]);
     const past=list.slice(0,30);
     const box=document.getElementById("archive"),chips=document.getElementById("chips");
-    if(past.length<=1){box.hidden=true;return;}
+    if(past.length<1){box.hidden=true;return;}
     box.hidden=false;
     chips.innerHTML=past.map(x=>`<button class="chip" data-iso="${esc(x.iso)}" aria-current="${(!viewingDate&&x.iso===list[0].iso)||viewingDate===x.iso?'true':'false'}" onclick="viewArchive('${esc(x.iso)}')">${esc(x.date)}</button>`).join("");
   }catch(_){document.getElementById("archive").hidden=true;}
