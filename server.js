@@ -3,8 +3,9 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
-import { addSubscriber, getSnapshot, getDigest, listDigests } from "./src/db.js";
-import { startCron, refreshFinancials, refreshLaunches, generateDaily } from "./src/cron.js";
+import { generateCadence } from "./src/cadence.js";
+import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests } from "./src/db.js";
+import { startCron, refreshFinancials, generateDaily } from "./src/cron.js";
 import { today } from "./src/dates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,7 +15,6 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const fail = (res) => (e) => res.status(500).json({ error: e.message || "服务端错误" });
 
-// 读取快照;若尚未生成(如首次部署),按需生成一次并落库,之后直接走存储
 async function snapshotResponse(kind, refresher) {
   let s = getSnapshot(kind);
   if (!s) { await refresher(); s = getSnapshot(kind); }
@@ -24,23 +24,25 @@ async function snapshotResponse(kind, refresher) {
 app.get("/api/financials", (req, res) =>
   snapshotResponse("fin", refreshFinancials).then((d) => res.json(d)).catch(fail(res)));
 
-app.get("/api/launches", (req, res) =>
-  snapshotResponse("launch", refreshLaunches).then((d) => res.json(d)).catch(fail(res)));
+// 上市节奏:三大类快照(缺失则按需生成一次),合并为一个响应
+async function cadCat(cat) {
+  let s = getSnapshot("cad_" + cat);
+  if (!s) { const d = await generateCadence(cat); saveSnapshot("cad_" + cat, d); s = getSnapshot("cad_" + cat); }
+  return s;
+}
+app.get("/api/cadence", (req, res) => {
+  Promise.all(["yinwang", "xinshili", "chuantong"].map(cadCat))
+    .then(([yw, xs, ct]) => res.json({
+      updated_at: yw.updated_at, yinwang: yw.payload, xinshili: xs.payload, chuantong: ct.payload
+    }))
+    .catch(fail(res));
+});
 
-// 当日日报:有则返回,无则生成一次
 app.get("/api/news", (req, res) => {
-  (async () => {
-    const { iso } = today();
-    let d = getDigest(iso);
-    if (!d) d = await generateDaily();
-    return d;
-  })().then((d) => res.json(d)).catch(fail(res));
+  (async () => { const { iso } = today(); let d = getDigest(iso); if (!d) d = await generateDaily(); return d; })()
+    .then((d) => res.json(d)).catch(fail(res));
 });
-
-// 往期日报列表 + 指定日期日报
-app.get("/api/news/archive", (req, res) => {
-  try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); }
-});
+app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
 app.get("/api/news/:iso", (req, res) => {
   const d = getDigest(req.params.iso);
   if (!d) return res.status(404).json({ error: "未找到该日期的日报" });
