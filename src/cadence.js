@@ -1,7 +1,7 @@
 // 上市节奏:博查按品牌/车系细搜 + DeepSeek(强模型)整理某大类 2026 全年新车/改款列表。
 import { research } from "./research.js";
 
-const STRONG = process.env.DEEPSEEK_MODEL_STRONG || "deepseek-v4-pro";
+const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"; // 用不思考的 flash,直接稳定出 JSON
 
 const QUERIES = {
   yinwang: [
@@ -30,7 +30,7 @@ JSON:{"overview":"该类别2026全年上市节奏一段话概述(80字内)","car
 export async function generateCadence(cat) {
   const data = await research({
     queries: QUERIES[cat], schema: schemaFor(cat),
-    freshness: "noLimit", count: 12, summaryLen: 700, maxTokens: 8000, model: STRONG
+    freshness: "noLimit", count: 12, summaryLen: 700, maxTokens: 8000, model: MODEL
   });
   if (!data || !Array.isArray(data.cars)) throw new Error("上市节奏解析失败");
   return { overview: data.overview || "", cars: data.cars };
