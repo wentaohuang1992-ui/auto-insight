@@ -5,12 +5,16 @@ import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
 import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests } from "./src/db.js";
-import { startCron, refreshFinancials, generateDaily } from "./src/cron.js";
+import { startCron, refreshFinancials, refreshCadence, generateDaily } from "./src/cron.js";
 import { today } from "./src/dates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
+app.use((err, req, res, next) => {
+  if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "请求体不是合法 JSON" });
+  next(err);
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 const fail = (res) => (e) => res.status(500).json({ error: e.message || "服务端错误" });
@@ -59,6 +63,13 @@ app.post("/api/subscribe", (req, res) => {
   const email = String(req.body?.email || "").trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "邮箱格式不正确" });
   res.json({ ok: true, isNew: addSubscriber(email) });
+});
+
+app.post("/api/refresh", (req, res) => {
+  const what = String(req.body?.what || "");
+  const run = what === "fin" ? refreshFinancials : what === "cadence" ? refreshCadence : what === "news" ? generateDaily : null;
+  if (!run) return res.status(400).json({ error: "未知刷新目标" });
+  run().then(() => res.json({ ok: true })).catch(fail(res));
 });
 
 app.get("/api/health", (req, res) => res.json({ ok: true, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash", search: "bocha" }));
