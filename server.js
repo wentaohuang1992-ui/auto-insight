@@ -61,11 +61,12 @@ app.post("/api/subscribe", (req, res) => {
   res.json({ ok: true, isNew: addSubscriber(email) });
 });
 
-app.get("/api/health", (req, res) => res.json({ ok: true, model: process.env.CLAUDE_MODEL || "claude-sonnet-4-6" }));
+app.get("/api/health", (req, res) => res.json({ ok: true, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash", search: "bocha" }));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`车企洞察终端 运行于 http://localhost:${PORT}`);
-  if (!process.env.ANTHROPIC_API_KEY) console.warn("⚠ 未设置 ANTHROPIC_API_KEY,板块数据接口会报错");
+  if (!process.env.DEEPSEEK_API_KEY) console.warn("⚠ 未设置 DEEPSEEK_API_KEY,板块数据接口会报错");
+  if (!process.env.BOCHA_API_KEY) console.warn("⚠ 未设置 BOCHA_API_KEY,联网搜索会报错");
   startCron();
 });
