@@ -32,9 +32,9 @@ export function parseJSON(text) {
   return null;
 }
 
-export async function chatJSON(prompt, maxTokens = 4096) {
+export async function chatJSON(prompt, maxTokens = 4096, model = DEEPSEEK_MODEL) {
   const sys = "你是中文财经与汽车行业数据整理助手。只输出一个 JSON 对象,不要任何额外文字、解释或 markdown 代码块。";
-  const base = { model: DEEPSEEK_MODEL, max_tokens: maxTokens, temperature: 0.2,
+  const base = { model, max_tokens: maxTokens, temperature: 0.2,
     messages: [{ role: "system", content: sys }, { role: "user", content: prompt }] };
   let txt;
   try { txt = await rawChat({ ...base, response_format: { type: "json_object" } }); }
