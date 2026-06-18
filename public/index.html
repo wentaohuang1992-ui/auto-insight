@@ -179,7 +179,7 @@
   .ccard .cdate{font-family:var(--mono);font-size:10.5px;color:#fff;background:var(--signal);padding:2px 7px;border-radius:5px;white-space:nowrap}
   .ccard .badges{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 9px}
   .bdg{font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2)}
-  .bdg.k{background:rgba(14,138,95,.12);color:var(--down)}.bdg.k.f{background:rgba(181,113,14,.12);color:var(--signal)}.bdg.yw{background:rgba(27,47,102,.1);color:var(--brand)}
+  .bdg.k{background:rgba(14,138,95,.12);color:var(--down)}.bdg.k.f{background:rgba(181,113,14,.12);color:var(--signal)}.bdg.yw{background:rgba(27,47,102,.1);color:var(--brand)}.bdg.est{background:rgba(181,113,14,.14);color:var(--signal);border:1px dashed rgba(181,113,14,.5)}
   .ccard .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.5px;margin-bottom:8px}
   .ccard .kv .k{color:var(--muted);white-space:nowrap}.ccard .kv .v{font-family:var(--mono);font-weight:500;color:var(--ink)}.ccard .kv .v.price{color:var(--brand)}.ccard .kv .v.ord{color:var(--signal)}
   .ccard .cnote{font-size:12.5px;color:var(--ink-2);line-height:1.55;border-top:1px dashed var(--line-2);padding-top:8px}
@@ -400,13 +400,13 @@ const CADREG={};
 function cadDs(overview,cars){const months={};(cars||[]).forEach(c=>{const m=Number(c.month)||0;if(m>=1&&m<=12)(months[m]=months[m]||{cars:[]}).cars.push(c);});return {overview:overview||"",months};}
 function ywGroupOf(c){if(["hongmeng","lianhe","hi"].includes(c.group))return c.group;const b=c.brand||"";if(/问界|智界|享界|尊界|尚界/.test(b))return "hongmeng";if(/阿维塔|奕境|启境|猛士/.test(b))return "lianhe";return "hi";}
 function matchBrand(b,keys){b=b||"";if(b.includes("红旗"))return "一汽红旗";for(const k of keys){if(k==="其他")continue;if(b.includes(k)||k.includes(b))return k;}return "其他";}
-function cadCounts(cars){const nw=cars.filter(c=>c.kind==="新车").length;return {total:cars.length,nw,fc:cars.length-nw,yw:cars.filter(c=>c.yw).length};}
+function cadCounts(cars){const nw=cars.filter(c=>c.kind==="新车").length;return {total:cars.length,nw,fc:cars.length-nw,yw:cars.filter(c=>c.yw).length,est:cars.filter(c=>c.estimated).length};}
 function cadMax(months){return Math.max(1,...MONTHS.map(m=>months[m]?.cars.length||0));}
 function cadAllCars(months){let a=[];MONTHS.forEach(m=>{if(months[m])a=a.concat(months[m].cars);});return a;}
 
 function cadCar(c){return `<div class="ccard"><div class="top">
   <div class="row1"><span class="name">${esc(c.model)}</span><span class="cdate">${esc(c.date||"")}</span></div>
-  <div class="badges"><span class="bdg">${esc(c.brand||"")}</span><span class="bdg k ${c.kind==="改款"?"f":""}">${esc(c.kind||"")}</span>${c.yw?'<span class="bdg yw">引望</span>':""}</div>
+  <div class="badges"><span class="bdg">${esc(c.brand||"")}</span><span class="bdg k ${c.kind==="改款"?"f":""}">${esc(c.kind||"")}</span>${c.estimated?'<span class="bdg est">预计</span>':""}${c.yw?'<span class="bdg yw">引望</span>':""}</div>
   <div class="kv"><span class="k">价格区间</span><span class="v price">${esc(c.price||"暂无")}</span>
     <span class="k">小定/大定/销量</span><span class="v ord">${esc(c.orders||"暂无公开数据")}</span></div>
   ${c.note?`<div class="cnote">${esc(c.note)}</div>`:""}</div>
@@ -417,7 +417,7 @@ function cadDetail(key,m,showYW){
   let h=`<div class="detail-head"><span class="m">2026年${m}月</span></div>`;
   if(!mo||!mo.cars.length)return h+`<div class="none">2026年${m}月暂无上市/改款车型。</div>`;
   const c=cadCounts(mo.cars);
-  let line=`本月共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款。`;
+  let line=`本月共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款${c.est?`,其中预计 ${c.est} 款`:""}。`;
   if(showYW&&c.yw)line+=`其中引望车系 <b>${c.yw}</b> 款。`;
   h+=`<div class="msum"><div class="t">当月小结</div>${line}</div><div class="grid">${mo.cars.map(cadCar).join("")}</div>`;
   return h;
@@ -429,7 +429,7 @@ function cadSelect(key,m,showYW){
 function cadCadence(d,key,showYW,members){
   CADREG[key]=d;
   const c=cadCounts(cadAllCars(d.months)),mx=cadMax(d.months);
-  let h=`<div class="ov"><div class="t">全年节奏概述</div>${esc(d.overview)} 全年共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款。</div>`;
+  let h=`<div class="ov"><div class="t">全年节奏概述</div>${esc(d.overview)} 全年共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款${c.est?`(含预计 ${c.est} 款)`:""}。</div>`;
   if(members)h+=`<div class="members"><b>包含:</b>${esc(members)}</div>`;
   h+=`<div class="tl-wrap"><div class="tl-cap">2026 上市时间轴 · 点击月份看详情</div><div class="timeline" id="tl-${key}">`;
   MONTHS.forEach(m=>{const mo=d.months[m],n=mo?mo.cars.length:0;
