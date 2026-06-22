@@ -179,7 +179,7 @@
   .ccard .cdate{font-family:var(--mono);font-size:10.5px;color:#fff;background:var(--signal);padding:2px 7px;border-radius:5px;white-space:nowrap}
   .ccard .badges{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 9px}
   .bdg{font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2)}
-  .bdg.k{background:rgba(14,138,95,.12);color:var(--down)}.bdg.k.f{background:rgba(181,113,14,.12);color:var(--signal)}.bdg.yw{background:rgba(27,47,102,.1);color:var(--brand)}.bdg.est{background:rgba(181,113,14,.14);color:var(--signal);border:1px dashed rgba(181,113,14,.5)}
+  .bdg.k{background:rgba(14,138,95,.12);color:var(--down)}.bdg.k.f{background:rgba(181,113,14,.12);color:var(--signal)}.bdg.yw{background:rgba(27,47,102,.1);color:var(--brand)}.bdg.hi{background:rgba(124,58,182,.12);color:#7C3AB6}.bdg.est{background:rgba(181,113,14,.14);color:var(--signal);border:1px dashed rgba(181,113,14,.5)}
   .ccard .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.5px;margin-bottom:8px}
   .ccard .kv .k{color:var(--muted);white-space:nowrap}.ccard .kv .v{font-family:var(--mono);font-weight:500;color:var(--ink)}.ccard .kv .v.price{color:var(--brand)}.ccard .kv .v.ord{color:var(--signal)}
   .ccard .cnote{font-size:12.5px;color:var(--ink-2);line-height:1.55;border-top:1px dashed var(--line-2);padding-top:8px}
@@ -214,6 +214,7 @@
   .mchip svg{flex:none;width:24px;height:10px;color:var(--brand-2)}
   .mchip .mname{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .mtag{flex:none;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(14,138,95,.14);color:var(--down)}
+  .mtag.hi{background:rgba(124,58,182,.14);color:#7C3AB6}
   .mtag.f{background:rgba(181,113,14,.14);color:var(--signal)}
   @media (max-width:560px){.matrix{grid-template-columns:44px repeat(3,1fr);gap:4px}.matrix .mh{font-size:10.5px}.mchip .mname{font-size:10px}.mchip{padding:2px 4px;gap:3px}}
 </style>
@@ -451,7 +452,7 @@ function cadAllCars(months){let a=[];MONTHS.forEach(m=>{if(months[m])a=a.concat(
 
 function cadCar(c){return `<div class="ccard"><div class="top">
   <div class="row1"><span class="name">${esc(c.model)}</span><span class="cdate">${esc(c.date||"")}</span></div>
-  <div class="badges"><span class="bdg">${esc(c.brand||"")}</span><span class="bdg k ${c.kind==="改款"?"f":""}">${esc(c.kind||"")}</span>${c.estimated?'<span class="bdg est">预计</span>':""}${c.yw?'<span class="bdg yw">引望</span>':""}</div>
+  <div class="badges"><span class="bdg">${esc(c.brand||"")}</span><span class="bdg k ${c.kind==="改款"?"f":""}">${esc(c.kind||"")}</span>${c.estimated?'<span class="bdg est">预计</span>':""}${c.hi?'<span class="bdg hi">HI智驾</span>':""}${c.yw?'<span class="bdg yw">引望</span>':""}</div>
   <div class="kv"><span class="k">价格区间</span><span class="v price">${esc(c.price||"暂无")}</span>
     <span class="k">小定/大定/销量</span><span class="v ord">${esc(c.orders||"暂无公开数据")}</span></div>
   ${c.note?`<div class="cnote">${esc(c.note)}</div>`:""}</div>
@@ -489,6 +490,20 @@ function cadCadence(d,key,showYW,members,lineupItems){
 function cadMount(d,key,showYW,members,host,lineupItems){host.innerHTML=cadCadence(d,key,showYW,members,lineupItems);
   const has=MONTHS.filter(m=>d.months[m]&&d.months[m].cars.length);cadSelect(key,has.length?has[has.length-1]:1,showYW);}
 
+function normModel(s){return String(s||"").replace(/\s+/g,"").toLowerCase();}
+function dedupeByModel(arr){const seen=new Set(),out=[];for(const x of arr){const k=normModel(x.model);if(k&&!seen.has(k)){seen.add(k);out.push(x);}}return out;}
+// HI智驾 = 引望HI leaf + 传统/新势力里标记 hi 的华为乾崑车(两边都归)
+function hiCarsAll(){
+  const ywHi=CAD.yinwang.cars.map(c=>({...c,yw:true})).filter(c=>ywGroupOf(c)==="hi");
+  const extra=[].concat(CAD.xinshili.cars,CAD.chuantong.cars).filter(c=>c.hi);
+  return dedupeByModel([...ywHi,...extra]);
+}
+function hiLineupAll(){
+  const ywHi=(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)==="hi");
+  const extra=[].concat(CAD.xinshili.lineup||[],CAD.chuantong.lineup||[]).filter(l=>l.hi);
+  return dedupeByModel([...ywHi,...extra]);
+}
+
 // —— 产品谱系矩阵 ——
 const PBANDS=[{lab:"≥50万",min:50,max:Infinity},{lab:"35-50万",min:35,max:50},{lab:"25-35万",min:25,max:35},{lab:"15-25万",min:15,max:25},{lab:"≤15万",min:0,max:15}];
 const PCOLS=["轿车","SUV","MPV"];
@@ -507,7 +522,8 @@ function chipOffset(price,band){const n=priceNum(price);if(n==null||!isFinite(ba
 function matrixChip(it,band){
   const lk=it.launchKind||"";
   const tag=lk?`<span class="mtag ${lk==="改款"?"f":""}">${lk==="改款"?"改":"新"}${it.launchDate?"·"+esc(it.launchDate):""}</span>`:"";
-  return `<div class="mchip" style="margin-top:${chipOffset(it.price,band)}px" title="${esc(it.model)} ${esc(it.price||"")}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${tag}</div>`;
+  const hi=it.hi?`<span class="mtag hi">HI</span>`:"";
+  return `<div class="mchip" style="margin-top:${chipOffset(it.price,band)}px" title="${esc(it.model)} ${esc(it.price||"")}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${hi}${tag}</div>`;
 }
 function renderMatrix(items){
   const cells={}; let placed=0;
@@ -536,7 +552,10 @@ function cadShow(cat){
     const pick=(k)=>{p.querySelectorAll(".sst").forEach(x=>x.setAttribute("aria-selected",x.dataset.k===k));
       const body=document.getElementById("grp-body");
       if(k==="agg"){cadMount(cadDs(CAD.yinwang.overview,ywcars),"yw_agg",false,"鸿蒙智行 + 联合共创 + HI智驾",body);}
-      else{const g=YW_GROUPS.find(x=>x.k===k);cadMount(cadDs(g.label+" 2026 全年节奏。",ywcars.filter(c=>ywGroupOf(c)===k)),"yw_"+k,false,g.members,body,(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)===k));}};
+      else{const g=YW_GROUPS.find(x=>x.k===k);
+        const cars=k==="hi"?hiCarsAll():ywcars.filter(c=>ywGroupOf(c)===k);
+        const lineup=k==="hi"?hiLineupAll():(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)===k);
+        cadMount(cadDs(g.label+" 2026 全年节奏。",cars),"yw_"+k,false,g.members,body,lineup);}};
     p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");return;
   }
   const src=cat==="xinshili"?CAD.xinshili:CAD.chuantong;
