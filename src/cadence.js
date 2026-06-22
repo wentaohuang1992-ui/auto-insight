@@ -3,7 +3,7 @@ import { research } from "./research.js";
 
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
-const LEAVES = {
+export const LEAVES = {
   yinwang: [
     { brand: "问界", group: "hongmeng", q: ["问界 2026 新车 改款 上市", "问界 2026 下半年 新车 规划 预告"] },
     { brand: "智界", group: "hongmeng", q: ["智界 2026 新车 改款 上市", "智界 2026 下半年 新车 规划"] },

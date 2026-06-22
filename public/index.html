@@ -215,6 +215,30 @@
   .mchip .mname{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .mtag{flex:none;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(14,138,95,.14);color:var(--down)}
   .mtag.hi{background:rgba(124,58,182,.14);color:#7C3AB6}
+  .mchip.ed{cursor:pointer}.mchip.ed:hover{border-color:var(--brand-2);background:#EEF3FF}
+  .cedit{margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--brand-2);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1;flex:none}
+  .cedit:hover{background:#EEF3FF;border-color:var(--brand-2)}
+  .refresh-btn.alt{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  .mdl-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:90;display:flex;align-items:center;justify-content:center;padding:16px}
+  .mdl{background:#fff;border-radius:14px;width:min(560px,96vw);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .mdl-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;font-weight:700;font-size:15px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+  .mdl-x{cursor:pointer;color:var(--muted);font-size:18px}
+  .mdl-b{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+  .mdl-b .frow{display:flex;gap:12px}.mdl-b .frow>label{flex:1}
+  .mdl-b label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2);font-weight:600}
+  .mdl-b input,.mdl-b select{font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff}
+  .mdl-b label.ck{flex-direction:row;align-items:center;gap:8px;font-size:13px}
+  .mdl-b label.ck input{width:16px;height:16px}
+  .mdl-sec{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--brand);margin-top:4px}
+  .mini{font:inherit;font-size:11px;padding:3px 8px;border:1px solid var(--brand);color:var(--brand);background:#fff;border-radius:6px;cursor:pointer}
+  .lrow{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+  .lrow .l-kind{flex:none;width:64px}.lrow .l-month{flex:none;width:46px}.lrow .l-date{flex:none;width:96px}.lrow .l-note{flex:1;min-width:0}
+  .lrow input,.lrow select{font:inherit;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:6px}
+  .lx{flex:none;border:0;background:#F1F4F8;color:var(--muted);width:24px;height:28px;border-radius:6px;cursor:pointer}
+  .mdl-f{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#fff}
+  .mdl-f .save{background:var(--brand);color:#fff;border:0;padding:9px 20px;border-radius:8px;font-weight:700;cursor:pointer}
+  .mdl-f .ghost{background:#fff;border:1px solid var(--line);padding:9px 16px;border-radius:8px;cursor:pointer}
+  .mdl-f .del{background:#fff;border:1px solid #D14343;color:#D14343;padding:9px 14px;border-radius:8px;cursor:pointer}
   .mtag.f{background:rgba(181,113,14,.14);color:var(--signal)}
   @media (max-width:560px){.matrix{grid-template-columns:44px repeat(3,1fr);gap:4px}.matrix .mh{font-size:10.5px}.mchip .mname{font-size:10px}.mchip{padding:2px 4px;gap:3px}}
 </style>
@@ -283,7 +307,8 @@
         <div class="ref">SECTION 02 · LAUNCHES</div>
         <h2>新车及改款车上市及市场表现</h2>
         <div class="note" id="note-cad">每月 1 号自动更新 2026 全年上市节奏</div>
-        <button class="refresh-btn" onclick="doRefresh('cadence',this)">↻ 立即用 DeepSeek 刷新</button>
+        <button class="refresh-btn" onclick="doRefresh('models',this)">↻ 用 DeepSeek 刷新车型库</button>
+        <button class="refresh-btn alt" onclick="openModelEdit('')">＋ 新增车型</button>
       </div>
       <div class="module">
         <div class="module-head">
@@ -441,7 +466,24 @@ const XS_BRANDS=["蔚来","小鹏","理想","零跑","小米"];
 const TRAD_BRANDS=["比亚迪","吉利","长安","长城","奇瑞","广汽","上汽","北汽","东风","一汽红旗","其他"];
 const MONTHS=[1,2,3,4,5,6,7,8,9,10,11,12];
 let CAD=null;
+let MODELS=[];
 const CADREG={};
+
+// 车型库记录 → 现有渲染结构(cars 时间轴 / lineup 矩阵),复用全部现成渲染
+function modelsToCAD(models){
+  const cat={yinwang:{cars:[],lineup:[]},xinshili:{cars:[],lineup:[]},chuantong:{cars:[],lineup:[]}};
+  const priceOf=m=>m.priceRange||(m.priceFrom!=null?m.priceFrom+"万":"");
+  (models||[]).forEach(m=>{
+    let c=(m.group==="hongmeng"||m.group==="lianhe")?"yinwang":(XS_BRANDS.includes(m.brand)?"xinshili":"chuantong");
+    const price=priceOf(m);
+    const L=(m.launches||[]).filter(x=>(x.year||2026)===2026);
+    const first=L[0]||null;
+    cat[c].lineup.push({model:m.model,body:m.body,price,hi:m.hi,brand:m.brand,group:m.group,id:m.id,launchKind:first?first.kind:"",launchDate:first?first.date:""});
+    L.forEach(x=>cat[c].cars.push({model:m.model,brand:m.brand,group:m.group,hi:m.hi,kind:x.kind,month:x.month,date:x.date,estimated:x.estimated,price,note:x.note||m.note||"",id:m.id,sources:m.sources||[]}));
+  });
+  const ov={yinwang:"华为引望生态(鸿蒙智行 + 联合共创 + HI 智驾)2026 上市节奏。",xinshili:"造车新势力 2026 上市节奏。",chuantong:"传统车企(含新能源子品牌)2026 上市节奏。"};
+  return {yinwang:{overview:ov.yinwang,...cat.yinwang},xinshili:{overview:ov.xinshili,...cat.xinshili},chuantong:{overview:ov.chuantong,...cat.chuantong}};
+}
 
 function cadDs(overview,cars){const months={};(cars||[]).forEach(c=>{const m=Number(c.month)||0;if(m>=1&&m<=12)(months[m]=months[m]||{cars:[]}).cars.push(c);});return {overview:overview||"",months};}
 function ywGroupOf(c){if(["hongmeng","lianhe","hi"].includes(c.group))return c.group;const b=c.brand||"";if(/问界|智界|享界|尊界|尚界/.test(b))return "hongmeng";if(/阿维塔|奕境|启境|猛士/.test(b))return "lianhe";return "hi";}
@@ -451,7 +493,7 @@ function cadMax(months){return Math.max(1,...MONTHS.map(m=>months[m]?.cars.lengt
 function cadAllCars(months){let a=[];MONTHS.forEach(m=>{if(months[m])a=a.concat(months[m].cars);});return a;}
 
 function cadCar(c){return `<div class="ccard"><div class="top">
-  <div class="row1"><span class="name">${esc(c.model)}</span><span class="cdate">${esc(c.date||"")}</span></div>
+  <div class="row1"><span class="name">${esc(c.model)}</span><span class="cdate">${esc(c.date||"")}</span>${c.id?`<button class="cedit" title="编辑此车型" onclick="event.stopPropagation();openModelEdit('${esc(c.id)}')">✎</button>`:""}</div>
   <div class="badges"><span class="bdg">${esc(c.brand||"")}</span><span class="bdg k ${c.kind==="改款"?"f":""}">${esc(c.kind||"")}</span>${c.estimated?'<span class="bdg est">预计</span>':""}${c.hi?'<span class="bdg hi">HI智驾</span>':""}${c.yw?'<span class="bdg yw">引望</span>':""}</div>
   <div class="kv"><span class="k">价格区间</span><span class="v price">${esc(c.price||"暂无")}</span>
     <span class="k">小定/大定/销量</span><span class="v ord">${esc(c.orders||"暂无公开数据")}</span></div>
@@ -523,7 +565,7 @@ function matrixChip(it,band){
   const lk=it.launchKind||"";
   const tag=lk?`<span class="mtag ${lk==="改款"?"f":""}">${lk==="改款"?"改":"新"}${it.launchDate?"·"+esc(it.launchDate):""}</span>`:"";
   const hi=it.hi?`<span class="mtag hi">HI</span>`:"";
-  return `<div class="mchip" style="margin-top:${chipOffset(it.price,band)}px" title="${esc(it.model)} ${esc(it.price||"")}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${hi}${tag}</div>`;
+  return `<div class="mchip${it.id?" ed":""}" ${it.id?`onclick="openModelEdit('${esc(it.id)}')"`:""} style="margin-top:${chipOffset(it.price,band)}px" title="${esc(it.model)} ${esc(it.price||"")}${it.id?" · 点击编辑":""}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${hi}${tag}</div>`;
 }
 function renderMatrix(items){
   const cells={}; let placed=0;
@@ -537,6 +579,49 @@ function renderMatrix(items){
   h+=`</div></div>`;return h;
 }
 function appendMatrix(body,items){body.insertAdjacentHTML("beforeend",renderMatrix(items));}
+
+// —— 车型编辑弹窗 ——
+let MODAL=null;
+function val(id){return (document.getElementById(id).value||"").trim();}
+function launchRow(l){l=l||{};return `<div class="lrow">
+  <select class="l-kind">${["新车","改款"].map(v=>`<option ${v===(l.kind||"新车")?"selected":""}>${v}</option>`).join("")}</select>
+  <input class="l-month" type="number" min="1" max="12" placeholder="月" value="${l.month||""}">
+  <input class="l-date" placeholder="如3月/预计Q3" value="${esc(l.date||"")}">
+  <input class="l-note" placeholder="亮点" value="${esc(l.note||"")}">
+  <button class="lx" onclick="this.closest('.lrow').remove()">✕</button></div>`;}
+function addLaunchRow(){document.getElementById("f-launches").insertAdjacentHTML("beforeend",launchRow({}));}
+function collectLaunches(){return [...document.querySelectorAll("#f-launches .lrow")].map(r=>{const date=r.querySelector(".l-date").value.trim();return {kind:r.querySelector(".l-kind").value,year:2026,month:Number(r.querySelector(".l-month").value)||null,date,note:r.querySelector(".l-note").value.trim(),estimated:/预计|Q|季度|上半年|下半年|年底|年中/.test(date)};});}
+function modelFormHtml(m,isNew){
+  const opt=(v,cur)=>`<option ${v===cur?"selected":""}>${v}</option>`;
+  const grpSel=[["","非引望"],["hongmeng","鸿蒙智行"],["lianhe","联合共创"]].map(([v,t])=>`<option value="${v}" ${v===(m.group||"")?"selected":""}>${t}</option>`).join("");
+  return `<div class="mdl-bg" onclick="if(event.target===this)closeModelEdit()"><div class="mdl">
+    <div class="mdl-h">${isNew?"新增车型":"编辑车型"}<span class="mdl-x" onclick="closeModelEdit()">✕</span></div>
+    <div class="mdl-b">
+      <div class="frow"><label>品牌<input id="f-brand" value="${esc(m.brand||"")}"></label><label>车型<input id="f-model" value="${esc(m.model||"")}"></label></div>
+      <div class="frow"><label>车身<select id="f-body">${["轿车","SUV","MPV"].map(v=>opt(v,m.body)).join("")}</select></label><label>状态<select id="f-status">${["在售","预售","即将上市","规划","停售"].map(v=>opt(v,m.status)).join("")}</select></label></div>
+      <div class="frow"><label>起售价(万)<input id="f-pf" type="number" step="0.01" value="${m.priceFrom??""}"></label><label>价格区间<input id="f-pr" value="${esc(m.priceRange||"")}"></label></div>
+      <div class="frow"><label>智驾系统<input id="f-adas" value="${esc(m.adas||"")}"></label><label>引望归类<select id="f-group">${grpSel}</select></label></div>
+      <label class="ck"><input id="f-hi" type="checkbox" ${m.hi?"checked":""}> 搭载华为乾崑(HI智驾)</label>
+      <label>简介<input id="f-note" value="${esc(m.note||"")}"></label>
+      <div class="mdl-sec">2026 上市计划 <button class="mini" onclick="addLaunchRow()">+ 添加</button></div>
+      <div id="f-launches">${(m.launches||[]).map(launchRow).join("")}</div>
+    </div>
+    <div class="mdl-f">${isNew?"":`<button class="del" onclick="delModel('${esc(m.id)}')">删除</button>`}<span style="flex:1"></span>
+      <button class="ghost" onclick="closeModelEdit()">取消</button><button class="save" onclick="saveModel('${isNew?"":esc(m.id)}')">保存</button></div>
+  </div></div>`;
+}
+function openModelEdit(id){const m=id?MODELS.find(x=>x.id===id):null;const data=m||{body:"SUV",status:"在售",group:"",launches:[]};closeModelEdit();MODAL=document.createElement("div");MODAL.innerHTML=modelFormHtml(data,!m);document.body.appendChild(MODAL);}
+function closeModelEdit(){if(MODAL){MODAL.remove();MODAL=null;}}
+async function saveModel(id){
+  const body={brand:val("f-brand"),model:val("f-model"),body:val("f-body"),priceFrom:parseFloat(val("f-pf"))||null,priceRange:val("f-pr"),adas:val("f-adas"),hi:document.getElementById("f-hi").checked,group:val("f-group"),status:val("f-status"),note:val("f-note"),launches:collectLaunches()};
+  if(!body.brand||!body.model)return alert("品牌和车型必填");
+  try{const url=id?("/api/models/"+encodeURIComponent(id)):"/api/models";
+    const r=await fetch(url,{method:id?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
+    closeModelEdit();CAD=null;await loadCadence();
+  }catch(e){alert("保存失败:"+(e.message||e));}
+}
+async function delModel(id){if(!confirm("确定删除该车型记录?"))return;try{await fetch("/api/models/"+encodeURIComponent(id),{method:"DELETE"});closeModelEdit();CAD=null;await loadCadence();}catch(e){alert("删除失败:"+(e.message||e));}}
 
 function cadShow(cat){
   document.querySelectorAll("#cad-subtabs .subtab").forEach(t=>t.setAttribute("aria-selected",t.dataset.cat===cat));
@@ -573,10 +658,14 @@ async function loadCadence(){
   const p=document.getElementById("cad-panel");
   p.innerHTML=skeletons(5);
   try{
-    const r=await fetch("/api/cadence");const d=await r.json();
+    const r=await fetch("/api/models");const d=await r.json();
     if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
-    CAD=d;
-    if(d.updated_at)document.getElementById("note-cad").innerHTML=`每月 1 号自动更新 2026 全年上市节奏 · <b>上次更新 ${esc(fmtTime(d.updated_at))}</b>`;
+    MODELS=d.models||[];
+    CAD=modelsToCAD(MODELS);
+    const up=d.meta&&d.meta.updatedAt;
+    document.getElementById("note-cad").innerHTML=up
+      ?`车型库 · <b>上次更新 ${esc(fmtTime(up))}</b> · 共 ${d.meta.count} 款车型(可手动编辑)`
+      :`车型库为空 · 请点右侧「刷新」用 DeepSeek 生成种子数据`;
     document.querySelectorAll("#cad-subtabs .subtab").forEach(t=>t.onclick=()=>cadShow(t.dataset.cat));
     cadShow("all");
   }catch(e){p.innerHTML=errorBox(e.message||"网络异常","loadCadence()");}
@@ -584,8 +673,8 @@ async function loadCadence(){
 
 async function doRefresh(what,btn){
   if(btn.disabled)return;
-  const names={fin:"财报",news:"日报",cadence:"上市节奏",storage:"存储洞察"};
-  const eta={fin:"十几秒",news:"十几秒",cadence:"2-3 分钟",storage:"十几秒"};
+  const names={fin:"财报",news:"日报",cadence:"上市节奏",storage:"存储洞察",models:"车型库"};
+  const eta={fin:"十几秒",news:"十几秒",cadence:"2-3 分钟",storage:"十几秒",models:"3-5 分钟(约24家车企)"};
   if(!confirm(`确定立即用 DeepSeek 重新抓取并覆盖「${names[what]}」数据吗?后台生成约需 ${eta[what]||"一会儿"},期间可继续浏览,完成后本板块自动刷新。`))return;
   const old=btn.textContent;btn.disabled=true;
   let secs=0;const tick=setInterval(()=>{secs++;btn.textContent=`后台生成中… ${secs}s`;},1000);btn.textContent="后台生成中… 0s";
@@ -601,7 +690,7 @@ async function doRefresh(what,btn){
       try{const sr=await fetch("/api/refresh/status?what="+encodeURIComponent(what));st=await sr.json();}catch(_){continue;}
       if(st.status==="done"){
         clearInterval(tick);
-        if(what==="cadence"){CAD=null;await loadCadence();}
+        if(what==="cadence"||what==="models"){CAD=null;await loadCadence();}
         else if(what==="storage"){await loadStorage();}
         else{await loadSection(what);}
         btn.disabled=false;btn.textContent=old;return;

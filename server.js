@@ -7,6 +7,8 @@ import { generateCadence } from "./src/cadence.js";
 import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests } from "./src/db.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily } from "./src/cron.js";
 import { today } from "./src/dates.js";
+import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
+import { seedModels } from "./src/models_seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -68,8 +70,24 @@ app.post("/api/subscribe", (req, res) => {
   res.json({ ok: true, isNew: addSubscriber(email) });
 });
 
+// —— 车型数据库 ——
+app.get("/api/models", (req, res) => { try { res.json({ models: listModels(), meta: dbMeta() }); } catch (e) { fail(res)(e); } });
+app.post("/api/models", (req, res) => {
+  const r = addModel(req.body || {});
+  if (!r) return res.status(409).json({ error: "该车型已存在(品牌+车型重复)" });
+  res.json({ ok: true, model: r });
+});
+app.put("/api/models/:id", (req, res) => {
+  const r = putModel(req.params.id, req.body || {});
+  if (!r) return res.status(404).json({ error: "未找到该车型记录" });
+  res.json({ ok: true, model: r });
+});
+app.delete("/api/models/:id", (req, res) => {
+  res.json({ ok: deleteModel(req.params.id) });
+});
+
 const jobs = {}; // what -> {status:'running'|'done'|'error', startedAt, finishedAt, error}
-const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily };
+const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels };
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");
   const run = RUNNERS[what];
