@@ -239,6 +239,25 @@
   .mdl-f .save{background:var(--brand);color:#fff;border:0;padding:9px 20px;border-radius:8px;font-weight:700;cursor:pointer}
   .mdl-f .ghost{background:#fff;border:1px solid var(--line);padding:9px 16px;border-radius:8px;cursor:pointer}
   .mdl-f .del{background:#fff;border:1px solid #D14343;color:#D14343;padding:9px 14px;border-radius:8px;cursor:pointer}
+  .admin-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:14px}
+  .admin{background:#fff;border-radius:14px;width:min(1100px,98vw);height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden}
+  .admin-h{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .admin-h b{font-size:15px}.admin-cnt{font-size:12px;color:var(--muted)}
+  .admin-tools{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line);background:#FAFBFD}
+  .admin-tools input,.admin-tools select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:8px}
+  .admin-tools input{flex:1;max-width:320px}.admin-tip{font-size:11px;color:var(--muted);margin-left:auto}
+  .admin-body{flex:1;overflow:auto;padding:0}
+  .atbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .atbl th{position:sticky;top:0;background:#F1F4F8;color:var(--ink-2);font-weight:700;text-align:left;padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--line);z-index:1}
+  .atbl td{padding:8px 10px;border-bottom:1px solid #EEF1F5;white-space:nowrap}
+  .atbl tr:hover td{background:#F7F9FC}
+  .atbl .amodel{font-weight:600;color:var(--ink)}.atbl .aadas,.atbl .acat{color:var(--ink-2)}
+  .atbl .yes{color:#7C3AB6;font-weight:700}.atbl .man{color:var(--signal)}
+  .atbl .aempty{text-align:center;color:var(--muted);padding:30px}
+  .aops{display:flex;gap:6px}
+  .aops button{font:inherit;font-size:11px;padding:3px 9px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;color:var(--brand-2)}
+  .aops button.d{color:#D14343;border-color:rgba(209,67,67,.4)}
+  .aops button:hover{background:#EEF3FF}
   .mtag.f{background:rgba(181,113,14,.14);color:var(--signal)}
   @media (max-width:560px){.matrix{grid-template-columns:44px repeat(3,1fr);gap:4px}.matrix .mh{font-size:10.5px}.mchip .mname{font-size:10px}.mchip{padding:2px 4px;gap:3px}}
 </style>
@@ -308,7 +327,7 @@
         <h2>新车及改款车上市及市场表现</h2>
         <div class="note" id="note-cad">每月 1 号自动更新 2026 全年上市节奏</div>
         <button class="refresh-btn" onclick="doRefresh('models',this)">↻ 用 DeepSeek 刷新车型库</button>
-        <button class="refresh-btn alt" onclick="openModelEdit('')">＋ 新增车型</button>
+        <button class="refresh-btn alt" onclick="openModelsAdmin()">▦ 管理车型库</button>
       </div>
       <div class="module">
         <div class="module-head">
@@ -618,10 +637,52 @@ async function saveModel(id){
   try{const url=id?("/api/models/"+encodeURIComponent(id)):"/api/models";
     const r=await fetch(url,{method:id?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
     const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
-    closeModelEdit();CAD=null;await loadCadence();
+    closeModelEdit();CAD=null;await loadCadence();if(ADMIN_OPEN)renderAdminTable();
   }catch(e){alert("保存失败:"+(e.message||e));}
 }
-async function delModel(id){if(!confirm("确定删除该车型记录?"))return;try{await fetch("/api/models/"+encodeURIComponent(id),{method:"DELETE"});closeModelEdit();CAD=null;await loadCadence();}catch(e){alert("删除失败:"+(e.message||e));}}
+async function delModel(id){if(!confirm("确定删除该车型记录?"))return;try{await fetch("/api/models/"+encodeURIComponent(id),{method:"DELETE"});closeModelEdit();CAD=null;await loadCadence();if(ADMIN_OPEN)renderAdminTable();}catch(e){alert("删除失败:"+(e.message||e));}}
+
+// —— 车型库管理总表 ——
+let ADMIN_OPEN=false,ADMIN_Q="",ADMIN_CAT="all";
+function adminCat(m){if(m.group==="hongmeng")return "引望·鸿蒙智行";if(m.group==="lianhe")return "引望·联合共创";if(XS_BRANDS.includes(m.brand))return "新势力";return "传统车企";}
+function adminCatKey(m){if(m.group==="hongmeng"||m.group==="lianhe")return "yinwang";if(XS_BRANDS.includes(m.brand))return "xinshili";return "chuantong";}
+function launchSummary(m){const L=(m.launches||[]).filter(x=>(x.year||2026)===2026);if(!L.length)return "—";return L.map(x=>`${x.kind==="改款"?"改":"新"}·${esc(x.date||(x.month?x.month+"月":""))}`).join("、");}
+function adminRows(){
+  let list=MODELS.slice();
+  if(ADMIN_CAT==="hi")list=list.filter(m=>m.hi);else if(ADMIN_CAT!=="all")list=list.filter(m=>adminCatKey(m)===ADMIN_CAT);
+  if(ADMIN_Q){const q=ADMIN_Q.toLowerCase();list=list.filter(m=>((m.brand||"")+(m.model||"")).toLowerCase().includes(q));}
+  list.sort((a,b)=>(adminCatKey(a)+a.brand).localeCompare(adminCatKey(b)+b.brand)||((b.priceFrom||0)-(a.priceFrom||0)));
+  return list;
+}
+function renderAdminTable(){
+  const host=document.getElementById("admin-body");if(!host)return;
+  const rows=adminRows();
+  host.innerHTML=`<table class="atbl"><thead><tr><th>品牌</th><th>车型</th><th>车身</th><th>价位</th><th>智驾系统</th><th>HI</th><th>归类</th><th>状态</th><th>2026计划</th><th>手改</th><th></th></tr></thead><tbody>`+
+    (rows.length?rows.map(m=>`<tr ondblclick="openModelEdit('${esc(m.id)}')">
+      <td>${esc(m.brand||"")}</td><td class="amodel">${esc(m.model||"")}</td><td>${esc(m.body||"")}</td>
+      <td>${esc(m.priceRange||(m.priceFrom!=null?m.priceFrom+"万":"—"))}</td><td class="aadas">${esc(m.adas||"—")}</td>
+      <td>${m.hi?'<span class="yes">✓</span>':""}</td><td class="acat">${esc(adminCat(m))}</td><td>${esc(m.status||"")}</td>
+      <td>${launchSummary(m)}</td><td>${m.manual?'<span class="man" title="已手动编辑,刷新不覆盖">●</span>':""}</td>
+      <td class="aops"><button onclick="openModelEdit('${esc(m.id)}')">改</button><button class="d" onclick="delModel('${esc(m.id)}')">删</button></td>
+    </tr>`).join(""):`<tr><td colspan="11" class="aempty">无匹配车型。可点右上「＋ 新增车型」补录。</td></tr>`)+`</tbody></table>`;
+  const cnt=document.getElementById("admin-count");if(cnt)cnt.textContent=`库内共 ${MODELS.length} 款 · 当前显示 ${rows.length} 款`;
+}
+async function openModelsAdmin(){
+  try{const r=await fetch("/api/models");const d=await r.json();MODELS=d.models||[];CAD=modelsToCAD(MODELS);}catch(_){}
+  ADMIN_OPEN=true;
+  const el=document.createElement("div");el.id="admin-overlay";el.className="admin-bg";
+  el.innerHTML=`<div class="admin"><div class="admin-h"><b>车型库管理</b><span id="admin-count" class="admin-cnt"></span><span style="flex:1"></span><button class="mini" onclick="openModelEdit('')">＋ 新增车型</button><span class="mdl-x" onclick="closeModelsAdmin()">✕</span></div>
+    <div class="admin-tools"><input id="admin-q" placeholder="搜索品牌 / 车型…" value="${esc(ADMIN_Q)}" oninput="ADMIN_Q=this.value;renderAdminTable()">
+      <select id="admin-cat" onchange="ADMIN_CAT=this.value;renderAdminTable()">
+        <option value="all">全部分类</option><option value="yinwang">引望</option><option value="xinshili">新势力</option><option value="chuantong">传统</option><option value="hi">仅 HI 智驾</option></select>
+      <span class="admin-tip">双击一行可编辑</span></div>
+    <div id="admin-body" class="admin-body"></div></div>`;
+  el.onclick=(e)=>{if(e.target===el)closeModelsAdmin();};
+  document.body.appendChild(el);
+  const sel=el.querySelector("#admin-cat");if(sel)sel.value=ADMIN_CAT;
+  renderAdminTable();
+}
+function closeModelsAdmin(){const el=document.getElementById("admin-overlay");if(el)el.remove();ADMIN_OPEN=false;}
 
 function cadShow(cat){
   document.querySelectorAll("#cad-subtabs .subtab").forEach(t=>t.setAttribute("aria-selected",t.dataset.cat===cat));
