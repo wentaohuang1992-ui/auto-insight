@@ -1,9 +1,18 @@
-// 通用检索:跑多条博查搜索,把结果组装成资料,交给 DeepSeek 按 schema 输出 JSON。
+// 通用检索:博查搜索(+可选 Google News 补充)→ 组装资料 → DeepSeek 按 schema 输出 JSON。
 import { bochaSearch } from "./search.js";
 import { chatJSON } from "./llm.js";
+import { googleNewsItems } from "./news_rss.js";
 
-export async function research({ queries, schema, maxTokens = 4096, freshness = "noLimit", count = 8, summaryLen = 500, model }) {
+export async function research({ queries, schema, maxTokens = 4096, freshness = "noLimit", count = 8, summaryLen = 500, model, gnewsQueries, gnewsWhen = "" }) {
   const blocks = [];
+
+  // 可选:Google News 补充源(对完整度/时效更好)
+  if (gnewsQueries && gnewsQueries.length) {
+    let gn = [];
+    try { gn = await googleNewsItems(gnewsQueries, gnewsWhen); } catch (_) {}
+    if (gn.length) blocks.push("### Google 资讯(覆盖更全,请充分采用)\n" + gn.slice(0, 30).map((it, i) => `[G${i + 1}] ${it.title} | ${it.source || ""} | ${it.dateISO || it.date || ""}\nURL: ${it.url}`).join("\n\n"));
+  }
+
   for (const q of queries) {
     try {
       const rs = await bochaSearch(q, { count, freshness });

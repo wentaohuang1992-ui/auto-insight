@@ -39,9 +39,9 @@ const LEAVES = {
 function leafSchema(leaf) {
   const who = leaf.brand || "搭载华为乾崑智驾、且不属于鸿蒙智行/联合共创的其他车型";
   return `请据资料整理【${who}】的两部分:
-A. cars:${who} 2026 年的新车与改款车(已上市/预售/即将上市/已官宣规划,**务必含下半年**);未定具体月份的按线索估月,estimated=true、date 写"预计X月";确无依据不编造。
-B. lineup:${who} **当前全部在售车型**(产品谱系,含非2026上市的存量车型),每款给 body(轿车/SUV/MPV 三选一,轿跑/旅行归轿车、皮卡归SUV)、price(起售价或区间,如 25.98万起 或 20-30万);若该车型 2026 年有新车或改款上市,填 launchKind(新车或改款)与 launchDate(如3月),否则两者留空。
-JSON:{"cars":[{"model":"车型名","brand":"品牌","month":1到12数字,"date":"如3月或预计10月","kind":"新车或改款","estimated":true或false,"price":"价格区间或留空","orders":"小定/大定/销量或暂无公开数据","note":"亮点30字内","sources":[{"title":"来源名","url":"真实URL"}]}],"lineup":[{"model":"车型名","body":"轿车/SUV/MPV","price":"价格","launchKind":"新车/改款 或留空","launchDate":"如3月 或留空"}]}`;
+A. cars:${who} 2026 年的新车与改款车,**尽量列全**,涵盖已上市/预售/即将上市/已官宣规划,**务必含下半年**;**包含该品牌的全部子品牌**(例:蔚来含乐道、萤火虫;吉利含银河、极氪、领克;长安含深蓝、启源;长城含哈弗、坦克、魏牌、欧拉;广汽含埃安、昊铂;上汽含智己、荣威、MG;东风含岚图、eπ;奇瑞含风云、iCAR、星途)。对只透露到季度或半年的(如第三季度、上半年、年底),也要收录:按季度起始月估 month、estimated=true、date 写"预计Q3""预计下半年"等。确无依据不编造。
+B. lineup:${who}(含子品牌)**当前全部在售车型**(产品谱系,含非2026上市的存量车型),每款给 body(轿车/SUV/MPV,轿跑/旅行归轿车、皮卡归SUV)、price(起售价或区间);若该车型 2026 有新车或改款,填 launchKind(新车/改款)与 launchDate(如3月),否则留空。
+JSON:{"cars":[{"model":"车型名","brand":"品牌","month":1到12数字,"date":"如3月或预计Q3","kind":"新车或改款","estimated":true或false,"price":"价格区间或留空","orders":"小定/大定/销量或暂无公开数据","note":"亮点30字内","sources":[{"title":"来源名","url":"真实URL"}]}],"lineup":[{"model":"车型名","body":"轿车/SUV/MPV","price":"价格","launchKind":"新车/改款 或留空","launchDate":"如3月 或留空"}]}`;
 }
 
 async function pool(items, limit, fn) {
@@ -64,7 +64,8 @@ export async function generateCadence(cat) {
   const results = await pool(leaves, 5, async (leaf) => {
     try {
       const q = leaf.brand ? [...leaf.q, `${leaf.brand} 在售车型 全部 价格 轿车 SUV MPV`] : leaf.q;
-      const d = await research({ queries: q, schema: leafSchema(leaf), freshness: "noLimit", count: 10, summaryLen: 600, maxTokens: 4500, model: MODEL });
+      const gn = [leaf.brand ? `${leaf.brand} 2026 新车 改款 上市 规划` : "华为 乾崑智驾 2026 新车 上市 规划"];
+      const d = await research({ queries: q, schema: leafSchema(leaf), freshness: "noLimit", count: 10, summaryLen: 600, maxTokens: 5000, model: MODEL, gnewsQueries: gn, gnewsWhen: "" });
       const stamp = (c) => ({ ...c, brand: leaf.brand || c.brand, group: leaf.group || "" });
       return { cars: (Array.isArray(d.cars) ? d.cars : []).map(stamp), lineup: (Array.isArray(d.lineup) ? d.lineup : []).map(stamp) };
     } catch (e) { console.error("[cadence]", cat, leaf.brand || leaf.group, e.message); return { cars: [], lineup: [] }; }

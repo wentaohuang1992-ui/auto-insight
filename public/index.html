@@ -209,7 +209,7 @@
   .matrix .mh{font-size:12px;font-weight:700;text-align:center;padding:7px 4px;background:var(--brand);color:#fff;border-radius:7px}
   .matrix .mh-corner{background:transparent;color:var(--muted);font-weight:600;font-size:10.5px;display:flex;align-items:center;justify-content:center}
   .matrix .mrow-lab{font-size:11px;font-weight:700;color:var(--ink-2);display:flex;align-items:center;justify-content:center;background:#EEF2F7;border-radius:7px;padding:4px;text-align:center}
-  .matrix .mcellx{min-height:50px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:5px;display:flex;flex-direction:column;gap:4px}
+  .matrix .mcellx{min-height:56px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:6px;display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:5px}
   .mchip{display:flex;align-items:center;gap:5px;background:#F7F9FC;border:1px solid var(--line);border-radius:6px;padding:3px 6px}
   .mchip svg{flex:none;width:24px;height:10px;color:var(--brand-2)}
   .mchip .mname{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -471,11 +471,12 @@ function cadSelect(key,m,showYW){
   document.querySelectorAll(`#tl-${key} .mcell`).forEach(c=>c.setAttribute("aria-current",c.dataset.m==m));
   document.getElementById(`detail-${key}`).innerHTML=cadDetail(key,m,showYW);
 }
-function cadCadence(d,key,showYW,members){
+function cadCadence(d,key,showYW,members,lineupItems){
   CADREG[key]=d;
   const c=cadCounts(cadAllCars(d.months)),mx=cadMax(d.months);
   let h=`<div class="ov"><div class="t">全年节奏概述</div>${esc(d.overview)} 全年共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款${c.est?`(含预计 ${c.est} 款)`:""}。</div>`;
   if(members)h+=`<div class="members"><b>包含:</b>${esc(members)}</div>`;
+  if(lineupItems&&lineupItems.length)h+=renderMatrix(lineupItems);
   h+=`<div class="tl-wrap"><div class="tl-cap">2026 上市时间轴 · 点击月份看详情</div><div class="timeline" id="tl-${key}">`;
   MONTHS.forEach(m=>{const mo=d.months[m],n=mo?mo.cars.length:0;
     const chips=mo?mo.cars.slice(0,2).map(x=>`<span>· ${esc(x.model)}</span>`).join("")+(n>2?`<span class="more">+${n-2}</span>`:""):`<div class="cempty">—</div>`;
@@ -485,11 +486,11 @@ function cadCadence(d,key,showYW,members){
   h+=`</div></div><div id="detail-${key}"></div>`;
   return h;
 }
-function cadMount(d,key,showYW,members,host){host.innerHTML=cadCadence(d,key,showYW,members);
+function cadMount(d,key,showYW,members,host,lineupItems){host.innerHTML=cadCadence(d,key,showYW,members,lineupItems);
   const has=MONTHS.filter(m=>d.months[m]&&d.months[m].cars.length);cadSelect(key,has.length?has[has.length-1]:1,showYW);}
 
 // —— 产品谱系矩阵 ——
-const PBANDS=[{lab:"≤15万",min:0,max:15},{lab:"15-25万",min:15,max:25},{lab:"25-35万",min:25,max:35},{lab:"35-50万",min:35,max:50},{lab:"≥50万",min:50,max:Infinity}];
+const PBANDS=[{lab:"≥50万",min:50,max:Infinity},{lab:"35-50万",min:35,max:50},{lab:"25-35万",min:25,max:35},{lab:"15-25万",min:15,max:25},{lab:"≤15万",min:0,max:15}];
 const PCOLS=["轿车","SUV","MPV"];
 function priceNum(s){const m=String(s||"").match(/(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):null;}
 function bandIdx(p){const n=priceNum(p);if(n==null)return -1;for(let i=0;i<PBANDS.length;i++){if(n>=PBANDS[i].min&&n<PBANDS[i].max)return i;}return -1;}
@@ -501,19 +502,22 @@ function carSvg(ci){
   const body=ci===1?suv:ci===2?mpv:sedan;
   return `<svg viewBox="0 0 48 20" aria-hidden="true">${body}<circle cx="13" cy="16" r="2.6" fill="#fff"/><circle cx="35" cy="16" r="2.6" fill="#fff"/></svg>`;
 }
-function matrixChip(it){
+// 同档内按精确价位算高度偏移:价高→偏移小(更靠上)
+function chipOffset(price,band){const n=priceNum(price);if(n==null||!isFinite(band.max))return 0;const r=(band.max-n)/(band.max-band.min);return Math.round(Math.max(0,Math.min(1,r))*18);}
+function matrixChip(it,band){
   const lk=it.launchKind||"";
   const tag=lk?`<span class="mtag ${lk==="改款"?"f":""}">${lk==="改款"?"改":"新"}${it.launchDate?"·"+esc(it.launchDate):""}</span>`:"";
-  return `<div class="mchip" title="${esc(it.model)} ${esc(it.price||"")}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${tag}</div>`;
+  return `<div class="mchip" style="margin-top:${chipOffset(it.price,band)}px" title="${esc(it.model)} ${esc(it.price||"")}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${tag}</div>`;
 }
 function renderMatrix(items){
   const cells={}; let placed=0;
   (items||[]).forEach(it=>{const bi=bandIdx(it.price),ci=bodyIdx(it.body);if(bi<0)return;(cells[bi+"_"+ci]=cells[bi+"_"+ci]||[]).push(it);placed++;});
   if(!placed)return `<div class="matrix-wrap"><div class="tl-cap">产品谱系 · 产品矩阵</div><div class="cempty" style="padding:12px 0">暂无可定位价位的在售车型数据。</div></div>`;
-  let h=`<div class="matrix-wrap"><div class="tl-cap">产品谱系 · 产品矩阵(横轴车型 / 纵轴价位)</div><div class="matrix">`;
+  let h=`<div class="matrix-wrap"><div class="tl-cap">产品谱系 · 产品矩阵(横轴车型 / 纵轴价位,从高到低)</div><div class="matrix">`;
   h+=`<div class="mh mh-corner">价位＼车型</div>`+PCOLS.map(c=>`<div class="mh">${c}</div>`).join("");
   PBANDS.forEach((b,bi)=>{h+=`<div class="mrow-lab">${b.lab}</div>`;
-    PCOLS.forEach((c,ci)=>{const list=cells[bi+"_"+ci]||[];h+=`<div class="mcellx">${list.map(matrixChip).join("")}</div>`;});});
+    PCOLS.forEach((c,ci)=>{const list=(cells[bi+"_"+ci]||[]).slice().sort((a,z)=>(priceNum(z.price)||0)-(priceNum(a.price)||0));
+      h+=`<div class="mcellx">${list.map(x=>matrixChip(x,b)).join("")}</div>`;});});
   h+=`</div></div>`;return h;
 }
 function appendMatrix(body,items){body.insertAdjacentHTML("beforeend",renderMatrix(items));}
@@ -532,7 +536,7 @@ function cadShow(cat){
     const pick=(k)=>{p.querySelectorAll(".sst").forEach(x=>x.setAttribute("aria-selected",x.dataset.k===k));
       const body=document.getElementById("grp-body");
       if(k==="agg"){cadMount(cadDs(CAD.yinwang.overview,ywcars),"yw_agg",false,"鸿蒙智行 + 联合共创 + HI智驾",body);}
-      else{const g=YW_GROUPS.find(x=>x.k===k);cadMount(cadDs(g.label+" 2026 全年节奏。",ywcars.filter(c=>ywGroupOf(c)===k)),"yw_"+k,false,g.members,body);appendMatrix(body,(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)===k));}};
+      else{const g=YW_GROUPS.find(x=>x.k===k);cadMount(cadDs(g.label+" 2026 全年节奏。",ywcars.filter(c=>ywGroupOf(c)===k)),"yw_"+k,false,g.members,body,(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)===k));}};
     p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");return;
   }
   const src=cat==="xinshili"?CAD.xinshili:CAD.chuantong;
@@ -542,7 +546,7 @@ function cadShow(cat){
   const pick=(k)=>{p.querySelectorAll(".sst").forEach(x=>x.setAttribute("aria-selected",x.dataset.k===k));
     const body=document.getElementById("grp-body");
     if(k==="agg"){cadMount(cadDs(src.overview,src.cars),cat+"_agg",false,brands.join("、"),body);}
-    else{cadMount(cadDs(k+" 2026 全年节奏。",src.cars.filter(c=>matchBrand(c.brand,brands)===k)),cat+"_"+k,false,null,body);appendMatrix(body,(src.lineup||[]).filter(l=>matchBrand(l.brand,brands)===k));}};
+    else{cadMount(cadDs(k+" 2026 全年节奏。",src.cars.filter(c=>matchBrand(c.brand,brands)===k)),cat+"_"+k,false,null,body,(src.lineup||[]).filter(l=>matchBrand(l.brand,brands)===k));}};
   p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");
 }
 

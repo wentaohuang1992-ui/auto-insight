@@ -1,7 +1,7 @@
 // 实时新闻源:Google News RSS(免费、无需 key、对当天新闻收录快、支持中文)。
 // 用 when:2d 限定最近 2 天;服务器端抓取,返回 {title,url,source,date,dateISO}。
 const BASE = "https://news.google.com/rss/search";
-function gnUrl(q) { return `${BASE}?q=${encodeURIComponent(q + " when:2d")}&hl=zh-CN&gl=CN&ceid=CN:zh`; }
+function gnUrl(q, when = "2d") { const w = when ? ` when:${when}` : ""; return `${BASE}?q=${encodeURIComponent(q + w)}&hl=zh-CN&gl=CN&ceid=CN:zh`; }
 function decode(s) {
   return String(s || "")
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -22,11 +22,11 @@ function parseItems(xml) {
   }
   return items;
 }
-export async function googleNewsItems(queries) {
+export async function googleNewsItems(queries, when = "2d") {
   const out = [];
   for (const q of queries) {
     try {
-      const res = await fetch(gnUrl(q), { headers: { "user-agent": "Mozilla/5.0 (compatible; auto-insight/1.0)" } });
+      const res = await fetch(gnUrl(q, when), { headers: { "user-agent": "Mozilla/5.0 (compatible; auto-insight/1.0)" } });
       if (!res.ok) continue;
       const xml = await res.text();
       out.push(...parseItems(xml).slice(0, 12));
