@@ -34,15 +34,15 @@ function dedupeNews(items, recent) {
 }
 
 async function bochaFresh(q) {
-  try { const r = await bochaSearch(q, { count: 8, freshness: "oneDay" }); if (r.length) return r; } catch (_) {}
-  try { return await bochaSearch(q, { count: 8, freshness: "oneWeek" }); } catch (_) { return []; }
+  try { const r = await bochaSearch(q, { count: 6, freshness: "oneDay" }); if (r.length) return r; } catch (_) {}
+  try { return await bochaSearch(q, { count: 6, freshness: "oneWeek" }); } catch (_) { return []; }
 }
 
 async function getNews() {
   const { cn } = today();
   const recent = recentExclude(3);
   const excludeText = recent.titles.length
-    ? `\n\n以下新闻最近 3 天已报道过,**请不要再包含**(同一事件换说法也算):\n${recent.titles.slice(0, 40).map((t) => "- " + t).join("\n")}`
+    ? `\n\n以下新闻最近 3 天已报道过,**请不要再包含**(同一事件换说法也算):\n${recent.titles.slice(0, 25).map((t) => "- " + t).join("\n")}`
     : "";
 
   // A:博查(去掉日期、近1天优先)
@@ -50,14 +50,14 @@ async function getNews() {
   const bochaBlocks = [];
   for (const q of bochaQs) {
     const rs = await bochaFresh(q);
-    if (rs.length) bochaBlocks.push(`### 博查搜索:${q}\n` + rs.map((r, i) => `[${i + 1}] ${r.title || ""} | ${r.site || ""} | ${r.date || ""}\nURL: ${r.url || ""}\n摘要: ${String(r.summary || r.snippet || "").slice(0, 300)}`).join("\n\n"));
+    if (rs.length) bochaBlocks.push(`### 博查搜索:${q}\n` + rs.map((r, i) => `[${i + 1}] ${r.title || ""} | ${r.site || ""} | ${r.date || ""}\nURL: ${r.url || ""}\n摘要: ${String(r.summary || r.snippet || "").slice(0, 220)}`).join("\n\n"));
   }
 
   // B:Google News 实时(最近2天)
   let gnews = [];
   try { gnews = await googleNewsItems(["中国 新能源汽车", "新能源汽车 上市 发布", "车企 销量", "智能驾驶 汽车", "汽车 行业 政策"]); } catch (_) {}
   const gnBlock = gnews.length
-    ? "### 实时新闻(Google News,最近2天,发布时间最准,请优先采用)\n" + gnews.slice(0, 40).map((it, i) => `[G${i + 1}] ${it.title} | ${it.source || ""} | ${it.dateISO || it.date || ""}\nURL: ${it.url}`).join("\n\n")
+    ? "### 实时新闻(Google News,最近2天,发布时间最准,请优先采用)\n" + gnews.slice(0, 25).map((it, i) => `[G${i + 1}] ${it.title} | ${it.source || ""} | ${it.dateISO || it.date || ""}\nURL: ${it.url}`).join("\n\n")
     : "";
 
   const ctx = [gnBlock, ...bochaBlocks].filter(Boolean).join("\n\n");
