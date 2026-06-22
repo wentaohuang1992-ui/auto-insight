@@ -38,7 +38,7 @@ export async function sendDaily() {
   if (!digest) digest = await generateDaily();
   const subs = listSubscribers();
   if (!subs.length) { console.log("[cron] 无订阅者,跳过发送"); return; }
-  const { subject, html } = buildDigestEmail(digest.date || cn, digest.items || []);
+  const { subject, html } = buildDigestEmail(digest.date || cn, digest.items || [], digest.overview, digest.highlights);
   return sendDigest(subs, subject, html);
 }
 

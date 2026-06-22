@@ -61,17 +61,16 @@ async function getNews() {
     : "";
 
   const ctx = [gnBlock, ...bochaBlocks].filter(Boolean).join("\n\n");
-  const prompt = `今天是 ${cn}。请整理中国汽车行业(以新能源为主)**最新**的重要新闻 10-12 条。严格要求:
-① **只选最近 2 天(当天/昨天)**的新闻,按发布时间从新到旧;优先采用上面"实时新闻"里时间最新的条目;最近 2 天不足 10 条才往前补一两天,绝不纳入一周前的。
-② 每条只列一次,不同来源的同一事件合并为一条。
-③ 用资料里的发布日期判断新旧;摘要可结合博查资料,若某条只有标题没有摘要,用标题概括成一句客观摘要。
-④ url 必须取自资料中真实出现的链接。
-JSON:{"date":"${cn}","items":[{"title":"标题","summary":"两句以内客观摘要","source":"来源媒体","url":"真实URL","time":"发布日期如6月21日"}]}。${excludeText}
+  const prompt = `今天是 ${cn}。请基于下方资料整理中国汽车行业(以新能源为主)的当日日报,输出三部分:
+A. overview:一段话(150字以内)综述当天行业各类新鲜事(可涉及新车、销量、政策、技术、资本等)。
+B. highlights:分类要点。从 新车 / 销量 / 政策 / 技术 / 资本 这几类里,**只列当天确有内容的类别**(没有的不列),每类给 cat 和一两句 text。
+C. items:**最新**重要新闻 10-12 条。严格要求:① **只选最近 2 天(当天/昨天)**,按发布时间从新到旧,优先采用"实时新闻"里时间最新的;不足 10 条才往前补一两天,绝不纳入一周前的;② 每条只列一次,同一事件合并;③ **每条配一段话(2-4 句)客观摘要 summary**(结合博查资料;只有标题的就据标题合理概括);④ url 取自资料中真实出现的链接。
+JSON:{"date":"${cn}","overview":"一段话综述","highlights":[{"cat":"新车","text":"一两句"}],"items":[{"title":"标题","summary":"一段话2-4句摘要","source":"来源媒体","url":"真实URL","time":"发布日期如6月21日"}]}。${excludeText}
 
 资料如下:
 ${ctx || "(暂无搜索结果)"}`;
 
-  const data = await chatJSON(prompt, 4096);
+  const data = await chatJSON(prompt, 7000);
   data.items = dedupeNews(data.items, recent);
   data.date = data.date || cn;
   return data;

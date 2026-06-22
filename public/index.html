@@ -199,6 +199,11 @@
   .news li.nostatic{cursor:default}.news li.nostatic:hover{background:#fff}
   .tcat{flex:none;align-self:flex-start;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2)}
   .tcat.rp{background:rgba(27,47,102,.1);color:var(--brand)}.tcat.dt{background:rgba(181,113,14,.12);color:var(--signal)}
+  .hlbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .hlt{font-size:10.5px;font-family:var(--mono);color:var(--brand);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .hl{display:flex;gap:10px;padding:7px 0;border-top:1px dashed var(--line)}.hl:first-of-type{border-top:0;padding-top:0}
+  .hlc{flex:none;align-self:flex-start;font-size:11px;font-weight:700;padding:2px 0;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2);min-width:48px;text-align:center}
+  .hlx{font-size:13px;color:var(--ink-2);line-height:1.6}
 </style>
 </head>
 <body>
@@ -334,14 +339,20 @@ function renderFin(d){const items=(d&&d.items)||[];if(!items.length)return `<div
       <ul class="points">${(it.points||[]).slice(0,4).map(p=>`<li>${esc(p)}</li>`).join("")}</ul>
     </div>${srcRail(it.sources)}</div>`).join("")+`</div>`;}
 
-function renderNews(d){const items=(d&&d.items)||[];if(!items.length)return `<div class="empty">暂无日报内容。</div>`;
+function renderNews(d){const items=(d&&d.items)||[];
   if(d.updated_at&&!viewingDate)document.getElementById("note-news").innerHTML=`每天早上 08:30 自动更新 · <b>${esc(d.date||"")}</b>`;
-  return `<div class="daily-head"><span class="badge2">日报</span><span class="vd">${esc(d.date||"")}</span></div><ul class="news">`+items.map((it,i)=>`
+  let h=`<div class="daily-head"><span class="badge2">日报</span><span class="vd">${esc(d.date||"")}</span></div>`;
+  if(d.overview)h+=`<div class="ov"><div class="t">今日综述</div>${esc(d.overview)}</div>`;
+  const hl=(d.highlights||[]).filter(x=>x&&x.text);
+  if(hl.length)h+=`<div class="hlbox"><div class="hlt">分类要点</div>`+hl.map(x=>`<div class="hl"><span class="hlc">${esc(x.cat||"")}</span><span class="hlx">${esc(x.text)}</span></div>`).join("")+`</div>`;
+  if(!items.length)return h+`<div class="empty">暂无日报内容。</div>`;
+  h+=`<ul class="news">`+items.map((it,i)=>`
     <li onclick='openDetail("news",${i})'><span class="no">${String(i+1).padStart(2,"0")}</span>
       <div class="ct"><div class="ti">${esc(it.title)}</div><div class="sm">${esc(it.summary)}</div>
         <div class="meta">${esc(it.source||host(it.url))}<span>·</span>${esc(it.time||"")}
         ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">查看原文 ↗</a>`:""}</div>
-      </div></li>`).join("")+`</ul>`;}
+      </div></li>`).join("")+`</ul>`;
+  return h;}
 
 const RENDER={fin:renderFin,news:renderNews};
 const CACHE={};
