@@ -236,18 +236,18 @@
         </div>
       </div>
       <nav class="tabs" role="tablist">
-        <button class="tab" role="tab" aria-selected="true" data-tab="fin"><span class="idx">01</span>车企财务数据</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="news"><span class="idx">02</span>行业信息速递</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="launch"><span class="idx">03</span>新车上市速递</button>
+        <button class="tab" role="tab" aria-selected="true" data-tab="news"><span class="idx">01</span>行业信息速递</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="launch"><span class="idx">02</span>新车上市速递</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="fin"><span class="idx">03</span>车企财务数据</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="storage"><span class="idx">04</span>存储洞察</button>
       </nav>
     </div>
   </header>
 
   <main class="wrap">
-    <section class="sec" id="sec-fin">
+    <section class="sec" id="sec-fin" hidden>
       <div class="head">
-        <div class="ref">SECTION 01 · FINANCIALS</div>
+        <div class="ref">SECTION 03 · FINANCIALS</div>
         <h2>车企财务数据 · 最新季报 / 年报</h2>
         <div class="note" id="note-fin">每月 1 号自动更新最新一期财报</div>
         <button class="refresh-btn" onclick="doRefresh('fin',this)">↻ 立即用 DeepSeek 刷新</button>
@@ -255,9 +255,9 @@
       <div id="out-fin"></div>
     </section>
 
-    <section class="sec" id="sec-news" hidden>
+    <section class="sec" id="sec-news">
       <div class="head">
-        <div class="ref">SECTION 02 · DAILY BRIEF</div>
+        <div class="ref">SECTION 01 · DAILY BRIEF</div>
         <h2>汽车行业信息速递</h2>
         <div class="note" id="note-news">每天早上 08:30 自动更新当日日报</div>
         <button class="refresh-btn" onclick="doRefresh('news',this)">↻ 立即用 DeepSeek 刷新</button>
@@ -279,7 +279,7 @@
 
     <section class="sec" id="sec-launch" hidden>
       <div class="head">
-        <div class="ref">SECTION 03 · LAUNCHES</div>
+        <div class="ref">SECTION 02 · LAUNCHES</div>
         <h2>新车及改款车上市及市场表现</h2>
         <div class="note" id="note-cad">每月 1 号自动更新 2026 全年上市节奏</div>
         <button class="refresh-btn" onclick="doRefresh('cadence',this)">↻ 立即用 DeepSeek 刷新</button>
@@ -636,7 +636,7 @@ document.getElementById("sub-btn").onclick=async()=>{const inp=document.getEleme
 
 function tick(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("zh-CN",{hour12:false});}
 setInterval(tick,1000);tick();
-loaded.fin=true;loadSection("fin");
+loaded.news=true;loadSection("news");
 </script>
 </body>
 </html>
