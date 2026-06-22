@@ -204,6 +204,18 @@
   .hl{display:flex;gap:10px;padding:7px 0;border-top:1px dashed var(--line)}.hl:first-of-type{border-top:0;padding-top:0}
   .hlc{flex:none;align-self:flex-start;font-size:11px;font-weight:700;padding:2px 0;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2);min-width:48px;text-align:center}
   .hlx{font-size:13px;color:var(--ink-2);line-height:1.6}
+  .matrix-wrap{margin-top:22px}
+  .matrix{display:grid;grid-template-columns:62px repeat(3,1fr);gap:6px;align-items:stretch}
+  .matrix .mh{font-size:12px;font-weight:700;text-align:center;padding:7px 4px;background:var(--brand);color:#fff;border-radius:7px}
+  .matrix .mh-corner{background:transparent;color:var(--muted);font-weight:600;font-size:10.5px;display:flex;align-items:center;justify-content:center}
+  .matrix .mrow-lab{font-size:11px;font-weight:700;color:var(--ink-2);display:flex;align-items:center;justify-content:center;background:#EEF2F7;border-radius:7px;padding:4px;text-align:center}
+  .matrix .mcellx{min-height:50px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:5px;display:flex;flex-direction:column;gap:4px}
+  .mchip{display:flex;align-items:center;gap:5px;background:#F7F9FC;border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+  .mchip svg{flex:none;width:24px;height:10px;color:var(--brand-2)}
+  .mchip .mname{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .mtag{flex:none;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(14,138,95,.14);color:var(--down)}
+  .mtag.f{background:rgba(181,113,14,.14);color:var(--signal)}
+  @media (max-width:560px){.matrix{grid-template-columns:44px repeat(3,1fr);gap:4px}.matrix .mh{font-size:10.5px}.mchip .mname{font-size:10px}.mchip{padding:2px 4px;gap:3px}}
 </style>
 </head>
 <body>
@@ -476,6 +488,36 @@ function cadCadence(d,key,showYW,members){
 function cadMount(d,key,showYW,members,host){host.innerHTML=cadCadence(d,key,showYW,members);
   const has=MONTHS.filter(m=>d.months[m]&&d.months[m].cars.length);cadSelect(key,has.length?has[has.length-1]:1,showYW);}
 
+// —— 产品谱系矩阵 ——
+const PBANDS=[{lab:"≤15万",min:0,max:15},{lab:"15-25万",min:15,max:25},{lab:"25-35万",min:25,max:35},{lab:"35-50万",min:35,max:50},{lab:"≥50万",min:50,max:Infinity}];
+const PCOLS=["轿车","SUV","MPV"];
+function priceNum(s){const m=String(s||"").match(/(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):null;}
+function bandIdx(p){const n=priceNum(p);if(n==null)return -1;for(let i=0;i<PBANDS.length;i++){if(n>=PBANDS[i].min&&n<PBANDS[i].max)return i;}return -1;}
+function bodyIdx(b){b=String(b||"");if(b.includes("SUV"))return 1;if(b.includes("MPV"))return 2;return 0;}
+function carSvg(ci){
+  const sedan='<path fill="currentColor" d="M2 13c0-1 1-2 2-2l6-1 4-4c1-1 2-1 3-1h12c1 0 2 0 3 1l4 4 6 1c1 0 2 1 2 2v2H2z"/>';
+  const suv='<path fill="currentColor" d="M3 13c0-1 1-2 2-2l3-1 2-5c0-1 1-1 2-1h20c1 0 2 0 2 1l2 5 3 1c1 0 2 1 2 2v2H3z"/>';
+  const mpv='<path fill="currentColor" d="M3 13c0-1 1-2 2-2l2-7c0-1 1-1 2-1h22c1 0 2 0 2 1l3 9 3 0c1 0 1 1 1 2v2H3z"/>';
+  const body=ci===1?suv:ci===2?mpv:sedan;
+  return `<svg viewBox="0 0 48 20" aria-hidden="true">${body}<circle cx="13" cy="16" r="2.6" fill="#fff"/><circle cx="35" cy="16" r="2.6" fill="#fff"/></svg>`;
+}
+function matrixChip(it){
+  const lk=it.launchKind||"";
+  const tag=lk?`<span class="mtag ${lk==="改款"?"f":""}">${lk==="改款"?"改":"新"}${it.launchDate?"·"+esc(it.launchDate):""}</span>`:"";
+  return `<div class="mchip" title="${esc(it.model)} ${esc(it.price||"")}">${carSvg(bodyIdx(it.body))}<span class="mname">${esc(it.model)}</span>${tag}</div>`;
+}
+function renderMatrix(items){
+  const cells={}; let placed=0;
+  (items||[]).forEach(it=>{const bi=bandIdx(it.price),ci=bodyIdx(it.body);if(bi<0)return;(cells[bi+"_"+ci]=cells[bi+"_"+ci]||[]).push(it);placed++;});
+  if(!placed)return `<div class="matrix-wrap"><div class="tl-cap">产品谱系 · 产品矩阵</div><div class="cempty" style="padding:12px 0">暂无可定位价位的在售车型数据。</div></div>`;
+  let h=`<div class="matrix-wrap"><div class="tl-cap">产品谱系 · 产品矩阵(横轴车型 / 纵轴价位)</div><div class="matrix">`;
+  h+=`<div class="mh mh-corner">价位＼车型</div>`+PCOLS.map(c=>`<div class="mh">${c}</div>`).join("");
+  PBANDS.forEach((b,bi)=>{h+=`<div class="mrow-lab">${b.lab}</div>`;
+    PCOLS.forEach((c,ci)=>{const list=cells[bi+"_"+ci]||[];h+=`<div class="mcellx">${list.map(matrixChip).join("")}</div>`;});});
+  h+=`</div></div>`;return h;
+}
+function appendMatrix(body,items){body.insertAdjacentHTML("beforeend",renderMatrix(items));}
+
 function cadShow(cat){
   document.querySelectorAll("#cad-subtabs .subtab").forEach(t=>t.setAttribute("aria-selected",t.dataset.cat===cat));
   const p=document.getElementById("cad-panel");
@@ -490,7 +532,7 @@ function cadShow(cat){
     const pick=(k)=>{p.querySelectorAll(".sst").forEach(x=>x.setAttribute("aria-selected",x.dataset.k===k));
       const body=document.getElementById("grp-body");
       if(k==="agg"){cadMount(cadDs(CAD.yinwang.overview,ywcars),"yw_agg",false,"鸿蒙智行 + 联合共创 + HI智驾",body);}
-      else{const g=YW_GROUPS.find(x=>x.k===k);cadMount(cadDs(g.label+" 2026 全年节奏。",ywcars.filter(c=>ywGroupOf(c)===k)),"yw_"+k,false,g.members,body);}};
+      else{const g=YW_GROUPS.find(x=>x.k===k);cadMount(cadDs(g.label+" 2026 全年节奏。",ywcars.filter(c=>ywGroupOf(c)===k)),"yw_"+k,false,g.members,body);appendMatrix(body,(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)===k));}};
     p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");return;
   }
   const src=cat==="xinshili"?CAD.xinshili:CAD.chuantong;
@@ -500,7 +542,7 @@ function cadShow(cat){
   const pick=(k)=>{p.querySelectorAll(".sst").forEach(x=>x.setAttribute("aria-selected",x.dataset.k===k));
     const body=document.getElementById("grp-body");
     if(k==="agg"){cadMount(cadDs(src.overview,src.cars),cat+"_agg",false,brands.join("、"),body);}
-    else{cadMount(cadDs(k+" 2026 全年节奏。",src.cars.filter(c=>matchBrand(c.brand,brands)===k)),cat+"_"+k,false,null,body);}};
+    else{cadMount(cadDs(k+" 2026 全年节奏。",src.cars.filter(c=>matchBrand(c.brand,brands)===k)),cat+"_"+k,false,null,body);appendMatrix(body,(src.lineup||[]).filter(l=>matchBrand(l.brand,brands)===k));}};
   p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");
 }
 
