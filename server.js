@@ -68,11 +68,21 @@ app.post("/api/subscribe", (req, res) => {
   res.json({ ok: true, isNew: addSubscriber(email) });
 });
 
+const jobs = {}; // what -> {status:'running'|'done'|'error', startedAt, finishedAt, error}
+const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily };
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");
-  const run = what === "fin" ? refreshFinancials : what === "cadence" ? refreshCadence : what === "storage" ? refreshStorage : what === "news" ? generateDaily : null;
+  const run = RUNNERS[what];
   if (!run) return res.status(400).json({ error: "未知刷新目标" });
-  run().then(() => res.json({ ok: true })).catch(fail(res));
+  if (jobs[what] && jobs[what].status === "running") return res.json({ status: "running" });
+  jobs[what] = { status: "running", startedAt: Date.now() };
+  run()
+    .then(() => { jobs[what] = { status: "done", finishedAt: Date.now() }; })
+    .catch((e) => { console.error("[refresh]", what, e.message); jobs[what] = { status: "error", finishedAt: Date.now(), error: e.message || "刷新失败" }; });
+  res.status(202).json({ status: "started" });
+});
+app.get("/api/refresh/status", (req, res) => {
+  res.json(jobs[String(req.query?.what || "")] || { status: "idle" });
 });
 
 app.get("/api/health", (req, res) => res.json({ ok: true, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash", search: "bocha" }));

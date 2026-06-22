@@ -565,18 +565,32 @@ async function loadCadence(){
 
 async function doRefresh(what,btn){
   if(btn.disabled)return;
-  const names={fin:"财报",news:"日报",cadence:"上市节奏"};
-  if(!confirm(`确定立即用 DeepSeek 重新抓取并覆盖「${names[what]}」数据吗?约需 ${what==="cadence"?"1 分钟左右":"十几秒"}。`))return;
-  const old=btn.textContent;btn.disabled=true;btn.textContent="刷新中,请稍候…";
+  const names={fin:"财报",news:"日报",cadence:"上市节奏",storage:"存储洞察"};
+  const eta={fin:"十几秒",news:"十几秒",cadence:"2-3 分钟",storage:"十几秒"};
+  if(!confirm(`确定立即用 DeepSeek 重新抓取并覆盖「${names[what]}」数据吗?后台生成约需 ${eta[what]||"一会儿"},期间可继续浏览,完成后本板块自动刷新。`))return;
+  const old=btn.textContent;btn.disabled=true;
+  let secs=0;const tick=setInterval(()=>{secs++;btn.textContent=`后台生成中… ${secs}s`;},1000);btn.textContent="后台生成中… 0s";
+  const stop=(txt)=>{clearInterval(tick);btn.disabled=false;btn.textContent=old;if(txt)alert(txt);};
   try{
     const r=await fetch("/api/refresh",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({what})});
     const d=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
-    if(what==="cadence"){CAD=null;await loadCadence();}
-    else if(what==="storage"){await loadStorage();}
-    else{await loadSection(what);}
-  }catch(e){alert("刷新失败:"+(e.message||e));}
-  finally{btn.disabled=false;btn.textContent=old;}
+    if(!r.ok&&r.status!==202)throw new Error(d.error||("HTTP "+r.status));
+    // 轮询后台任务状态(最多约 6 分钟)
+    for(let i=0;i<120;i++){
+      await new Promise(s=>setTimeout(s,3000));
+      let st={};
+      try{const sr=await fetch("/api/refresh/status?what="+encodeURIComponent(what));st=await sr.json();}catch(_){continue;}
+      if(st.status==="done"){
+        clearInterval(tick);
+        if(what==="cadence"){CAD=null;await loadCadence();}
+        else if(what==="storage"){await loadStorage();}
+        else{await loadSection(what);}
+        btn.disabled=false;btn.textContent=old;return;
+      }
+      if(st.status==="error"){return stop("刷新失败:"+(st.error||"后台生成出错"));}
+    }
+    stop("仍在后台生成中,请稍后手动刷新页面查看。");
+  }catch(e){stop("刷新失败:"+(e.message||e));}
 }
 
 // ===== 板块04:存储洞察 =====
