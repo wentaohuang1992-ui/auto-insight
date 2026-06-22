@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
 import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests } from "./src/db.js";
-import { startCron, refreshFinancials, refreshCadence, generateDaily } from "./src/cron.js";
+import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily } from "./src/cron.js";
 import { today } from "./src/dates.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +27,9 @@ async function snapshotResponse(kind, refresher) {
 
 app.get("/api/financials", (req, res) =>
   snapshotResponse("fin", refreshFinancials).then((d) => res.json(d)).catch(fail(res)));
+
+app.get("/api/storage", (req, res) =>
+  snapshotResponse("storage", refreshStorage).then((d) => res.json(d)).catch(fail(res)));
 
 // 上市节奏:三大类快照(缺失则按需生成一次),合并为一个响应
 async function cadCat(cat) {
@@ -67,7 +70,7 @@ app.post("/api/subscribe", (req, res) => {
 
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");
-  const run = what === "fin" ? refreshFinancials : what === "cadence" ? refreshCadence : what === "news" ? generateDaily : null;
+  const run = what === "fin" ? refreshFinancials : what === "cadence" ? refreshCadence : what === "storage" ? refreshStorage : what === "news" ? generateDaily : null;
   if (!run) return res.status(400).json({ error: "未知刷新目标" });
   run().then(() => res.json({ ok: true })).catch(fail(res));
 });

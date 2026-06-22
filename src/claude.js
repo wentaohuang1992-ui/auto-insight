@@ -1,5 +1,8 @@
-// 数据任务层:财报 / 新闻 / 详情。博查搜索 + DeepSeek 整理。
+// 数据任务层:财报 / 新闻 / 详情。博查搜索 + Google News 实时源 + DeepSeek 整理。
 import { research } from "./research.js";
+import { bochaSearch } from "./search.js";
+import { chatJSON } from "./llm.js";
+import { googleNewsItems } from "./news_rss.js";
 import { today, recentIsos } from "./dates.js";
 import { getDigest } from "./db.js";
 
@@ -30,6 +33,50 @@ function dedupeNews(items, recent) {
   return out;
 }
 
+async function bochaFresh(q) {
+  try { const r = await bochaSearch(q, { count: 8, freshness: "oneDay" }); if (r.length) return r; } catch (_) {}
+  try { return await bochaSearch(q, { count: 8, freshness: "oneWeek" }); } catch (_) { return []; }
+}
+
+async function getNews() {
+  const { cn } = today();
+  const recent = recentExclude(3);
+  const excludeText = recent.titles.length
+    ? `\n\n以下新闻最近 3 天已报道过,**请不要再包含**(同一事件换说法也算):\n${recent.titles.slice(0, 40).map((t) => "- " + t).join("\n")}`
+    : "";
+
+  // A:博查(去掉日期、近1天优先)
+  const bochaQs = ["汽车 行业 新闻", "新能源汽车 新车 发布 上市", "车企 销量", "汽车 行业 政策 新规", "智能驾驶 自动驾驶", "车企 财报 投资 合作", "新能源汽车 出海 出口"];
+  const bochaBlocks = [];
+  for (const q of bochaQs) {
+    const rs = await bochaFresh(q);
+    if (rs.length) bochaBlocks.push(`### 博查搜索:${q}\n` + rs.map((r, i) => `[${i + 1}] ${r.title || ""} | ${r.site || ""} | ${r.date || ""}\nURL: ${r.url || ""}\n摘要: ${String(r.summary || r.snippet || "").slice(0, 300)}`).join("\n\n"));
+  }
+
+  // B:Google News 实时(最近2天)
+  let gnews = [];
+  try { gnews = await googleNewsItems(["中国 新能源汽车", "新能源汽车 上市 发布", "车企 销量", "智能驾驶 汽车", "汽车 行业 政策"]); } catch (_) {}
+  const gnBlock = gnews.length
+    ? "### 实时新闻(Google News,最近2天,发布时间最准,请优先采用)\n" + gnews.slice(0, 40).map((it, i) => `[G${i + 1}] ${it.title} | ${it.source || ""} | ${it.dateISO || it.date || ""}\nURL: ${it.url}`).join("\n\n")
+    : "";
+
+  const ctx = [gnBlock, ...bochaBlocks].filter(Boolean).join("\n\n");
+  const prompt = `今天是 ${cn}。请整理中国汽车行业(以新能源为主)**最新**的重要新闻 10-12 条。严格要求:
+① **只选最近 2 天(当天/昨天)**的新闻,按发布时间从新到旧;优先采用上面"实时新闻"里时间最新的条目;最近 2 天不足 10 条才往前补一两天,绝不纳入一周前的。
+② 每条只列一次,不同来源的同一事件合并为一条。
+③ 用资料里的发布日期判断新旧;摘要可结合博查资料,若某条只有标题没有摘要,用标题概括成一句客观摘要。
+④ url 必须取自资料中真实出现的链接。
+JSON:{"date":"${cn}","items":[{"title":"标题","summary":"两句以内客观摘要","source":"来源媒体","url":"真实URL","time":"发布日期如6月21日"}]}。${excludeText}
+
+资料如下:
+${ctx || "(暂无搜索结果)"}`;
+
+  const data = await chatJSON(prompt, 4096);
+  data.items = dedupeNews(data.items, recent);
+  data.date = data.date || cn;
+  return data;
+}
+
 export async function getSection(kind) {
   const { cn } = today();
   if (kind === "fin") {
@@ -37,26 +84,7 @@ export async function getSection(kind) {
     const schema = `今天是 ${cn}。请整理中国主要上市车企最近一期已正式披露的财报关键数据,选取 5 家。JSON:{"items":[{"company":"公司名","period":"报告期含年份,如2026Q1或2025年报","revenue":"营收带单位","revenue_yoy":"同比如+12.3%","profit":"归母净利润带单位","profit_yoy":"同比","points":["要点1","要点2","要点3"],"sources":[{"title":"来源名","url":"真实URL"}]}]}。同比用 +/-;period 必须标明年份;每个 point 不超过 28 字。`;
     return research({ queries, schema, freshness: "noLimit", count: 8, maxTokens: 4096 });
   }
-  if (kind === "news") {
-    const recent = recentExclude(3);
-    const excludeText = recent.titles.length
-      ? `\n\n以下新闻最近 3 天已经报道过,**请不要再包含**(同一事件换个说法也算重复):\n${recent.titles.slice(0, 40).map((t) => "- " + t).join("\n")}`
-      : "";
-    const queries = [
-      `汽车 行业 新闻 ${cn}`,
-      `新能源汽车 新车 发布 上市 ${cn}`,
-      `车企 销量 ${cn}`,
-      `汽车 行业 政策 新规 ${cn}`,
-      `智能驾驶 自动驾驶 新闻 ${cn}`,
-      `车企 财报 投资 合作 ${cn}`,
-      `新能源汽车 出海 出口 ${cn}`
-    ];
-    const schema = `今天是 ${cn}。请整理中国汽车行业(以新能源为主)**最新**的重要新闻 10-12 条。严格要求:① 只选**当天和昨天(最近 2 天)**的新闻,按发布时间从新到旧排列;若最近 2 天确实不足 10 条,可适当往前补一两天,但越新越靠前、**绝不纳入一周以前的**;② 每条只列一次,不同来源报道的同一事件**合并为一条**;③ 用资料里的发布日期判断新旧。JSON:{"date":"${cn}","items":[{"title":"标题","summary":"两句以内客观摘要","source":"来源媒体","url":"真实URL","time":"发布日期如6月21日"}]}。${excludeText}`;
-    const data = await research({ queries, schema, freshness: "oneWeek", count: 10, summaryLen: 400, maxTokens: 4096 });
-    data.items = dedupeNews(data.items, recent);
-    data.date = data.date || cn;
-    return data;
-  }
+  if (kind === "news") return getNews();
   throw new Error("未知板块:" + kind);
 }
 

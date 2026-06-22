@@ -188,6 +188,17 @@
   .refresh-btn{margin-top:9px;appearance:none;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--brand-2);background:rgba(46,91,216,.08);border:1px solid rgba(46,91,216,.28);border-radius:7px;padding:5px 12px}
   .refresh-btn:hover{background:rgba(46,91,216,.15)}
   .refresh-btn:disabled{cursor:default;opacity:.55}
+  .pboard{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .pcard{border:1px solid var(--line);border-radius:11px;background:#fff;padding:12px 13px;box-shadow:var(--shadow)}
+  .pcard .pn{font-size:12.5px;font-weight:700;color:var(--ink)}
+  .pcard .pchg{font-size:19px;font-weight:800;margin-top:4px}
+  .pcard .pchg.up{color:var(--up)}.pcard .pchg.down{color:var(--down)}
+  .pcard .plv{font-size:12px;color:var(--ink-2);margin-top:2px;font-family:var(--mono)}
+  .pcard .pp{font-size:11px;color:var(--muted);margin-top:4px}
+  .pcard .psrc{display:inline-block;margin-top:7px;font-size:11px;color:var(--brand-2);text-decoration:none}
+  .news li.nostatic{cursor:default}.news li.nostatic:hover{background:#fff}
+  .tcat{flex:none;align-self:flex-start;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2)}
+  .tcat.rp{background:rgba(27,47,102,.1);color:var(--brand)}.tcat.dt{background:rgba(181,113,14,.12);color:var(--signal)}
 </style>
 </head>
 <body>
@@ -211,6 +222,7 @@
         <button class="tab" role="tab" aria-selected="true" data-tab="fin"><span class="idx">01</span>车企财务数据</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="news"><span class="idx">02</span>行业信息速递</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="launch"><span class="idx">03</span>新车上市速递</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="storage"><span class="idx">04</span>存储洞察</button>
       </nav>
     </div>
   </header>
@@ -268,6 +280,16 @@
         </div>
         <div class="panel" id="cad-panel"></div>
       </div>
+    </section>
+
+    <section class="sec" id="sec-storage" hidden>
+      <div class="head">
+        <div class="ref">SECTION 04 · STORAGE</div>
+        <h2>存储芯片涨价与汽车行业影响</h2>
+        <div class="note" id="note-storage">每周一自动更新存储芯片行情与相关研报</div>
+        <button class="refresh-btn" onclick="doRefresh('storage',this)">↻ 立即用 DeepSeek 刷新</button>
+      </div>
+      <div id="out-storage"></div>
     </section>
 
     <div class="foot">数据由服务端通过 Anthropic API 联网检索公开信息生成,每条附来源链接供核查;搜索结果存在时效与覆盖差异,关键数据请以来源原文为准。</div>
@@ -494,9 +516,46 @@ async function doRefresh(what,btn){
     const d=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
     if(what==="cadence"){CAD=null;await loadCadence();}
+    else if(what==="storage"){await loadStorage();}
     else{await loadSection(what);}
   }catch(e){alert("刷新失败:"+(e.message||e));}
   finally{btn.disabled=false;btn.textContent=old;}
+}
+
+// ===== 板块04:存储洞察 =====
+function typeClass(t){return t==="研报"?"rp":t==="数据"?"dt":"";}
+function renderStorage(d){
+  if(d.updated_at)document.getElementById("note-storage").innerHTML=`每周一自动更新 · <b>上次更新 ${esc(fmtTime(d.updated_at))}</b>`;
+  const prices=(d.prices||[]),items=(d.items||[]);
+  let h="";
+  if(d.overview)h+=`<div class="ov"><div class="t">涨价态势 · 对汽车影响</div>${esc(d.overview)}</div>`;
+  if(prices.length){
+    h+=`<div class="tl-cap" style="margin:16px 0 8px">价格风向标</div><div class="pboard">`+prices.map(p=>`
+      <div class="pcard"><div class="pn">${esc(p.name||"")}</div>
+        <div class="pchg ${yoyClass(p.change)}">${esc(p.change||"—")}</div>
+        ${p.level?`<div class="plv">${esc(p.level)}</div>`:""}
+        <div class="pp">${esc(p.period||"")}${p.note?" · "+esc(p.note):""}</div>
+        ${p.source&&p.source.url?`<a class="psrc" href="${esc(p.source.url)}" target="_blank" rel="noopener">${esc(p.source.title||"来源")} ↗</a>`:""}
+      </div>`).join("")+`</div>`;
+  }
+  h+=`<div class="tl-cap" style="margin:20px 0 8px">相关报道与研报</div>`;
+  if(!items.length){h+=`<div class="empty">暂无相关报道。</div>`;return h;}
+  h+=`<ul class="news">`+items.map(it=>`
+    <li class="nostatic"><span class="tcat ${typeClass(it.type)}">${esc(it.type||"新闻")}</span>
+      <div class="ct"><div class="ti">${esc(it.title)}</div><div class="sm">${esc(it.summary||"")}</div>
+        <div class="meta">${esc(it.source||host(it.url))}<span>·</span>${esc(it.date||"")}
+        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener">查看原文 ↗</a>`:""}</div>
+      </div></li>`).join("")+`</ul>`;
+  return h;
+}
+async function loadStorage(){
+  const out=document.getElementById("out-storage");
+  out.innerHTML=skeletons(4);
+  try{
+    const r=await fetch("/api/storage");const d=await r.json();
+    if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
+    out.innerHTML=renderStorage(d);
+  }catch(e){out.innerHTML=errorBox(e.message||"网络异常","loadStorage()");}
 }
 
 // Tabs
@@ -506,7 +565,8 @@ document.querySelectorAll(".tab").forEach(t=>{t.onclick=()=>{const tab=t.dataset
   document.getElementById("sec-fin").hidden=tab!=="fin";
   document.getElementById("sec-news").hidden=tab!=="news";
   document.getElementById("sec-launch").hidden=tab!=="launch";
-  if(!loaded[tab]){loaded[tab]=true; tab==="launch"?loadCadence():loadSection(tab);}};});
+  document.getElementById("sec-storage").hidden=tab!=="storage";
+  if(!loaded[tab]){loaded[tab]=true; tab==="launch"?loadCadence():tab==="storage"?loadStorage():loadSection(tab);}};});
 
 // Subscribe
 document.getElementById("sub-btn").onclick=async()=>{const inp=document.getElementById("email"),msg=document.getElementById("submsg");

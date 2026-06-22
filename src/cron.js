@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { getSection } from "./claude.js";
 import { generateCadence } from "./cadence.js";
+import { getStorage } from "./storage.js";
 import { today } from "./dates.js";
 import { saveSnapshot, getSnapshot, saveDigest, getDigest, listSubscribers } from "./db.js";
 import { buildDigestEmail } from "./digest.js";
@@ -18,6 +19,10 @@ export async function refreshCadence() {
     try { const d = await generateCadence(cat); saveSnapshot("cad_" + cat, d); console.log("[cron] 上市节奏已更新", cat); }
     catch (e) { console.error("[cron] 上市节奏失败", cat, e.message); }
   }
+}
+export async function refreshStorage() {
+  const d = await getStorage(); saveSnapshot("storage", d);
+  console.log("[cron] 存储洞察已更新"); return d;
 }
 export async function generateDaily() {
   const { iso, cn } = today();
@@ -40,7 +45,8 @@ export async function sendDaily() {
 export function startCron() {
   cron.schedule("0 8 1 * *", () => refreshFinancials().catch((e) => console.error("[cron] 财报", e)), { timezone: TZ });
   cron.schedule("10 8 1 * *", () => refreshCadence().catch((e) => console.error("[cron] 上市节奏", e)), { timezone: TZ });
+  cron.schedule("20 8 * * 1", () => refreshStorage().catch((e) => console.error("[cron] 存储洞察", e)), { timezone: TZ });
   cron.schedule("30 8 * * *", () => generateDaily().catch((e) => console.error("[cron] 日报", e)), { timezone: TZ });
   cron.schedule("0 9 * * *", () => sendDaily().catch((e) => console.error("[cron] 发送", e)), { timezone: TZ });
-  console.log(`[cron] 已排程:每月1号08:00 财报 / 每月1号08:10 上市节奏 / 每天08:30 日报 / 每天09:00 邮件 (时区 ${TZ})`);
+  console.log(`[cron] 已排程:每月1号08:00 财报 / 每月1号08:10 上市节奏 / 每周一08:20 存储洞察 / 每天08:30 日报 / 每天09:00 邮件 (时区 ${TZ})`);
 }
