@@ -8,7 +8,8 @@ import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests } from
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
-import { seedModels } from "./src/models_seed.js";
+import { seedModels, seedOneBrand } from "./src/models_seed.js";
+import { brandMarket } from "./src/market.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -86,7 +87,28 @@ app.delete("/api/models/:id", (req, res) => {
   res.json({ ok: deleteModel(req.params.id) });
 });
 
+// 车企市场动态(免费新闻 + 缓存洞察)
+app.get("/api/brand-market", (req, res) => {
+  const brand = String(req.query?.brand || "").trim();
+  if (!brand) return res.status(400).json({ error: "缺少 brand" });
+  brandMarket(brand).then((d) => res.json(d)).catch(fail(res));
+});
+
 const jobs = {}; // what -> {status:'running'|'done'|'error', startedAt, finishedAt, error}
+
+// 单品牌重新抓取(定向、异步)
+app.post("/api/models/seed-brand", (req, res) => {
+  const brand = String(req.body?.brand || "").trim();
+  if (!brand) return res.status(400).json({ error: "缺少 brand" });
+  const key = "brand:" + brand;
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  seedOneBrand(brand)
+    .then(() => { jobs[key] = { status: "done", finishedAt: Date.now() }; })
+    .catch((e) => { console.error("[seed-brand]", brand, e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "抓取失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+
 const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels };
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");

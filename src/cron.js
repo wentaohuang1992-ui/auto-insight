@@ -7,6 +7,7 @@ import { saveSnapshot, getSnapshot, saveDigest, getDigest, listSubscribers } fro
 import { buildDigestEmail } from "./digest.js";
 import { sendDigest } from "./mailer.js";
 import { seedModels } from "./models_seed.js";
+import { updateFromNews } from "./models_incremental.js";
 
 const TZ = process.env.CRON_TZ || "Asia/Shanghai";
 const CAD_CATS = ["yinwang", "xinshili", "chuantong"];
@@ -31,6 +32,8 @@ export async function generateDaily() {
   news.date = news.date || cn;
   saveDigest(iso, news);
   console.log(`[cron] 日报已生成 ${cn},共 ${news.items?.length || 0} 条`);
+  try { const r = await updateFromNews(news); if (r.applied) console.log(`[cron] 车型库增量:更新 ${r.applied} 款`); }
+  catch (e) { console.error("[cron] 增量更新", e.message); }
   return news;
 }
 export async function sendDaily() {

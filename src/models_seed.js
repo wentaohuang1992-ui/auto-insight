@@ -1,5 +1,4 @@
 // 车型库种子:逐品牌检索(博查+Google)→ 规范化车型记录 → upsert 入库。
-// 手改过的记录不会被覆盖(见 models_db.upsertModel)。
 import { LEAVES } from "./cadence.js";
 import { research } from "./research.js";
 import { upsertModel, dbMeta } from "./models_db.js";
@@ -26,27 +25,38 @@ function seedSchema(who) {
 JSON:{"models":[{"model":"","body":"","priceFrom":0,"priceRange":"","adas":"","hi":false,"status":"在售","launches":[{"kind":"新车","month":3,"date":"3月","estimated":false,"note":""}],"note":""}]}`;
 }
 
+export async function seedLeaf(leaf) {
+  const q = [...leaf.q, `${leaf.brand} 在售车型 全部 价格 轿车 SUV MPV`];
+  const gn = [`${leaf.brand} 2026 新车 改款 上市 规划`];
+  const d = await research({ queries: q, schema: seedSchema(leaf.brand), freshness: "noLimit", count: 10, summaryLen: 600, maxTokens: 5000, model: MODEL, gnewsQueries: gn, gnewsWhen: "" });
+  const models = Array.isArray(d.models) ? d.models : [];
+  for (const m of models) {
+    if (!m || !m.model) continue;
+    upsertModel({
+      brand: leaf.brand, group: leaf.group || "",
+      model: m.model, body: m.body, priceFrom: typeof m.priceFrom === "number" ? m.priceFrom : (parseFloat(m.priceFrom) || null),
+      priceRange: m.priceRange, adas: m.adas, hi: !!m.hi, status: m.status,
+      launches: (Array.isArray(m.launches) ? m.launches : []).map((x) => ({ kind: x.kind || "新车", year: 2026, month: x.month || null, date: x.date || "", estimated: !!x.estimated, note: x.note || "" })),
+      note: m.note, sources: []
+    });
+  }
+  return models.length;
+}
+
+const ALL_LEAVES = () => [...LEAVES.yinwang, ...LEAVES.xinshili, ...LEAVES.chuantong].filter((l) => l.brand);
+
 export async function seedModels() {
-  // 跳过没有具体品牌的 HI 兜底项:HI 归类改由各品牌车型的 hi 字段派生
-  const leaves = [...LEAVES.yinwang, ...LEAVES.xinshili, ...LEAVES.chuantong].filter((l) => l.brand);
-  await pool(leaves, 4, async (leaf) => {
-    try {
-      const q = [...leaf.q, `${leaf.brand} 在售车型 全部 价格 轿车 SUV MPV`];
-      const gn = [`${leaf.brand} 2026 新车 改款 上市 规划`];
-      const d = await research({ queries: q, schema: seedSchema(leaf.brand), freshness: "noLimit", count: 10, summaryLen: 600, maxTokens: 5000, model: MODEL, gnewsQueries: gn, gnewsWhen: "" });
-      const models = Array.isArray(d.models) ? d.models : [];
-      for (const m of models) {
-        if (!m || !m.model) continue;
-        upsertModel({
-          brand: leaf.brand, group: leaf.group || "",
-          model: m.model, body: m.body, priceFrom: typeof m.priceFrom === "number" ? m.priceFrom : (parseFloat(m.priceFrom) || null),
-          priceRange: m.priceRange, adas: m.adas, hi: !!m.hi, status: m.status,
-          launches: (Array.isArray(m.launches) ? m.launches : []).map((x) => ({ kind: x.kind || "新车", year: 2026, month: x.month || null, date: x.date || "", estimated: !!x.estimated, note: x.note || "" })),
-          note: m.note, sources: []
-        });
-      }
-      console.log("[seed]", leaf.brand, "->", models.length, "款");
-    } catch (e) { console.error("[seed]", leaf.brand, e.message); }
+  await pool(ALL_LEAVES(), 4, async (leaf) => {
+    try { const n = await seedLeaf(leaf); console.log("[seed]", leaf.brand, "->", n, "款"); }
+    catch (e) { console.error("[seed]", leaf.brand, e.message); }
   });
   return dbMeta();
+}
+
+export async function seedOneBrand(brand) {
+  let leaf = ALL_LEAVES().find((l) => l.brand === brand);
+  if (!leaf) leaf = { brand, group: "", q: [`${brand} 在售车型 价格 轿车 SUV MPV`, `${brand} 2026 新车 改款 上市 规划`] };
+  const n = await seedLeaf(leaf);
+  console.log("[seed-brand]", brand, "->", n, "款");
+  return { brand, count: n, ...dbMeta() };
 }

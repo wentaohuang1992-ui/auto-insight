@@ -88,3 +88,42 @@ export function replaceAll(models) {
   const db = { models: models.map((m) => ({ id: slugify(m.brand, m.model), ...clean(m), manual: !!m.manual, updatedAt: now() })) };
   return save(db);
 }
+
+// 增量合并:只覆盖 delta 提供的字段、追加上市计划;手改记录(manual)不动
+export function mergeModel(delta) {
+  if (!delta || !delta.brand || !delta.model) return { skipped: "invalid" };
+  const db = load();
+  const id = slugify(delta.brand, delta.model);
+  const i = db.models.findIndex((m) => m.id === id);
+  if (i < 0) {
+    const rec = {
+      id, ...clean({
+        brand: delta.brand, group: delta.group || "", model: delta.model, body: delta.body,
+        priceFrom: typeof delta.priceFrom === "number" ? delta.priceFrom : (parseFloat(delta.priceFrom) || null),
+        priceRange: delta.priceRange, adas: delta.adas, hi: delta.hi, status: delta.status || "在售",
+        launches: delta.launch ? [{ kind: delta.launch.kind || "新车", year: 2026, month: delta.launch.month || null, date: delta.launch.date || "", estimated: !!delta.launch.estimated, note: delta.launch.note || "" }] : [],
+        note: delta.note, sources: delta.sources || []
+      }), manual: false, src: "news", updatedAt: now()
+    };
+    db.models.push(rec); save(db); return { created: true, id };
+  }
+  const ex = db.models[i];
+  if (ex.manual) return { skipped: "manual", id };
+  const m = { ...ex };
+  if (delta.body) m.body = delta.body;
+  const pf = typeof delta.priceFrom === "number" ? delta.priceFrom : parseFloat(delta.priceFrom);
+  if (!isNaN(pf) && pf) m.priceFrom = pf;
+  if (delta.priceRange) m.priceRange = delta.priceRange;
+  if (delta.adas) m.adas = delta.adas;
+  if (typeof delta.hi === "boolean") m.hi = delta.hi;
+  if (delta.status) m.status = delta.status;
+  if (delta.note) m.note = delta.note;
+  if (delta.launch) {
+    m.launches = Array.isArray(m.launches) ? m.launches.slice() : [];
+    const L = { kind: delta.launch.kind || "新车", year: 2026, month: delta.launch.month || null, date: delta.launch.date || "", estimated: !!delta.launch.estimated, note: delta.launch.note || "" };
+    const j = m.launches.findIndex((x) => x.kind === L.kind && (x.month === L.month || (x.date && x.date === L.date)));
+    if (j < 0) m.launches.push(L); else m.launches[j] = { ...m.launches[j], ...L };
+  }
+  m.src = "news"; m.updatedAt = now();
+  db.models[i] = m; save(db); return { updated: true, id };
+}

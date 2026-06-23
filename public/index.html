@@ -258,6 +258,17 @@
   .aops button{font:inherit;font-size:11px;padding:3px 9px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;color:var(--brand-2)}
   .aops button.d{color:#D14343;border-color:rgba(209,67,67,.4)}
   .aops button:hover{background:#EEF3FF}
+  .admin-sep{width:1px;height:22px;background:var(--line)}
+  .admin-tools #admin-brand{max-width:130px}
+  .market-wrap{margin-top:22px}
+  .mk-insight{background:#F3F0FB;border-left:3px solid #7C3AB6;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;color:#3A434F;line-height:1.7}
+  .mk-insight .t{font-size:11px;color:#7C3AB6;font-weight:700;margin-bottom:5px}
+  .mk-news{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .mk-news li{padding:10px 14px;border-top:1px solid #EEF1F5}.mk-news li:first-child{border-top:0}
+  .mk-news a{font-size:13.5px;color:var(--ink);text-decoration:none;font-weight:500;line-height:1.5}
+  .mk-news a:hover{color:var(--brand-2);text-decoration:underline}
+  .mk-meta{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+  .mk-empty,.mk-load{font-size:12.5px;color:var(--muted);padding:10px 2px}
   .mtag.f{background:rgba(181,113,14,.14);color:var(--signal)}
   @media (max-width:560px){.matrix{grid-template-columns:44px repeat(3,1fr);gap:4px}.matrix .mh{font-size:10.5px}.mchip .mname{font-size:10px}.mchip{padding:2px 4px;gap:3px}}
 </style>
@@ -538,7 +549,7 @@ function cadCadence(d,key,showYW,members,lineupItems){
   const c=cadCounts(cadAllCars(d.months)),mx=cadMax(d.months);
   let h=`<div class="ov"><div class="t">全年节奏概述</div>${esc(d.overview)} 全年共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款${c.est?`(含预计 ${c.est} 款)`:""}。</div>`;
   if(members)h+=`<div class="members"><b>包含:</b>${esc(members)}</div>`;
-  if(lineupItems&&lineupItems.length)h+=renderMatrix(lineupItems);
+  if(lineupItems){if(lineupItems.length)h+=renderMatrix(lineupItems);h+=`<div class="market-wrap" id="market-${key}"></div>`;}
   h+=`<div class="tl-wrap"><div class="tl-cap">2026 上市时间轴 · 点击月份看详情</div><div class="timeline" id="tl-${key}">`;
   MONTHS.forEach(m=>{const mo=d.months[m],n=mo?mo.cars.length:0;
     const chips=mo?mo.cars.slice(0,2).map(x=>`<span>· ${esc(x.model)}</span>`).join("")+(n>2?`<span class="more">+${n-2}</span>`:""):`<div class="cempty">—</div>`;
@@ -675,7 +686,10 @@ async function openModelsAdmin(){
     <div class="admin-tools"><input id="admin-q" placeholder="搜索品牌 / 车型…" value="${esc(ADMIN_Q)}" oninput="ADMIN_Q=this.value;renderAdminTable()">
       <select id="admin-cat" onchange="ADMIN_CAT=this.value;renderAdminTable()">
         <option value="all">全部分类</option><option value="yinwang">引望</option><option value="xinshili">新势力</option><option value="chuantong">传统</option><option value="hi">仅 HI 智驾</option></select>
-      <span class="admin-tip">双击一行可编辑</span></div>
+      <span class="admin-sep"></span>
+      <select id="admin-brand">${[...new Set(MODELS.map(m=>m.brand).filter(Boolean))].sort().map(b=>`<option>${esc(b)}</option>`).join("")}</select>
+      <button class="mini" id="admin-seedbtn" onclick="seedBrand()">↻ 重新抓取此品牌</button>
+      <span class="admin-tip">双击行可编辑</span></div>
     <div id="admin-body" class="admin-body"></div></div>`;
   el.onclick=(e)=>{if(e.target===el)closeModelsAdmin();};
   document.body.appendChild(el);
@@ -683,6 +697,40 @@ async function openModelsAdmin(){
   renderAdminTable();
 }
 function closeModelsAdmin(){const el=document.getElementById("admin-overlay");if(el)el.remove();ADMIN_OPEN=false;}
+async function seedBrand(){
+  const sel=document.getElementById("admin-brand");const btn=document.getElementById("admin-seedbtn");
+  if(!sel||!btn||btn.disabled)return;const brand=sel.value;if(!brand)return;
+  if(!confirm(`重新用 DeepSeek 抓取「${brand}」的全部车型并合并入库?(约 10-30 秒,手改过的记录不会被覆盖)`))return;
+  const old=btn.textContent;btn.disabled=true;let s=0;const tk=setInterval(()=>{s++;btn.textContent=`抓取中… ${s}s`;},1000);btn.textContent="抓取中… 0s";
+  const done=(msg)=>{clearInterval(tk);btn.disabled=false;btn.textContent=old;if(msg)alert(msg);};
+  try{
+    const r=await fetch("/api/models/seed-brand",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({brand})});
+    const d=await r.json().catch(()=>({}));if(!r.ok&&r.status!==202)throw new Error(d.error||("HTTP "+r.status));
+    for(let i=0;i<60;i++){await new Promise(s=>setTimeout(s,2000));
+      let st={};try{const sr=await fetch("/api/refresh/status?what="+encodeURIComponent("brand:"+brand));st=await sr.json();}catch(_){continue;}
+      if(st.status==="done"){clearInterval(tk);CAD=null;await loadCadence();renderAdminTable();done();return;}
+      if(st.status==="error")return done("抓取失败:"+(st.error||"出错"));
+    }
+    done("仍在抓取,请稍后刷新查看。");
+  }catch(e){done("抓取失败:"+(e.message||e));}
+}
+
+// —— 车企市场动态 ——
+const MK_KEY={hongmeng:"鸿蒙智行",lianhe:"阿维塔",hi:"华为乾崑 HI"};
+async function loadBrandMarket(key,q){
+  const host=document.getElementById("market-"+key);if(!host||!q)return;
+  host.innerHTML=`<div class="tl-cap">最新市场动态 · ${esc(q)}</div><div class="mk-load">加载中…(免费实时新闻)</div>`;
+  try{
+    const r=await fetch("/api/brand-market?brand="+encodeURIComponent(q));const d=await r.json();
+    if(!r.ok)throw new Error(d.error||"加载失败");
+    let h=`<div class="tl-cap">最新市场动态 · ${esc(q)}</div>`;
+    if(d.insight)h+=`<div class="mk-insight"><div class="t">市场洞察小结</div>${esc(d.insight)}</div>`;
+    if(d.news&&d.news.length){
+      h+=`<ul class="mk-news">`+d.news.map(n=>`<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a><span class="mk-meta">${esc(n.source||"")}${n.dateISO?" · "+esc(n.dateISO):""}</span></li>`).join("")+`</ul>`;
+    }else if(!d.insight){h+=`<div class="mk-empty">暂无该品牌近期新闻。</div>`;}
+    host.innerHTML=h;
+  }catch(e){host.innerHTML=`<div class="tl-cap">最新市场动态 · ${esc(q)}</div><div class="mk-empty">加载失败,可稍后重试。</div>`;}
+}
 
 function cadShow(cat){
   document.querySelectorAll("#cad-subtabs .subtab").forEach(t=>t.setAttribute("aria-selected",t.dataset.cat===cat));
@@ -701,7 +749,8 @@ function cadShow(cat){
       else{const g=YW_GROUPS.find(x=>x.k===k);
         const cars=k==="hi"?hiCarsAll():ywcars.filter(c=>ywGroupOf(c)===k);
         const lineup=k==="hi"?hiLineupAll():(CAD.yinwang.lineup||[]).filter(l=>ywGroupOf(l)===k);
-        cadMount(cadDs(g.label+" 2026 全年节奏。",cars),"yw_"+k,false,g.members,body,lineup);}};
+        cadMount(cadDs(g.label+" 2026 全年节奏。",cars),"yw_"+k,false,g.members,body,lineup);
+        loadBrandMarket("yw_"+k,MK_KEY[k]||g.label);}};
     p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");return;
   }
   const src=cat==="xinshili"?CAD.xinshili:CAD.chuantong;
@@ -711,7 +760,7 @@ function cadShow(cat){
   const pick=(k)=>{p.querySelectorAll(".sst").forEach(x=>x.setAttribute("aria-selected",x.dataset.k===k));
     const body=document.getElementById("grp-body");
     if(k==="agg"){cadMount(cadDs(src.overview,src.cars),cat+"_agg",false,brands.join("、"),body);}
-    else{cadMount(cadDs(k+" 2026 全年节奏。",src.cars.filter(c=>matchBrand(c.brand,brands)===k)),cat+"_"+k,false,null,body,(src.lineup||[]).filter(l=>matchBrand(l.brand,brands)===k));}};
+    else{cadMount(cadDs(k+" 2026 全年节奏。",src.cars.filter(c=>matchBrand(c.brand,brands)===k)),cat+"_"+k,false,null,body,(src.lineup||[]).filter(l=>matchBrand(l.brand,brands)===k));loadBrandMarket(cat+"_"+k,k);}};
   p.querySelectorAll(".sst").forEach(b=>b.onclick=()=>pick(b.dataset.k));pick("agg");
 }
 
