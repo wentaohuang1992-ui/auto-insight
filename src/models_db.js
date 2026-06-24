@@ -102,7 +102,7 @@ export function mergeModel(delta) {
         priceFrom: typeof delta.priceFrom === "number" ? delta.priceFrom : (parseFloat(delta.priceFrom) || null),
         priceRange: delta.priceRange, adas: delta.adas, hi: delta.hi, status: delta.status || "在售",
         launches: delta.launch ? [{ kind: delta.launch.kind || "新车", year: 2026, month: delta.launch.month || null, date: delta.launch.date || "", estimated: !!delta.launch.estimated, note: delta.launch.note || "" }] : [],
-        note: delta.note, sources: delta.sources || []
+        note: delta.note, sources: delta.sources || (delta.source && delta.source.url ? [delta.source] : [])
       }), manual: false, src: "news", updatedAt: now()
     };
     db.models.push(rec); save(db); return { created: true, id };
@@ -118,6 +118,13 @@ export function mergeModel(delta) {
   if (typeof delta.hi === "boolean") m.hi = delta.hi;
   if (delta.status) m.status = delta.status;
   if (delta.note) m.note = delta.note;
+  const newSrcs = (delta.sources || []).concat(delta.source && delta.source.url ? [delta.source] : []).filter((s) => s && s.url);
+  if (newSrcs.length) {
+    const cur = Array.isArray(m.sources) ? m.sources.slice() : [];
+    const seen = new Set(cur.map((s) => s.url));
+    for (const s of newSrcs) { if (!seen.has(s.url)) { cur.push(s); seen.add(s.url); } }
+    m.sources = cur.slice(0, 4);
+  }
   if (delta.launch) {
     m.launches = Array.isArray(m.launches) ? m.launches.slice() : [];
     const L = { kind: delta.launch.kind || "新车", year: 2026, month: delta.launch.month || null, date: delta.launch.date || "", estimated: !!delta.launch.estimated, note: delta.launch.note || "" };
