@@ -654,13 +654,17 @@ async function saveModel(id){
 async function delModel(id){if(!confirm("确定删除该车型记录?"))return;try{await fetch("/api/models/"+encodeURIComponent(id),{method:"DELETE"});closeModelEdit();CAD=null;await loadCadence();if(ADMIN_OPEN)renderAdminTable();}catch(e){alert("删除失败:"+(e.message||e));}}
 
 // —— 车型库管理总表 ——
-let ADMIN_OPEN=false,ADMIN_Q="",ADMIN_CAT="all";
+let ADMIN_OPEN=false,ADMIN_Q="",ADMIN_CAT="all",ADMIN_BRAND="";
 function adminCat(m){if(m.group==="hongmeng")return "引望·鸿蒙智行";if(m.group==="lianhe")return "引望·联合共创";if(XS_BRANDS.includes(m.brand))return "新势力";return "传统车企";}
 function adminCatKey(m){if(m.group==="hongmeng"||m.group==="lianhe")return "yinwang";if(XS_BRANDS.includes(m.brand))return "xinshili";return "chuantong";}
+function adminCatList(){let list=MODELS.slice();if(ADMIN_CAT==="hi")return list.filter(m=>m.hi);if(ADMIN_CAT!=="all")return list.filter(m=>adminCatKey(m)===ADMIN_CAT);return list;}
+function adminBrandOptions(){const bs=[...new Set(adminCatList().map(m=>m.brand).filter(Boolean))].sort();return `<option value="">全部品牌</option>`+bs.map(b=>`<option ${b===ADMIN_BRAND?"selected":""}>${esc(b)}</option>`).join("");}
+function onAdminCat(v){ADMIN_CAT=v;ADMIN_BRAND="";const bs=document.getElementById("admin-brand");if(bs)bs.innerHTML=adminBrandOptions();renderAdminTable();}
 function launchSummary(m){const L=(m.launches||[]).filter(x=>(x.year||2026)===2026);if(!L.length)return "—";return L.map(x=>`${x.kind==="改款"?"改":"新"}·${esc(x.date||(x.month?x.month+"月":""))}`).join("、");}
 function adminRows(){
   let list=MODELS.slice();
   if(ADMIN_CAT==="hi")list=list.filter(m=>m.hi);else if(ADMIN_CAT!=="all")list=list.filter(m=>adminCatKey(m)===ADMIN_CAT);
+  if(ADMIN_BRAND)list=list.filter(m=>m.brand===ADMIN_BRAND);
   if(ADMIN_Q){const q=ADMIN_Q.toLowerCase();list=list.filter(m=>((m.brand||"")+(m.model||"")).toLowerCase().includes(q));}
   list.sort((a,b)=>(adminCatKey(a)+a.brand).localeCompare(adminCatKey(b)+b.brand)||((b.priceFrom||0)-(a.priceFrom||0)));
   return list;
@@ -680,26 +684,26 @@ function renderAdminTable(){
 }
 async function openModelsAdmin(){
   try{const r=await fetch("/api/models");const d=await r.json();MODELS=d.models||[];CAD=modelsToCAD(MODELS);}catch(_){}
-  ADMIN_OPEN=true;
+  ADMIN_OPEN=true;ADMIN_Q="";ADMIN_CAT="all";ADMIN_BRAND="";
   const el=document.createElement("div");el.id="admin-overlay";el.className="admin-bg";
   el.innerHTML=`<div class="admin"><div class="admin-h"><b>车型库管理</b><span id="admin-count" class="admin-cnt"></span><span style="flex:1"></span><button class="mini" onclick="openModelEdit('')">＋ 新增车型</button><span class="mdl-x" onclick="closeModelsAdmin()">✕</span></div>
-    <div class="admin-tools"><input id="admin-q" placeholder="搜索品牌 / 车型…" value="${esc(ADMIN_Q)}" oninput="ADMIN_Q=this.value;renderAdminTable()">
-      <select id="admin-cat" onchange="ADMIN_CAT=this.value;renderAdminTable()">
+    <div class="admin-tools"><input id="admin-q" placeholder="搜索品牌 / 车型…" oninput="ADMIN_Q=this.value;renderAdminTable()">
+      <select id="admin-cat" onchange="onAdminCat(this.value)">
         <option value="all">全部分类</option><option value="yinwang">引望</option><option value="xinshili">新势力</option><option value="chuantong">传统</option><option value="hi">仅 HI 智驾</option></select>
+      <select id="admin-brand" onchange="ADMIN_BRAND=this.value;renderAdminTable()">${adminBrandOptions()}</select>
       <span class="admin-sep"></span>
-      <select id="admin-brand">${[...new Set(MODELS.map(m=>m.brand).filter(Boolean))].sort().map(b=>`<option>${esc(b)}</option>`).join("")}</select>
-      <button class="mini" id="admin-seedbtn" onclick="seedBrand()">↻ 重新抓取此品牌</button>
+      <button class="mini" id="admin-seedbtn" onclick="seedBrand()">↻ 重新抓取选中品牌</button>
       <span class="admin-tip">双击行可编辑</span></div>
     <div id="admin-body" class="admin-body"></div></div>`;
   el.onclick=(e)=>{if(e.target===el)closeModelsAdmin();};
   document.body.appendChild(el);
-  const sel=el.querySelector("#admin-cat");if(sel)sel.value=ADMIN_CAT;
   renderAdminTable();
 }
 function closeModelsAdmin(){const el=document.getElementById("admin-overlay");if(el)el.remove();ADMIN_OPEN=false;}
 async function seedBrand(){
   const sel=document.getElementById("admin-brand");const btn=document.getElementById("admin-seedbtn");
-  if(!sel||!btn||btn.disabled)return;const brand=sel.value;if(!brand)return;
+  if(!sel||!btn||btn.disabled)return;const brand=sel.value;
+  if(!brand)return alert("请先在右侧品牌下拉里选择一个具体品牌(当前是「全部品牌」)。");
   if(!confirm(`重新用 DeepSeek 抓取「${brand}」的全部车型并合并入库?(约 10-30 秒,手改过的记录不会被覆盖)`))return;
   const old=btn.textContent;btn.disabled=true;let s=0;const tk=setInterval(()=>{s++;btn.textContent=`抓取中… ${s}s`;},1000);btn.textContent="抓取中… 0s";
   const done=(msg)=>{clearInterval(tk);btn.disabled=false;btn.textContent=old;if(msg)alert(msg);};
