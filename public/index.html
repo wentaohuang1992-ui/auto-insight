@@ -303,9 +303,8 @@
     <section class="sec" id="sec-fin" hidden>
       <div class="head">
         <div class="ref">SECTION 03 · FINANCIALS</div>
-        <h2>车企财务数据 · 最新季报 / 年报</h2>
-        <div class="note" id="note-fin">每月 1 号自动更新最新一期财报</div>
-        <button class="refresh-btn" onclick="doRefresh('fin',this)">↻ 立即用 DeepSeek 刷新</button>
+        <h2>车企财务数据 · 基础库 + 决策洞察</h2>
+        <div class="note" id="note-fin">管理总表 / 车企视图 / 决策洞察(现金流·库存·自研部件)· 数据以财报为准,LLM 起草 + 人工核对</div>
       </div>
       <div id="out-fin"></div>
     </section>
@@ -378,8 +377,9 @@
   </div>
 </div>
 
+<script src="/fin-board.js"></script>
 <script>
-const EP={fin:"/api/financials",news:"/api/news"};
+const EP={fin:"/api/fin",news:"/api/news"};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function host(u){try{return new URL(u).hostname.replace(/^www\./,"");}catch(_){return "来源";}}
 function yoyClass(v){const s=String(v||"");return s.includes("-")||s.includes("减")||s.includes("降")?"down":"up";}
@@ -422,7 +422,7 @@ function renderNews(d){const items=(d&&d.items)||[];
       </div></li>`).join("")+`</ul>`;
   return h;}
 
-const RENDER={fin:renderFin,news:renderNews};
+const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews};
 const CACHE={};
 let viewingDate=null; // 正在查看的往期日期(null=今日)
 

@@ -10,6 +10,8 @@ import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
 import { seedModels, seedOneBrand } from "./src/models_seed.js";
 import { brandMarket } from "./src/market.js";
+import * as findb from "./src/fin_db.js";
+import { seedAllFin, seedOneCompanyFin } from "./src/fin_seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -94,6 +96,37 @@ app.get("/api/brand-market", (req, res) => {
   brandMarket(brand).then((d) => res.json(d)).catch(fail(res));
 });
 
+// —— 车企财务数据库(companies / salesMonthly / quarterly / parts) ——
+app.get("/api/fin", (req, res) => { try { res.json(findb.getAll()); } catch (e) { fail(res)(e); } });
+// 车企
+app.post("/api/fin/companies", (req, res) => { const r = findb.addCompany(req.body || {}); if (!r) return res.status(409).json({ error: "车企已存在或名称为空" }); res.json({ ok: true, company: r }); });
+app.put("/api/fin/companies/:id", (req, res) => { const r = findb.putCompany(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到车企" }); res.json({ ok: true, company: r }); });
+app.delete("/api/fin/companies/:id", (req, res) => res.json({ ok: findb.deleteCompany(req.params.id) }));
+// 季度财务
+app.post("/api/fin/quarterly", (req, res) => { const r = findb.upsertQuarterly(req.body || {}, { manual: true }); if (!r.ok) return res.status(400).json({ error: "缺少 company/year/q" }); res.json(r); });
+app.put("/api/fin/quarterly/:id", (req, res) => { const r = findb.putQuarterly(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到季度记录" }); res.json({ ok: true, row: r }); });
+app.delete("/api/fin/quarterly/:id", (req, res) => res.json({ ok: findb.deleteQuarterly(req.params.id) }));
+// 月度销量
+app.post("/api/fin/sales", (req, res) => { const r = findb.upsertSales(req.body || {}, { manual: true }); if (!r.ok) return res.status(400).json({ error: "缺少 company/year/month" }); res.json(r); });
+app.put("/api/fin/sales/:id", (req, res) => { const r = findb.putSales(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到月销记录" }); res.json({ ok: true, row: r }); });
+// 自研部件
+app.post("/api/fin/parts", (req, res) => { const r = findb.addPart(req.body || {}); if (!r) return res.status(409).json({ error: "该部件已存在或缺少 company/part" }); res.json({ ok: true, part: r }); });
+app.put("/api/fin/parts/:id", (req, res) => { const r = findb.putPart(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到部件记录" }); res.json({ ok: true, part: r }); });
+app.delete("/api/fin/parts/:id", (req, res) => res.json({ ok: findb.deletePart(req.params.id) }));
+
+// 单车企财报抓取(定向、异步)
+app.post("/api/fin/seed-company", (req, res) => {
+  const name = String(req.body?.company || "").trim();
+  if (!name) return res.status(400).json({ error: "缺少 company" });
+  const key = "fincompany:" + name;
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  seedOneCompanyFin(name)
+    .then(() => { jobs[key] = { status: "done", finishedAt: Date.now() }; })
+    .catch((e) => { console.error("[fin-seed-company]", name, e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "抓取失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+
 const jobs = {}; // what -> {status:'running'|'done'|'error', startedAt, finishedAt, error}
 
 // 单品牌重新抓取(定向、异步)
@@ -109,7 +142,7 @@ app.post("/api/models/seed-brand", (req, res) => {
   res.status(202).json({ status: "started", key });
 });
 
-const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels };
+const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels, "fin-seed": seedAllFin };
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");
   const run = RUNNERS[what];
