@@ -877,10 +877,7 @@ async function loadStorage(){
 const loaded={};
 document.querySelectorAll(".tab").forEach(t=>{t.onclick=()=>{const tab=t.dataset.tab;
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
-  document.getElementById("sec-fin").hidden=tab!=="fin";
-  document.getElementById("sec-news").hidden=tab!=="news";
-  document.getElementById("sec-launch").hidden=tab!=="launch";
-  document.getElementById("sec-storage").hidden=tab!=="storage";
+  document.querySelectorAll(".sec").forEach(s=>{s.hidden=s.id!=="sec-"+tab;});
   if(!loaded[tab]){loaded[tab]=true; tab==="launch"?loadCadence():tab==="storage"?loadStorage():loadSection(tab);}};});
 
 // Subscribe
