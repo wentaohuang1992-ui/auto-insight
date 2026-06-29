@@ -311,7 +311,12 @@
     if (M.length) {
       const recent = M.slice(-13), maxS = Math.max(...recent.map(m => m.sales || 0)) || 1;
       const bars = recent.map((m, i) => `<div class="fbar ${i === recent.length - 1 ? "last" : ""}"><div class="b" style="height:${Math.round((m.sales || 0) / maxS * 100)}%"></div></div>`).join("");
-      const xax = recent.map((m, i) => `<span>${i % 2 === 0 ? m.month + "月" : ""}</span>`).join("");
+      const xax = recent.map((m, i) => {
+        const yearStart = i === 0 || m.month === 1 || (i > 0 && recent[i - 1].year !== m.year);
+        const monthTxt = (i % 2 === 0 || yearStart) ? m.month + "月" : "";
+        const yearTxt = yearStart ? `<b style="color:#15307A">${m.year}</b>` : "";
+        return `<span>${monthTxt}${yearTxt ? "<br>" + yearTxt : ""}</span>`;
+      }).join("");
       const last = recent[recent.length - 1], prev = M.find(x => x.year === last.year - 1 && x.month === last.month);
       monthBlock = `<div style="display:flex;gap:22px;margin-bottom:12px"><div><div style="font-size:21px;font-weight:700">${fmt0(last.sales)}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div></div><div class="fbars">${bars}</div><div class="fxax">${xax}</div>`;
     }
@@ -340,7 +345,7 @@
     const parts = PByC[c.id] || [];
     const partRows = parts.length ? parts.map(p => `<tr ondblclick="FINBOARD.editPart('${p.id}')"><td>${ESC(p.part)}</td><td>${ESC(p.selfDev)}</td><td>${ESC(p.stage)}</td><td style="text-align:left">${ESC(p.product || "")}</td><td style="text-align:left">${ESC(p.replace || "")}</td><td><button class="fminib" onclick="FINBOARD.editPart('${p.id}')">改</button></td></tr>`).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">暂无自研部件记录</td></tr>`;
     return `${pills}
-      <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button><button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ 抓取财报</button><span class="note">${ESC(c.note)}</span></div>
+      <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : ""}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">季度财务 · 近 8 季(单季口径)</h3>${finBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财经运营 · 近 8 季(蓝底=自动计算)</h3>${opBlock || finBlock}</div>
@@ -417,6 +422,11 @@
       if (btn) { btn.disabled = true; btn.textContent = "抓取中…"; }
       try { await fetch("/api/fin/seed-company", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: name }) }); pollJob("fincompany:" + name, btn, "抓取中"); }
       catch (e) { if (btn) { btn.disabled = false; btn.textContent = "抓取"; } alert("启动失败:" + e.message); }
+    },
+    async seedCompanyEM(name, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = "东方财富抓取中…"; }
+      try { await fetch("/api/fin/em-seed-company", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: name }) }); pollJob("emcompany:" + name, btn, "东方财富抓取中"); }
+      catch (e) { if (btn) { btn.disabled = false; btn.textContent = "↻ 东方财富抓取(A股)"; } alert("启动失败:" + e.message); }
     },
   });
 

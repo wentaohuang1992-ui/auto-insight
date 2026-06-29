@@ -12,6 +12,11 @@ import { seedModels, seedOneBrand } from "./src/models_seed.js";
 import { brandMarket } from "./src/market.js";
 import * as findb from "./src/fin_db.js";
 import { seedAllFin, seedOneCompanyFin } from "./src/fin_seed.js";
+import { seedCompanyEM, seedAllEM, pickAShare } from "./src/fin_em.js";
+import * as dsdb from "./src/ds_db.js";
+import { updateDownshift } from "./src/ds_seed.js";
+import * as clouddb from "./src/cloud_db.js";
+import { updateCloud } from "./src/cloud_seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -125,6 +130,60 @@ app.post("/api/fin/seed-company", (req, res) => {
     .then(() => { jobs[key] = { status: "done", finishedAt: Date.now() }; })
     .catch((e) => { console.error("[fin-seed-company]", name, e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "抓取失败" }; });
   res.status(202).json({ status: "started", key });
+});
+
+// 东方财富(A股)·试抓预览:浏览器可直接打开,返回解析结果但不保存(便于核对/排错)
+app.get("/api/fin/em-probe", (req, res) => {
+  const name = String(req.query?.company || "").trim();
+  if (!name) return res.status(400).json({ error: "缺少 company,例:/api/fin/em-probe?company=赛力斯" });
+  seedCompanyEM(name, { save: false }).then((d) => res.json(d)).catch((e) => res.status(500).json({ error: e.message }));
+});
+// 东方财富(A股)·抓取入库(定向、异步,存为草稿 manual:false)
+app.post("/api/fin/em-seed-company", (req, res) => {
+  const name = String(req.body?.company || "").trim();
+  if (!name) return res.status(400).json({ error: "缺少 company" });
+  const key = "emcompany:" + name;
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  seedCompanyEM(name, { save: true })
+    .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
+    .catch((e) => { console.error("[em-seed-company]", name, e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "抓取失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+
+// ===== 中低端智驾市场洞察 =====
+app.get("/api/downshift", (req, res) => { try { res.json(dsdb.getAll()); } catch (e) { fail(res)(e); } });
+app.put("/api/downshift/penetration/:id", (req, res) => { const r = dsdb.putPenetration(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.put("/api/downshift/tiers/:id", (req, res) => { const r = dsdb.tiers.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.post("/api/downshift/chips", (req, res) => res.json({ ok: true, row: dsdb.chips.add(req.body || {}) }));
+app.put("/api/downshift/chips/:id", (req, res) => { const r = dsdb.chips.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.delete("/api/downshift/chips/:id", (req, res) => res.json({ ok: dsdb.chips.del(req.params.id) }));
+app.put("/api/downshift/opinion", (req, res) => res.json({ ok: true, opinion: dsdb.setOpinion(req.body?.text || "") }));
+app.post("/api/downshift/update", (req, res) => {
+  const key = "ds-update";
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  updateDownshift().then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; }).catch((e) => { console.error("[ds-update]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
+});
+
+// ===== 云算力成本洞察 =====
+app.get("/api/cloud", (req, res) => { try { res.json(clouddb.getAll()); } catch (e) { fail(res)(e); } });
+app.put("/api/cloud/prices/:id", (req, res) => { const r = clouddb.prices.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.put("/api/cloud/chips/:id", (req, res) => { const r = clouddb.chips.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.post("/api/cloud/corehour", (req, res) => res.json({ ok: true, row: clouddb.coreHour.add(req.body || {}) }));
+app.put("/api/cloud/corehour/:id", (req, res) => { const r = clouddb.coreHour.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.delete("/api/cloud/corehour/:id", (req, res) => res.json({ ok: clouddb.coreHour.del(req.params.id) }));
+app.put("/api/cloud/params", (req, res) => res.json({ ok: true, params: clouddb.setParams(req.body || {}) }));
+app.put("/api/cloud/roi", (req, res) => res.json({ ok: true, roi: clouddb.setRoi(req.body || {}) }));
+app.put("/api/cloud/scenarios", (req, res) => res.json({ ok: true, scenarios: clouddb.setScenarios(req.body || {}) }));
+app.put("/api/cloud/opinion", (req, res) => res.json({ ok: true, opinion: clouddb.setOpinion(req.body?.text || "") }));
+app.post("/api/cloud/update", (req, res) => {
+  const key = "cloud-update";
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  updateCloud().then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; }).catch((e) => { console.error("[cloud-update]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
 });
 
 const jobs = {}; // what -> {status:'running'|'done'|'error', startedAt, finishedAt, error}

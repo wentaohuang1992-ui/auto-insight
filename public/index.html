@@ -295,6 +295,8 @@
         <button class="tab" role="tab" aria-selected="false" data-tab="launch"><span class="idx">02</span>新车上市速递</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="fin"><span class="idx">03</span>车企财务数据</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="storage"><span class="idx">04</span>存储洞察</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="downshift"><span class="idx">05</span>中低端智驾市场洞察</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="cloud"><span class="idx">06</span>云算力成本洞察</button>
       </nav>
     </div>
   </header>
@@ -364,6 +366,24 @@
       <div id="out-storage"></div>
     </section>
 
+    <section class="sec" id="sec-downshift" hidden>
+      <div class="head">
+        <div class="ref">SECTION 05 · ADAS DOWN-MARKET</div>
+        <h2>中低端智驾市场洞察</h2>
+        <div class="note">渗透矩阵 / 降本边界·ROI / 动向情报流 · 降维下沉的产品线 ROI 与降本边界 · AI 起草 + 你核对</div>
+      </div>
+      <div id="out-downshift"></div>
+    </section>
+
+    <section class="sec" id="sec-cloud" hidden>
+      <div class="head">
+        <div class="ref">SECTION 06 · CLOUD COMPUTE COST</div>
+        <h2>云算力成本洞察</h2>
+        <div class="note">业界算力行情 / 研发数据云成本·Core-Hour / E2E投产比·预算滚动 · AI 抓行情 + 你核对内部成本</div>
+      </div>
+      <div id="out-cloud"></div>
+    </section>
+
     <div class="foot">数据由服务端通过 Anthropic API 联网检索公开信息生成,每条附来源链接供核查;搜索结果存在时效与覆盖差异,关键数据请以来源原文为准。</div>
   </main>
 </div>
@@ -378,8 +398,10 @@
 </div>
 
 <script src="/fin-board.js"></script>
+<script src="/ds-board.js"></script>
+<script src="/cloud-board.js"></script>
 <script>
-const EP={fin:"/api/fin",news:"/api/news"};
+const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",cloud:"/api/cloud"};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function host(u){try{return new URL(u).hostname.replace(/^www\./,"");}catch(_){return "来源";}}
 function yoyClass(v){const s=String(v||"");return s.includes("-")||s.includes("减")||s.includes("降")?"down":"up";}
@@ -422,7 +444,7 @@ function renderNews(d){const items=(d&&d.items)||[];
       </div></li>`).join("")+`</ul>`;
   return h;}
 
-const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews};
+const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews,downshift:(d)=>window.DSBOARD.render(d),cloud:(d)=>window.CLOUDBOARD.render(d)};
 const CACHE={};
 let viewingDate=null; // 正在查看的往期日期(null=今日)
 
