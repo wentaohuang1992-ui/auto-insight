@@ -359,9 +359,8 @@
     <section class="sec" id="sec-storage" hidden>
       <div class="head">
         <div class="ref">SECTION 04 · STORAGE</div>
-        <h2>存储芯片涨价与汽车行业影响</h2>
-        <div class="note" id="note-storage">每周一自动更新存储芯片行情与相关研报</div>
-        <button class="refresh-btn" onclick="doRefresh('storage',this)">↻ 立即用 DeepSeek 刷新</button>
+        <h2>存储洞察 · 价格趋势</h2>
+        <div class="note" id="note-storage">按产品类别(LPDDR4X/5X·可细分容量)追踪合约价/现货价折线 · 来源 TrendForce·ChinaFlashMarket · AI 抓情报 + 你核对</div>
       </div>
       <div id="out-storage"></div>
     </section>
@@ -400,8 +399,9 @@
 <script src="/fin-board.js"></script>
 <script src="/ds-board.js"></script>
 <script src="/cloud-board.js"></script>
+<script src="/storage-board.js"></script>
 <script>
-const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",cloud:"/api/cloud"};
+const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",cloud:"/api/cloud",storage:"/api/storage"};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function host(u){try{return new URL(u).hostname.replace(/^www\./,"");}catch(_){return "来源";}}
 function yoyClass(v){const s=String(v||"");return s.includes("-")||s.includes("减")||s.includes("降")?"down":"up";}
@@ -444,7 +444,7 @@ function renderNews(d){const items=(d&&d.items)||[];
       </div></li>`).join("")+`</ul>`;
   return h;}
 
-const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews,downshift:(d)=>window.DSBOARD.render(d),cloud:(d)=>window.CLOUDBOARD.render(d)};
+const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews,downshift:(d)=>window.DSBOARD.render(d),cloud:(d)=>window.CLOUDBOARD.render(d),storage:(d)=>window.STORAGEBOARD.render(d)};
 const CACHE={};
 let viewingDate=null; // 正在查看的往期日期(null=今日)
 
@@ -878,7 +878,7 @@ const loaded={};
 document.querySelectorAll(".tab").forEach(t=>{t.onclick=()=>{const tab=t.dataset.tab;
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
   document.querySelectorAll(".sec").forEach(s=>{s.hidden=s.id!=="sec-"+tab;});
-  if(!loaded[tab]){loaded[tab]=true; tab==="launch"?loadCadence():tab==="storage"?loadStorage():loadSection(tab);}};});
+  if(!loaded[tab]){loaded[tab]=true; tab==="launch"?loadCadence():loadSection(tab);}};});
 
 // Subscribe
 document.getElementById("sub-btn").onclick=async()=>{const inp=document.getElementById("email"),msg=document.getElementById("submsg");

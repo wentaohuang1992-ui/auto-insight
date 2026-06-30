@@ -17,6 +17,8 @@ import * as dsdb from "./src/ds_db.js";
 import { updateDownshift } from "./src/ds_seed.js";
 import * as clouddb from "./src/cloud_db.js";
 import { updateCloud } from "./src/cloud_seed.js";
+import * as stdb from "./src/storage_db.js";
+import { updateStorage } from "./src/storage_seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -38,8 +40,22 @@ async function snapshotResponse(kind, refresher) {
 app.get("/api/financials", (req, res) =>
   snapshotResponse("fin", refreshFinancials).then((d) => res.json(d)).catch(fail(res)));
 
-app.get("/api/storage", (req, res) =>
-  snapshotResponse("storage", refreshStorage).then((d) => res.json(d)).catch(fail(res)));
+app.get("/api/storage", (req, res) => { try { res.json(stdb.getAll()); } catch (e) { fail(res)(e); } });
+app.put("/api/storage/categories/:id", (req, res) => { const r = stdb.putCategory(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到类别" }); res.json({ ok: true, row: r }); });
+app.post("/api/storage/categories", (req, res) => { const r = stdb.addCategory(req.body || {}); if (!r) return res.status(409).json({ error: "类别已存在或缺名称" }); res.json({ ok: true, row: r }); });
+app.delete("/api/storage/categories/:id", (req, res) => res.json({ ok: stdb.delCategory(req.params.id) }));
+app.put("/api/storage/series/:id", (req, res) => { const r = stdb.setSeries(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到类别" }); res.json({ ok: true, row: r }); });
+app.post("/api/storage/series/:id/append", (req, res) => { const r = stdb.appendPoint(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到类别" }); res.json({ ok: true, row: r }); });
+app.put("/api/storage/caps/:catId/:capId", (req, res) => { const r = stdb.putCap(req.params.catId, req.params.capId, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
+app.delete("/api/storage/caps/:catId/:capId", (req, res) => res.json({ ok: stdb.delCap(req.params.catId, req.params.capId) }));
+app.put("/api/storage/opinion", (req, res) => res.json({ ok: true, opinion: stdb.setOpinion(req.body?.text || "") }));
+app.post("/api/storage/update", (req, res) => {
+  const key = "storage-update";
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  updateStorage().then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; }).catch((e) => { console.error("[storage-update]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
+});
 
 // 上市节奏:三大类快照(缺失则按需生成一次),合并为一个响应
 async function cadCat(cat) {
