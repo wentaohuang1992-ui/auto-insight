@@ -5,10 +5,8 @@
 //  coreHour 月度 {id,ym,trainCH,simCH,unitCost,monthCost,adsVer,note,manual}  (内部,手工)
 //  params {passThrough}  roi {invest,output,ratio,marginalTrend,note}
 //  scenarios {a:[],b:[]}  opinion {text,updatedAt}
-import fs from "fs";
-import path from "path";
-const P = process.env.CLOUD_PATH
-  || (process.env.DB_PATH ? path.join(path.dirname(process.env.DB_PATH), "cloud.json") : path.join(process.cwd(), "cloud.json"));
+import { readStore, writeStore, resolveStorePath } from "./store.js";
+const P = resolveStorePath("CLOUD_PATH", "cloud.json");
 const now = () => new Date().toISOString();
 const sid = (p) => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
@@ -35,8 +33,8 @@ const SCEN = {
 const OPINION = '本月业界算力价格指数环比 **−6%**(GPU 缓和、昇腾紧平衡);同期 ADS 迭代使训练算力需求同比 **+38%**,量增价跌部分对冲,我们 Core-Hour 综合成本环比约 **−3%**。若趋势延续,Q4 训练预算有下行空间——建议优先用于**加速关键版本迭代**(投产比仍高),而非单纯利润平滑。(示例,可编辑)';
 
 function blank() { return { prices: [], priceIndex: [], chips: [], coreHour: [], params: { ...PARAMS }, roi: { ...ROI }, scenarios: { a: [], b: [] }, opinion: { text: "", updatedAt: null }, updatedAt: null }; }
-function load() { try { return { ...blank(), ...JSON.parse(fs.readFileSync(P, "utf8")) }; } catch { return blank(); } }
-function save(db) { db.updatedAt = now(); try { fs.mkdirSync(path.dirname(P), { recursive: true }); } catch {} fs.writeFileSync(P, JSON.stringify(db, null, 2)); return db; }
+function load() { return { ...blank(), ...readStore(P, blank) }; }
+function save(db) { db.updatedAt = now(); return writeStore(P, db); }
 
 export function ensureSeeded() {
   const db = load(); let ch = false;

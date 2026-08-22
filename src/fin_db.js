@@ -7,11 +7,9 @@
 //               retailReg,dealerCoef,rdCap, sources,note,manual,updatedAt}
 //  parts       自研智驾部件追踪(主题3)  {id,company,part,selfDev(自研/外购/混合),stage,product,replace,note,sources,manual,updatedAt}
 // 手改记录(manual:true)不被自动种子/增量覆盖。
-import fs from "fs";
-import path from "path";
+import { readStore, writeStore, resolveStorePath } from "./store.js";
 
-const FIN_PATH = process.env.FIN_PATH
-  || (process.env.DB_PATH ? path.join(path.dirname(process.env.DB_PATH), "financials.json") : path.join(process.cwd(), "financials.json"));
+const FIN_PATH = resolveStorePath("FIN_PATH", "financials.json");
 
 const now = () => new Date().toISOString();
 const slug = (s) => String(s || "").replace(/\s+/g, "").trim().toLowerCase();
@@ -20,16 +18,8 @@ const mid = (company, year, month) => `${company}:${year}-${String(month).padSta
 const pid = (company, part) => `${company}:${slug(part)}`;
 
 function blank() { return { companies: [], salesMonthly: [], quarterly: [], parts: [], updatedAt: null }; }
-function load() {
-  try { const d = JSON.parse(fs.readFileSync(FIN_PATH, "utf8")); return { ...blank(), ...d }; }
-  catch { return blank(); }
-}
-function save(db) {
-  db.updatedAt = now();
-  try { fs.mkdirSync(path.dirname(FIN_PATH), { recursive: true }); } catch {}
-  fs.writeFileSync(FIN_PATH, JSON.stringify(db, null, 2));
-  return db;
-}
+function load() { return { ...blank(), ...readStore(FIN_PATH, blank) }; }
+function save(db) { db.updatedAt = now(); return writeStore(FIN_PATH, db); }
 
 // —— 预置 15 家车企(核心伙伴 8 + 主要竞品 7) ——
 const PRESET = [

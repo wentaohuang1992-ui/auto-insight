@@ -1,15 +1,19 @@
 // DeepSeek(OpenAI 兼容)客户端 + 健壮 JSON 解析(多级兜底)。
+import { fetchWithTimeout } from "./http.js";
+
 const BASE = process.env.DEEPSEEK_BASE || "https://api.deepseek.com/v1";
+// 大模型生成慢,单独给一个更长的超时。
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 120000);
 export const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
 async function rawChat(body) {
   const key = process.env.DEEPSEEK_API_KEY;
   if (!key) throw new Error("未配置 DEEPSEEK_API_KEY");
-  const res = await fetch(`${BASE}/chat/completions`, {
+  const res = await fetchWithTimeout(`${BASE}/chat/completions`, {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify(body)
-  });
+  }, LLM_TIMEOUT_MS);
   if (!res.ok) { const t = await res.text().catch(() => ""); const e = new Error(`DeepSeek ${res.status}: ${t.slice(0, 220)}`); e.status = res.status; throw e; }
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";

@@ -3,15 +3,9 @@
 // 单季口径:利润表项为当季、资产负债项为期末;A股若仅有累计,尽力换算单季并在 note 标注。
 import { research } from "./research.js";
 import { listCompanies, upsertQuarterly, upsertSales, upsertPart, slug } from "./fin_db.js";
+import { pool } from "./pool.js";
 
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
-
-async function pool(items, limit, fn) {
-  let i = 0;
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) { const idx = i++; await fn(items[idx], idx); }
-  }));
-}
 
 function finSchema(name) {
   return `请**仅依据财报/季报/年报/业绩公告/交易所公告**整理【${name}】的财务数据(金额单位:亿元;销量单位:辆)。

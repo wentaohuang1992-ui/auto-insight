@@ -2,17 +2,9 @@
 import { LEAVES } from "./cadence.js";
 import { research } from "./research.js";
 import { upsertModel, dbMeta } from "./models_db.js";
+import { pool } from "./pool.js";
 
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
-
-async function pool(items, limit, fn) {
-  const out = []; let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) { const idx = i++; out[idx] = await fn(items[idx], idx); }
-  });
-  await Promise.all(workers);
-  return out;
-}
 
 function seedSchema(who) {
   return `请据资料整理【${who}】(含全部子品牌)**当前在售 + 2026 将上市**的全部车型(产品谱系),尽量列全、含季度级时间、确无依据不编造。每款车给:

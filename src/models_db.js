@@ -1,23 +1,14 @@
 // 车型数据库:持久化的规范化车型记录(产品谱系 + 上市计划 + 配置)。
 // 记录: {id, brand, group, model, body, priceFrom, priceRange, adas, hi, status,
 //        launches:[{kind,year,month,date,estimated,note}], note, sources, manual, updatedAt}
-import fs from "fs";
-import path from "path";
+import { readStore, writeStore, resolveStorePath } from "./store.js";
 
-const MODELS_PATH = process.env.MODELS_PATH
-  || (process.env.DB_PATH ? path.join(path.dirname(process.env.DB_PATH), "models.json") : path.join(process.cwd(), "models.json"));
+const MODELS_PATH = resolveStorePath("MODELS_PATH", "models.json");
 
 function now() { return new Date().toISOString(); }
-function load() {
-  try { return JSON.parse(fs.readFileSync(MODELS_PATH, "utf8")); }
-  catch { return { models: [], updatedAt: null }; }
-}
-function save(db) {
-  db.updatedAt = now();
-  try { fs.mkdirSync(path.dirname(MODELS_PATH), { recursive: true }); } catch {}
-  fs.writeFileSync(MODELS_PATH, JSON.stringify(db, null, 2));
-  return db;
-}
+const blank = () => ({ models: [], updatedAt: null });
+function load() { return { ...blank(), ...readStore(MODELS_PATH, blank) }; }
+function save(db) { db.updatedAt = now(); return writeStore(MODELS_PATH, db); }
 export function slugify(brand, model) {
   return `${String(brand || "").trim()}__${String(model || "").replace(/\s+/g, "").trim()}`.toLowerCase();
 }

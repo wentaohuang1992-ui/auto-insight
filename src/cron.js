@@ -49,8 +49,11 @@ export async function sendDaily() {
 export function startCron() {
   cron.schedule("0 8 1 * *", () => refreshFinancials().catch((e) => console.error("[cron] 财报", e)), { timezone: TZ });
   cron.schedule("10 8 1 * *", () => seedModels().catch((e) => console.error("[cron] 车型库", e)), { timezone: TZ });
+  // 修复:上市节奏此前从未被排程(那一行实际调的是 seedModels,但日志写的是"上市节奏"),
+  // 导致 cad_* 快照只在首次请求时懒生成一次,之后永远不再刷新。
+  cron.schedule("40 8 1 * *", () => refreshCadence().catch((e) => console.error("[cron] 上市节奏", e)), { timezone: TZ });
   cron.schedule("20 8 * * 1", () => refreshStorage().catch((e) => console.error("[cron] 存储洞察", e)), { timezone: TZ });
   cron.schedule("30 8 * * *", () => generateDaily().catch((e) => console.error("[cron] 日报", e)), { timezone: TZ });
   cron.schedule("0 9 * * *", () => sendDaily().catch((e) => console.error("[cron] 发送", e)), { timezone: TZ });
-  console.log(`[cron] 已排程:每月1号08:00 财报 / 每月1号08:10 上市节奏 / 每周一08:20 存储洞察 / 每天08:30 日报 / 每天09:00 邮件 (时区 ${TZ})`);
+  console.log(`[cron] 已排程:每月1号 08:00 财报 / 08:10 车型库 / 08:40 上市节奏;每周一 08:20 存储洞察;每天 08:30 日报 / 09:00 邮件 (时区 ${TZ})`);
 }

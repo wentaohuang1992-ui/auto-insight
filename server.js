@@ -19,15 +19,19 @@ import * as clouddb from "./src/cloud_db.js";
 import { updateCloud } from "./src/cloud_seed.js";
 import * as stdb from "./src/storage_db.js";
 import { updateStorage } from "./src/storage_seed.js";
+import { apiGuard, adminConfigured, tooSoon, overBudget, budgetLeft, cleanName } from "./src/guard.js";
+import { lockedStores, storageInfo } from "./src/store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.set("trust proxy", 1); // Railway 等平台在前面有反向代理,限流需要真实 IP
 app.use(express.json());
 app.use((err, req, res, next) => {
   if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "请求体不是合法 JSON" });
   next(err);
 });
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/api", apiGuard); // 写接口需要 ADMIN_TOKEN;公开接口按 IP 限流
 
 const fail = (res) => (e) => res.status(500).json({ error: e.message || "服务端错误" });
 
@@ -52,6 +56,8 @@ app.put("/api/storage/opinion", (req, res) => res.json({ ok: true, opinion: stdb
 app.post("/api/storage/update", (req, res) => {
   const key = "storage-update";
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已触发过,请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[key] = { status: "running", startedAt: Date.now() };
   updateStorage().then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; }).catch((e) => { console.error("[storage-update]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
   res.status(202).json({ status: "started" });
@@ -112,7 +118,7 @@ app.delete("/api/models/:id", (req, res) => {
 
 // 车企市场动态(免费新闻 + 缓存洞察)
 app.get("/api/brand-market", (req, res) => {
-  const brand = String(req.query?.brand || "").trim();
+  const brand = cleanName(req.query?.brand);
   if (!brand) return res.status(400).json({ error: "缺少 brand" });
   brandMarket(brand).then((d) => res.json(d)).catch(fail(res));
 });
@@ -137,10 +143,12 @@ app.delete("/api/fin/parts/:id", (req, res) => res.json({ ok: findb.deletePart(r
 
 // 单车企财报抓取(定向、异步)
 app.post("/api/fin/seed-company", (req, res) => {
-  const name = String(req.body?.company || "").trim();
+  const name = cleanName(req.body?.company);
   if (!name) return res.status(400).json({ error: "缺少 company" });
   const key = "fincompany:" + name;
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已抓取过 ${name},请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[key] = { status: "running", startedAt: Date.now() };
   seedOneCompanyFin(name)
     .then(() => { jobs[key] = { status: "done", finishedAt: Date.now() }; })
@@ -160,6 +168,8 @@ app.post("/api/fin/em-seed-company", (req, res) => {
   if (!name) return res.status(400).json({ error: "缺少 company" });
   const key = "emcompany:" + name;
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已抓取过 ${name},请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[key] = { status: "running", startedAt: Date.now() };
   seedCompanyEM(name, { save: true })
     .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
@@ -178,6 +188,8 @@ app.put("/api/downshift/opinion", (req, res) => res.json({ ok: true, opinion: ds
 app.post("/api/downshift/update", (req, res) => {
   const key = "ds-update";
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已触发过,请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[key] = { status: "running", startedAt: Date.now() };
   updateDownshift().then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; }).catch((e) => { console.error("[ds-update]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
   res.status(202).json({ status: "started" });
@@ -197,6 +209,8 @@ app.put("/api/cloud/opinion", (req, res) => res.json({ ok: true, opinion: cloudd
 app.post("/api/cloud/update", (req, res) => {
   const key = "cloud-update";
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已触发过,请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[key] = { status: "running", startedAt: Date.now() };
   updateCloud().then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; }).catch((e) => { console.error("[cloud-update]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
   res.status(202).json({ status: "started" });
@@ -206,10 +220,12 @@ const jobs = {}; // what -> {status:'running'|'done'|'error', startedAt, finishe
 
 // 单品牌重新抓取(定向、异步)
 app.post("/api/models/seed-brand", (req, res) => {
-  const brand = String(req.body?.brand || "").trim();
+  const brand = cleanName(req.body?.brand);
   if (!brand) return res.status(400).json({ error: "缺少 brand" });
   const key = "brand:" + brand;
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已抓取过 ${brand},请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[key] = { status: "running", startedAt: Date.now() };
   seedOneBrand(brand)
     .then(() => { jobs[key] = { status: "done", finishedAt: Date.now() }; })
@@ -223,6 +239,8 @@ app.post("/api/refresh", (req, res) => {
   const run = RUNNERS[what];
   if (!run) return res.status(400).json({ error: "未知刷新目标" });
   if (jobs[what] && jobs[what].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon("refresh:" + what); if (wait) return res.status(429).json({ error: `刚刚已触发过,请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
   jobs[what] = { status: "running", startedAt: Date.now() };
   run()
     .then(() => { jobs[what] = { status: "done", finishedAt: Date.now() }; })
@@ -233,7 +251,25 @@ app.get("/api/refresh/status", (req, res) => {
   res.json(jobs[String(req.query?.what || "")] || { status: "idle" });
 });
 
-app.get("/api/health", (req, res) => res.json({ ok: true, model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash", search: "bocha" }));
+app.get("/api/health", (req, res) => {
+  const locked = lockedStores();
+  res.json({
+    ok: locked.length === 0,
+    model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
+    search: "bocha",
+    adminToken: adminConfigured() ? "已配置" : "未配置(写接口对外开放)",
+    jobBudgetLeft: budgetLeft(), // 本小时还能触发多少次抓取任务
+    storage: storageInfo(),       // persistent:false 表示数据在临时盘,重新部署就会丢
+    lockedStores: locked, // 非空表示某个数据文件损坏、已停止写入,需要人工处理
+  });
+});
+
+// 兜底错误处理:此前路由里未捕获的异常会直接落到 express 默认处理器,返回一段 HTML 堆栈。
+app.use((err, req, res, next) => {
+  console.error("[server]", req.method, req.originalUrl, err && err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err && err.message ? err.message : "服务端错误" });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

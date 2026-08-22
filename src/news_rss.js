@@ -1,5 +1,8 @@
 // 实时新闻源:Google News RSS(免费、无需 key、对当天新闻收录快、支持中文)。
 // 用 when:2d 限定最近 2 天;服务器端抓取,返回 {title,url,source,date,dateISO}。
+import { fetchWithTimeout } from "./http.js";
+import { pool } from "./pool.js";
+
 const BASE = "https://news.google.com/rss/search";
 function gnUrl(q, when = "2d") { const w = when ? ` when:${when}` : ""; return `${BASE}?q=${encodeURIComponent(q + w)}&hl=zh-CN&gl=CN&ceid=CN:zh`; }
 function decode(s) {
@@ -23,15 +26,16 @@ function parseItems(xml) {
   return items;
 }
 export async function googleNewsItems(queries, when = "2d") {
-  const out = [];
-  for (const q of queries) {
+  // 并发抓取(限流 4):此前是串行,5 个查询要排队等 5 个 RTT。
+  const batches = await pool(queries, 4, async (q) => {
     try {
-      const res = await fetch(gnUrl(q, when), { headers: { "user-agent": "Mozilla/5.0 (compatible; auto-insight/1.0)" } });
-      if (!res.ok) continue;
+      const res = await fetchWithTimeout(gnUrl(q, when), { headers: { "user-agent": "Mozilla/5.0 (compatible; auto-insight/1.0)" } });
+      if (!res.ok) return [];
       const xml = await res.text();
-      out.push(...parseItems(xml).slice(0, 12));
-    } catch (_) { /* 单条失败跳过 */ }
-  }
+      return parseItems(xml).slice(0, 12);
+    } catch (_) { return []; /* 单条失败跳过 */ }
+  });
+  const out = batches.flat();
   const seen = new Set(), uniq = [];
   for (const it of out) { const k = (it.title || "").replace(/\s+/g, ""); if (k && !seen.has(k)) { seen.add(k); uniq.push(it); } }
   return uniq;

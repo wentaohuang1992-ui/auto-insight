@@ -1,22 +1,15 @@
-// 零依赖 JSON 文件存储(原子写入)。
-import fs from "node:fs";
-import path from "node:path";
+// 主库(data.json):订阅者 / 板块快照 / 日报归档。存储层见 store.js(原子写入 + 损坏保护)。
+import { readStore, writeStore, resolveStorePath } from "./store.js";
 
-const FILE = process.env.DB_PATH || "./data.json";
+const FILE = process.env.DB_PATH || resolveStorePath(null, "data.json");
+// 日报归档保留天数;超出的按日期从旧到新裁掉,避免 data.json 无限膨胀。
+const KEEP_DAYS = Math.max(7, Number(process.env.DIGEST_KEEP_DAYS || 180));
 
-function load() {
-  let parsed = {};
-  try { parsed = JSON.parse(fs.readFileSync(FILE, "utf8")); } catch (_) {}
-  return { subscribers: {}, digests: {}, snapshots: {}, ...parsed };
-}
-let store = load();
+const blank = () => ({ subscribers: {}, digests: {}, snapshots: {} });
+let store = { ...blank(), ...readStore(FILE, blank) };
 
 function persist() {
-  const dir = path.dirname(FILE);
-  if (dir && dir !== "." && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const tmp = FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(store));
-  fs.renameSync(tmp, FILE);
+  writeStore(FILE, store);
 }
 
 // 订阅
@@ -37,8 +30,17 @@ export function saveSnapshot(kind, payload) {
 export function getSnapshot(kind) { return store.snapshots[kind] || null; }
 
 // 日报(按 iso 日期归档)
+function pruneDigests() {
+  const keys = Object.keys(store.digests).sort(); // 升序,旧的在前
+  if (keys.length <= KEEP_DAYS) return 0;
+  const drop = keys.slice(0, keys.length - KEEP_DAYS);
+  for (const k of drop) delete store.digests[k];
+  console.log(`[db] 日报归档裁剪:移除 ${drop.length} 天(保留最近 ${KEEP_DAYS} 天)`);
+  return drop.length;
+}
 export function saveDigest(iso, payload) {
   store.digests[iso] = { payload, created_at: new Date().toISOString() };
+  pruneDigests();
   persist();
 }
 export function getDigest(iso) { return store.digests[iso]?.payload || null; }

@@ -1,4 +1,6 @@
 // 用 Resend 发送邮件。未配置 RESEND_API_KEY 时不发送,仅记录日志(便于先跑通其余功能)。
+import { fetchWithTimeout } from "./http.js";
+
 const FROM = () => process.env.MAIL_FROM || "车企洞察终端 <onboarding@resend.dev>";
 
 export async function sendOne(to, subject, html) {
@@ -7,7 +9,7 @@ export async function sendOne(to, subject, html) {
     console.log(`[mailer] 未配置 RESEND_API_KEY,跳过发送 → ${to}`);
     return { skipped: true };
   }
-  const res = await fetch("https://api.resend.com/emails", {
+  const res = await fetchWithTimeout("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify({ from: FROM(), to: [to], subject, html })

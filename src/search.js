@@ -1,8 +1,10 @@
 // 博查(Bocha)Web Search:为大模型提供干净的中文联网搜索结果。
+import { fetchWithTimeout } from "./http.js";
+
 export async function bochaSearch(query, { count = 8, freshness = "noLimit" } = {}) {
   const key = process.env.BOCHA_API_KEY;
   if (!key) throw new Error("未配置 BOCHA_API_KEY");
-  const res = await fetch("https://api.bochaai.com/v1/web-search", {
+  const res = await fetchWithTimeout("https://api.bochaai.com/v1/web-search", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify({ query, count, freshness, summary: true })

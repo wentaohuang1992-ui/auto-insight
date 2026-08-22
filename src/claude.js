@@ -5,6 +5,7 @@ import { chatJSON } from "./llm.js";
 import { googleNewsItems } from "./news_rss.js";
 import { today, recentIsos } from "./dates.js";
 import { getDigest } from "./db.js";
+import { pool } from "./pool.js";
 
 const FIN_COMPANIES = ["比亚迪", "吉利汽车", "理想汽车", "赛力斯 问界", "长城汽车", "小鹏汽车"];
 
@@ -47,15 +48,17 @@ async function getNews() {
 
   // A:博查(去掉日期、近1天优先)
   const bochaQs = ["汽车 行业 新闻", "新能源汽车 新车 发布 上市", "车企 销量", "汽车 行业 政策 新规", "智能驾驶 自动驾驶", "车企 财报 投资 合作", "新能源汽车 出海 出口"];
-  const bochaBlocks = [];
-  for (const q of bochaQs) {
-    const rs = await bochaFresh(q);
-    if (rs.length) bochaBlocks.push(`### 博查搜索:${q}\n` + rs.map((r, i) => `[${i + 1}] ${r.title || ""} | ${r.site || ""} | ${r.date || ""}\nURL: ${r.url || ""}\n摘要: ${String(r.summary || r.snippet || "").slice(0, 220)}`).join("\n\n"));
-  }
 
-  // B:Google News 实时(最近2天)
-  let gnews = [];
-  try { gnews = await googleNewsItems(["中国 新能源汽车", "新能源汽车 上市 发布", "车企 销量", "智能驾驶 汽车", "汽车 行业 政策"]); } catch (_) {}
+  // A、B 两路并发跑,内部各自限流;此前 7 次博查 + 5 次 Google 全串行,一次日报要等十几秒。
+  const [bochaBlocksRaw, gnews] = await Promise.all([
+    pool(bochaQs, 4, async (q) => {
+      const rs = await bochaFresh(q);
+      if (!rs.length) return null;
+      return `### 博查搜索:${q}\n` + rs.map((r, i) => `[${i + 1}] ${r.title || ""} | ${r.site || ""} | ${r.date || ""}\nURL: ${r.url || ""}\n摘要: ${String(r.summary || r.snippet || "").slice(0, 220)}`).join("\n\n");
+    }),
+    googleNewsItems(["中国 新能源汽车", "新能源汽车 上市 发布", "车企 销量", "智能驾驶 汽车", "汽车 行业 政策"]).catch(() => []),
+  ]);
+  const bochaBlocks = bochaBlocksRaw.filter(Boolean);
   const gnBlock = gnews.length
     ? "### 实时新闻(Google News,最近2天,发布时间最准,请优先采用)\n" + gnews.slice(0, 25).map((it, i) => `[G${i + 1}] ${it.title} | ${it.source || ""} | ${it.dateISO || it.date || ""}\nURL: ${it.url}`).join("\n\n")
     : "";

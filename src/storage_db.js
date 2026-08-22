@@ -3,10 +3,8 @@
 //     caps:[{id,spec,contract,spot,contractMoM,spotMoM}]
 //  feed 情报流 {id,source(tf/cfm/gn),title,url,date,insight,createdAt}
 //  opinion {text,updatedAt}
-import fs from "fs";
-import path from "path";
-const P = process.env.STORAGE_PATH
-  || (process.env.DB_PATH ? path.join(path.dirname(process.env.DB_PATH), "storage.json") : path.join(process.cwd(), "storage.json"));
+import { readStore, writeStore, resolveStorePath } from "./store.js";
+const P = resolveStorePath("STORAGE_PATH", "storage.json");
 const now = () => new Date().toISOString();
 const sid = (p) => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const numArr = (a) => (Array.isArray(a) ? a : String(a || "").split(/[,，\s]+/)).map(x => { const n = parseFloat(x); return isNaN(n) ? null : n; }).filter(x => x != null);
@@ -35,8 +33,8 @@ const OPINION = '近半年存储进入上行周期:**LPDDR5X** 受 AI 终端 + H
 
 function mkCaps(arr) { return arr.map(([spec, c, s, cm, sm]) => ({ id: sid("cap"), spec, contract: c, spot: s, contractMoM: cm, spotMoM: sm })); }
 function blank() { return { categories: [], feed: [], opinion: { text: "", updatedAt: null }, updatedAt: null }; }
-function load() { try { return { ...blank(), ...JSON.parse(fs.readFileSync(P, "utf8")) }; } catch { return blank(); } }
-function save(db) { db.updatedAt = now(); try { fs.mkdirSync(path.dirname(P), { recursive: true }); } catch {} fs.writeFileSync(P, JSON.stringify(db, null, 2)); return db; }
+function load() { return { ...blank(), ...readStore(P, blank) }; }
+function save(db) { db.updatedAt = now(); return writeStore(P, db); }
 
 export function ensureSeeded() {
   const db = load(); let ch = false;

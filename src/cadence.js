@@ -1,5 +1,6 @@
 // 上市节奏:逐个品牌/车系单独检索+抽取(含下半年前瞻词、未定月份按"预计"处理),再合并成大类结果。
 import { research } from "./research.js";
+import { pool } from "./pool.js";
 
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
@@ -43,15 +44,6 @@ A. cars:${who} 2026 年的新车与改款车,**尽量列全**,涵盖已上市/�
 B. lineup:${who}(含子品牌)**当前全部在售车型**(产品谱系,含非2026上市的存量车型),每款给 body(轿车/SUV/MPV,轿跑/旅行归轿车、皮卡归SUV)、price(起售价或区间);若该车型 2026 有新车或改款,填 launchKind(新车/改款)与 launchDate(如3月),否则留空。
 JSON:{"cars":[{"model":"车型名","brand":"品牌","month":1到12数字,"date":"如3月或预计Q3","kind":"新车或改款","estimated":true或false,"hi":true或false,"price":"价格区间或留空","orders":"小定/大定/销量或暂无公开数据","note":"亮点30字内","sources":[{"title":"来源名","url":"真实URL"}]}],"lineup":[{"model":"车型名","body":"轿车/SUV/MPV","price":"价格","hi":true或false,"launchKind":"新车/改款 或留空","launchDate":"如3月 或留空"}]}
 说明:若该车型搭载**华为乾崑智驾(华为 ADS / HI 模式 / 鸿蒙智行)**,hi 设为 true,否则 false(如昊铂A800、岚图/猛士华为版、深蓝华为版等均为 true)。`;
-}
-
-async function pool(items, limit, fn) {
-  const out = []; let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) { const idx = i++; out[idx] = await fn(items[idx]); }
-  });
-  await Promise.all(workers);
-  return out;
 }
 
 const OVERVIEW = {

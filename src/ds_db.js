@@ -4,11 +4,9 @@
 //  chips 国产芯片动向 {id,name,tops,position,status,models,note,sources,manual}
 //  feed 情报流 {id,kind(noa/vis/chip),title,source,url,date,insight,createdAt}
 //  opinion 决策观点 {text,updatedAt}
-import fs from "fs";
-import path from "path";
+import { readStore, writeStore, resolveStorePath } from "./store.js";
 
-const P = process.env.DS_PATH
-  || (process.env.DB_PATH ? path.join(path.dirname(process.env.DB_PATH), "downshift.json") : path.join(process.cwd(), "downshift.json"));
+const P = resolveStorePath("DS_PATH", "downshift.json");
 const now = () => new Date().toISOString();
 const slug = (s) => String(s || "").replace(/\s+/g, "").toLowerCase();
 
@@ -36,8 +34,8 @@ const CHIPS = [
 const OPINION = '当前**高速 NOA + 行泊一体**已凭纯视觉 + 国产芯片下探到 **10–15 万**带；**城市 NOA** 的降本临界点正落在 **15–20 万**——这也是下沉竞争最激烈的战场。对高阶激光雷达方案的供应商而言，真正的较量发生在“15–20 万能不能用得起城市 NOA”。(示例,可编辑)';
 
 function blank() { return { penetration: [], tiers: [], chips: [], feed: [], opinion: { text: "", updatedAt: null }, updatedAt: null }; }
-function load() { try { return { ...blank(), ...JSON.parse(fs.readFileSync(P, "utf8")) }; } catch { return blank(); } }
-function save(db) { db.updatedAt = now(); try { fs.mkdirSync(path.dirname(P), { recursive: true }); } catch {} fs.writeFileSync(P, JSON.stringify(db, null, 2)); return db; }
+function load() { return { ...blank(), ...readStore(P, blank) }; }
+function save(db) { db.updatedAt = now(); return writeStore(P, db); }
 
 export function ensureSeeded() {
   const db = load(); let ch = false;

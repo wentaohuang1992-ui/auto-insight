@@ -2,6 +2,7 @@
 // 数据源即财报(交易所披露),补上 LLM 抓不到的存货/应付/经营现金流等细项。
 // 仅适用 A 股(.SH/.SZ);港股/美股另走他源。利润表/现金流量表为累计→本模块换算为单季;资产负债表取期末。
 import { listCompanies, getAll, upsertQuarterly, slug } from "./fin_db.js";
+import { fetchWithTimeout } from "./http.js";
 
 const F10 = "https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis";
 const HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://emweb.securities.eastmoney.com/" };
@@ -17,7 +18,7 @@ function ymq(rd) { const m = String(rd || "").match(/(\d{4})-(\d{2})/); if (!m) 
 
 async function emGet(path, code) {
   const url = `${F10}/${path}?companyType=4&reportDateType=0&reportType=1&code=${code}`;
-  const r = await fetch(url, { headers: HEADERS });
+  const r = await fetchWithTimeout(url, { headers: HEADERS });
   if (!r.ok) throw new Error(`${path} HTTP ${r.status}`);
   const j = await r.json();
   const data = Array.isArray(j) ? j : (j.data || (j.Result && j.Result.Data) || j.Data || []);
