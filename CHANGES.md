@@ -182,3 +182,134 @@ cron.schedule("10 8 1 * *", () => seedModels()..., ...);
 
 `persistent: false` 是个必须立刻处理的信号。`mtime` 用来确认重新部署之后数据文件
 是原来那份、而不是重新生成的空文件。
+
+---
+
+# 第二轮:日报生成的可靠性
+
+## 问题
+
+`/api/news/archive` 显示 2026-06-17 ~ 08-21 的 66 天里缺了 10 天,失败率 15%:
+
+- `08-01 ~ 08-05` 连续 5 天
+- `07-19 ~ 07-21` 连续 3 天
+- `08-10`、`08-14` 各一天
+
+连续多天断档不像网络抖动,更像配额耗尽 / 密钥失效 / 上游长时间故障。而原来的
+`generateDaily` **失败就是失败了** —— 不重试、不补、不告警,只在日志留一行,
+Railway 日志一滚就再也查不到当时为什么失败。
+
+## 一、失败重试
+
+`generateDigestFor()`:指数退避 20s → 40s,默认重试 2 次(`DIGEST_RETRY_MAX`)。
+
+重点是**跟 `http.js` 的超时配合、不叠加成超长阻塞**。`fetchWithTimeout` 限的是**单个请求**,
+而一次日报生成内部有 7 次博查 + 5 次 Google News,再加 `chatJSON` 的 3 级兜底
+(每级各一个 `LLM_TIMEOUT_MS` = 120s)—— 单次尝试最坏能到 6 分钟以上,再乘以重试次数
+就是小时级阻塞。所以在请求级超时之上加了两道闸:
+
+| 参数 | 默认 | 管什么 |
+| --- | --- | --- |
+| `DIGEST_ATTEMPT_TIMEOUT_MS` | 240s | 一次尝试的上限 |
+| `DIGEST_RETRY_DEADLINE_MS` | 600s | 整轮重试(含退避等待)的上限 |
+
+每次重试前先算剩余预算,不够再跑一次就直接收手。**默认参数下最坏总耗时正好 10 分钟**
+(实测三次尝试分别在 0s / 260s / 540s 发起,最后一次被剩余预算压到 60s)。
+
+两个坑:
+
+- 单次尝试超时后,底层 fetch 是取消不掉的(只有 `http.js` 里的 AbortController 能取消)。
+  所以用 `token.cancelled` 标记,**迟到的结果不许再写库** —— 否则会覆盖掉后来重试成功的那份。
+- 算「单次尝试上限」时不能给剩余预算兜一个下限(`Math.max(30_000, leftMs)`),
+  那等于允许最后一次尝试冲破 deadline。这个写错过,实测跑到了 61s / 78s(deadline 60s),
+  已修正。
+
+## 二、补漏
+
+`backfillDigests()`,在**启动后 15 秒**和**每天日报任务结束后**各跑一次,
+检查最近 `DIGEST_BACKFILL_DAYS`(默认 14)天有没有缺的日期,从最近的往前补。
+
+光有重试挡不住连缺 5 天(当天重试多少次都没用),光有补漏也不划算(抖动本可以当场救回来),
+两层都要。
+
+成本上限(补一天 = 7 次博查 + 一次 DeepSeek,必须卡死):
+
+- 单轮最多补 `DIGEST_BACKFILL_MAX`(默认 3)天,剩下的留给下一轮;
+- **每补一天前调 `guard.js` 的 `overBudget()` 扣全局预算**,没额度就停,不绕过;
+- `DIGEST_BACKFILL=0` 整个关掉;
+- 补漏的重试收敛到 1 次(`DIGEST_BACKFILL_RETRY`)—— 历史日报不值得反复烧钱。
+
+**补出来的日报做了标记**,不与当天正常生成的混同:归档记录里 `source: "backfill"`,
+日报内容里 `backfilled: true` + `backfilled_at`。
+
+这个标记不是形式上的。检索接口只能搜"现在搜得到的",补 3 周前的日报**拿不回那天的
+实时新闻流**。代码里能做的只有:博查窗口从 `oneDay` 放宽到 `oneMonth`、**跳过 Google News**
+(它只有最近两天,拉回来只会把今天的新闻混进历史日报)、提示词里锁死目标日期并要求
+"宁可少给几条也不要用更晚的新闻凑数"。补出来的质量必然不如当天生成,所以要能一眼区分。
+
+另外,**补出来的历史日报不做车型库增量更新** —— 那份内容时间上混杂,拿去改 `models.json`
+只会污染手工维护的数据。
+
+生成和补漏共用一把串行锁:两者都烧额度、都写 `data.json`,不能并发。
+
+## 三、失败留痕
+
+最终仍失败的,把**日期 + 错误原文 + 尝试次数 + 是日常还是补漏**写进 `data.json` 的
+`digestFailures`(环形缓冲,保留最近 `DIGEST_FAILURE_KEEP` 条,默认 50;错误信息截 500 字)。
+写入走 `db.js` → `store.js`,没有绕过存储层。
+
+`/api/health` 的 `digestFailures` 直接能看,`?failures=50` 可以多看几条。
+某天后来被补上了,对应的失败记录会标 `resolvedAt`(**保留痕迹,不删**)。
+
+留痕本身用 try/catch 包住:`data.json` 被 store 锁定时写入会抛错,不能让留痕失败把
+原始错误盖掉。
+
+## 四、`/api/health` 增加 startedAt / uptime
+
+```json
+"startedAt": "2026-08-22T00:31:07.412Z",
+"startedAtLocal": "2026/8/22 08:31:07",
+"uptimeSec": 11530,
+"uptime": "3 小时 12 分"
+```
+
+由 `process.uptime()` 反推,比模块加载时刻准。**改完环境变量对一下这个时间**:
+如果 `startedAt` 早于你改配置的时刻,那就是压根没重启,而不是配置写错了。
+
+顺带加了 `digest` 段:今天生成了没、最近 14 天还缺哪几天(`missingRecent`)、
+上一轮补漏干了什么(`lastBackfill`,含中途停手的原因)。
+
+## 向后兼容
+
+- `data.json` 结构没改,只加了一个顶层键 `digestFailures`。老文件里没有这个键,
+  靠 `db.js` 里 `{ ...blank(), ...readStore(FILE, blank) }` 的展开顺序自动补上,**不需要迁移**。
+- 归档记录只在**补漏**时才写 `source` 字段,当天正常生成的记录形状和历史数据完全一致。
+- `listDigests()` 对老记录返回 `source: "daily"`。前端不用改。
+- `generateDaily()` 的对外签名和行为不变(仍是生成 + 返回日报数据,失败抛错)。
+
+## 新增接口
+
+```
+POST /api/news/backfill    手动触发一轮补漏(需要 ADMIN_TOKEN)
+```
+
+平时用不到 —— 启动时和每天日报后会自动跑。这个口子是给"刚修好上游、不想等到明早"用的。
+预算和单轮上限仍由 `backfillDigests` 内部把关,没有为它开后门。
+
+## 关于历史上那 10 天
+
+按默认的 14 天窗口,**只有 `08-14` 和 `08-10` 会被自动补上** —— 8 月初那 5 连缺和 7 月那 3 天
+已经超出窗口。要把它们也补回来,临时把 `DIGEST_BACKFILL_DAYS` 调到 40 左右再重启,
+或者调几次 `POST /api/news/backfill`(单轮仍只补 3 天,需要跑几轮)。补完记得调回 14。
+
+## 修改文件
+
+```
+新增  CLAUDE.md            项目架构 / 数据流 / 模块职责 / 必须遵守的约定
+修改  src/cron.js          重试 / 补漏 / 串行锁 / 失败留痕(本轮主要改动)
+修改  src/db.js            digestFailures + 归档来源标记 + digestIsoSet
+修改  src/claude.js        getNews 支持目标日期(补漏模式:放宽窗口、跳过 Google News)
+修改  src/dates.js         抽出 isosBefore、新增 isoToCn
+修改  server.js            health 加 startedAt/uptime/digest/digestFailures;补漏接口
+修改  README.md  .env.example
+```

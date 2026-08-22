@@ -4,8 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
-import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests } from "./src/db.js";
-import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily } from "./src/cron.js";
+import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures } from "./src/db.js";
+import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
 import { seedModels, seedOneBrand } from "./src/models_seed.js";
@@ -23,6 +23,18 @@ import { apiGuard, adminConfigured, tooSoon, overBudget, budgetLeft, cleanName }
 import { lockedStores, storageInfo } from "./src/store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// 进程真实启动时刻(由 process.uptime() 反推,比模块加载时刻准)。
+// 用途:排查"改了环境变量到底生效没有"时,能一眼看出当前进程是什么时候起来的 ——
+// 如果 startedAt 早于改环境变量的时间,那就是还没重启,而不是配置写错了。
+const STARTED_AT = new Date(Date.now() - process.uptime() * 1000);
+function humanUptime(sec) {
+  const s = Math.floor(sec), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d) return `${d} 天 ${h} 小时 ${m} 分`;
+  if (h) return `${h} 小时 ${m} 分`;
+  if (m) return `${m} 分 ${s % 60} 秒`;
+  return `${s} 秒`;
+}
 const app = express();
 app.set("trust proxy", 1); // Railway 等平台在前面有反向代理,限流需要真实 IP
 app.use(express.json());
@@ -82,6 +94,24 @@ app.get("/api/news", (req, res) => {
     .then((d) => res.json(d)).catch(fail(res));
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
+// 手动触发补漏(需要 ADMIN_TOKEN,走 apiGuard)。平时不用调:启动时和每天日报任务后
+// 会自动跑。这个口子是给"刚修好上游、不想等到明早"的场合用的。
+// 预算与单轮上限由 backfillDigests 内部把关,这里不额外放行。
+app.post("/api/news/backfill", (req, res) => {
+  // 补漏关着的时候,backfillDigests 内部会直接跳过。要是这里照样回 202「已启动」,
+  // 调用方会以为触发成功了,其实什么都没发生 —— 所以先在门口挡掉。
+  if (!digestStatus().backfillEnabled) {
+    return res.status(409).json({ error: "补漏已关闭(DIGEST_BACKFILL=0);要用请改环境变量并重启服务" });
+  }
+  const key = "digest-backfill";
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已触发过,请 ${wait} 秒后再试` });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  backfillDigests("手动触发")
+    .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
+    .catch((e) => { console.error("[digest-backfill]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
+});
 app.get("/api/news/:iso", (req, res) => {
   const d = getDigest(req.params.iso);
   if (!d) return res.status(404).json({ error: "未找到该日期的日报" });
@@ -253,14 +283,26 @@ app.get("/api/refresh/status", (req, res) => {
 
 app.get("/api/health", (req, res) => {
   const locked = lockedStores();
+  const upSec = process.uptime();
+  const failLimit = Math.min(50, Math.max(1, Number(req.query?.failures) || 10));
   res.json({
     ok: locked.length === 0,
     model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
     search: "bocha",
+    // 进程什么时候起来的。改完环境变量后对一下这个时间就知道有没有真的重启过。
+    startedAt: STARTED_AT.toISOString(),
+    startedAtLocal: STARTED_AT.toLocaleString("zh-CN", { timeZone: process.env.CRON_TZ || "Asia/Shanghai" }),
+    uptimeSec: Math.round(upSec),
+    uptime: humanUptime(upSec),
     adminToken: adminConfigured() ? "已配置" : "未配置(写接口对外开放)",
     jobBudgetLeft: budgetLeft(), // 本小时还能触发多少次抓取任务
     storage: storageInfo(),       // persistent:false 表示数据在临时盘,重新部署就会丢
     lockedStores: locked, // 非空表示某个数据文件损坏、已停止写入,需要人工处理
+    // 日报健康度:今天生成了没、最近哪几天还缺、上一轮补漏干了什么
+    digest: digestStatus(),
+    // 最近 N 次日报生成失败(默认 10,?failures=50 可多看几条)。
+    // 有了这个就不用去翻 Railway 日志:失败日期 + 错误原文 + 试了几次都在这。
+    digestFailures: listDigestFailures(failLimit),
   });
 });
 
