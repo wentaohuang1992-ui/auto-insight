@@ -13,6 +13,8 @@ import { brandMarket } from "./src/market.js";
 import * as findb from "./src/fin_db.js";
 import { seedAllFin, seedOneCompanyFin } from "./src/fin_seed.js";
 import { seedCompanyEM, seedAllEM, pickAShare } from "./src/fin_em.js";
+import { seedCompanyHK, seedAllHK, pickHK } from "./src/fin_hk.js";
+import { importSeed } from "./src/fin_import.js";
 import * as dsdb from "./src/ds_db.js";
 import { updateDownshift } from "./src/ds_seed.js";
 import * as clouddb from "./src/cloud_db.js";
@@ -207,6 +209,45 @@ app.post("/api/fin/em-seed-company", (req, res) => {
   res.status(202).json({ status: "started", key });
 });
 
+// 港股 F10(补 A 股源覆盖不到的 6 家:奇瑞/吉利/理想/零跑/小鹏/蔚来)·试抓预览,不保存
+app.get("/api/fin/hk-probe", (req, res) => {
+  const name = String(req.query?.company || "").trim();
+  if (!name) return res.status(400).json({ error: "缺少 company,例:/api/fin/hk-probe?company=吉利汽车" });
+  seedCompanyHK(name, { save: false, halfYear: req.query?.halfYear === "1" })
+    .then((d) => res.json(d)).catch((e) => res.status(500).json({ error: e.message }));
+});
+// 港股 F10·抓取入库(定向、异步,存为草稿 manual:false)
+app.post("/api/fin/hk-seed-company", (req, res) => {
+  const name = String(req.body?.company || "").trim();
+  if (!name) return res.status(400).json({ error: "缺少 company" });
+  const key = "hkcompany:" + name;
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已抓取过 ${name},请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  seedCompanyHK(name, { save: true, halfYear: req.body?.halfYear === true })
+    .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
+    .catch((e) => { console.error("[hk-seed-company]", name, e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "抓取失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+
+// —— 种子导入(交易所/监管接口直采 + 媒体交叉核对的一批历史季度数据) ——
+// 预览:只算不写,看清楚要插多少、覆盖多少、有几条因为你手改过而保留
+app.get("/api/fin/import-preview", (req, res) => {
+  try { res.json(importSeed({ apply: false, company: req.query?.company || null })); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+// 落库:必须显式 apply:true。手改过的记录(manual:true)默认不覆盖。
+app.post("/api/fin/import", (req, res) => {
+  try {
+    res.json(importSeed({
+      apply: req.body?.apply === true,
+      company: req.body?.company || null,
+      overwriteManual: req.body?.overwriteManual === true,
+    }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ===== 中低端智驾市场洞察 =====
 app.get("/api/downshift", (req, res) => { try { res.json(dsdb.getAll()); } catch (e) { fail(res)(e); } });
 app.put("/api/downshift/penetration/:id", (req, res) => { const r = dsdb.putPenetration(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
@@ -263,7 +304,9 @@ app.post("/api/models/seed-brand", (req, res) => {
   res.status(202).json({ status: "started", key });
 });
 
-const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels, "fin-seed": seedAllFin };
+const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels, "fin-seed": seedAllFin,
+  // 港股全量:只跑没有 A 股代码的那几家,不和东方财富 A 股源抢同一家
+  "fin-hk": () => seedAllHK({ halfYear: false }) };
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");
   const run = RUNNERS[what];

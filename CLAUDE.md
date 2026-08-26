@@ -76,6 +76,10 @@ src/
   db.js                主库 data.json:订阅者 / 板块快照 / 日报归档 / 日报失败记录
   models_db.js fin_db.js ds_db.js cloud_db.js storage_db.js   各板块数据库
   *_seed.js            各板块的抓取入库任务
+  fin_em.js            东方财富 F10 抓取(**A 股**,宽表)→ 累计换单季 → 季度表
+  fin_hk.js            东方财富 F10 抓取(**港股**,长表按科目名折叠)→ 同上。
+                       补 fin_em 覆盖不到的 6 家:奇瑞/吉利/理想/零跑/小鹏/蔚来
+  fin_import.js        一次性种子导入(交易所直采 + 媒体交叉核对),读 seed/fin_import.json
   digest.js mailer.js  日报邮件渲染 / 发送(Resend)
 
 public/                前端单页 + 4 个板块脚本 + api-auth.js(自动带令牌头)
@@ -83,6 +87,8 @@ public/                前端单页 + 4 个板块脚本 + api-auth.js(自动带�
 
 数据文件(默认都在 `DB_PATH` 所在目录):
 `data.json`(主库)、`models.json`、`financials.json`、`downshift.json`、`cloud.json`、`storage.json`。
+
+仓库内还有 `seed/fin_import.json` —— 一次性导入用的种子,不是运行时数据文件,不会被写。
 
 ---
 

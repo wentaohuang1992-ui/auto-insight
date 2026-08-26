@@ -313,3 +313,119 @@ POST /api/news/backfill    手动触发一轮补漏(需要 ADMIN_TOKEN)
 修改  server.js            health 加 startedAt/uptime/digest/digestFailures;补漏接口
 修改  README.md  .env.example
 ```
+
+---
+
+# 财报数据源扩展 — 港股源 + 种子导入（2026-08-26）
+
+## 问题
+
+`fin_em.js` 的 `pickAShare` 只认 `.SH/.SZ`，预置的 15 家车企里有 **6 家拿不到结构化报表**：
+
+| 车企 | 代码 | 身份 |
+| --- | --- | --- |
+| 奇瑞汽车 | 09973.HK | **核心客户**（智界） |
+| 吉利汽车 | 00175.HK | 竞品 |
+| 理想汽车 | 02015.HK / LI | 竞品 |
+| 零跑汽车 | 09863.HK | 竞品 |
+| 小鹏汽车 | 09868.HK / XPEV | 竞品 |
+| 蔚来汽车 | 09866.HK / NIO | 竞品 |
+
+这几家此前只能靠 DeepSeek 检索起草或手工录入 —— 既烧额度，又拿不到存货/应付/总资产这些细项。
+
+## 一、新增港股源 `src/fin_hk.js`
+
+东方财富港股 F10，与 `fin_em.js` 同一套「累计 → 单季」逻辑、同一个 `upsertQuarterly` 出口。
+三点与 A 股源不同，都在文件头注释里写了：
+
+1. **港股接口是长表**（一行一个会计科目 `ITEM_NAME`/`AMOUNT`），不是宽表，得按科目名折叠。
+   科目名映射表在 `INCOME_MAP` / `BALANCE_MAP`，没认出来的科目会出现在 probe 响应的 `unmapped` 里，
+   补一条正则就多一个字段。
+2. **港股不强制季报**。只有中报+年报的公司差分不出单季，**默认跳过而不是硬塞**；
+   要按半年口径入库得显式传 `halfYear`，入库时会在 `note` 里标明「本条覆盖两个季度，
+   比率类指标可用，绝对值不要与单季公司横比」。
+   （实测吉利、奇瑞都有 `2026-03-31` 这一期，能差分出真单季。）
+3. **现金流量表的 reportName 没找到** —— 试过 `RPT_HKF10_FN_CASHFLOW` /
+   `_CASHFLOWSHEET` / `_CASHFLOWSTATEMENT` 都返回「报表配置不存在」。
+   所以港股来源的 `ocf` / `financingCF` 目前为空。哪天找到了，设环境变量
+   `HK_CASHFLOW_REPORT=<reportName>` 就自动接上，不用改代码。
+
+另外：**同时有 A 股代码的车企，港股按钮不出现**。原因是两个上市主体不一定是同一个合并范围
+（北汽：600733 北汽蓝谷 vs 1958 北京汽车），混着抓会把两家的数字写进同一条记录。
+API 直接调时会在 `warn` 里提示。
+
+接口（与 A 股源对称）：
+
+- `GET  /api/fin/hk-probe?company=吉利汽车[&halfYear=1]` — 试抓预览，不保存（已加进 `guard.js` 的 `GUARDED_GET`，要令牌）
+- `POST /api/fin/hk-seed-company` `{company, halfYear?}` — 抓取入库，异步，`manual:false`
+- `POST /api/refresh` `{what:"fin-hk"}` — 全量，只跑没有 A 股代码的那几家
+
+前端在车企基础行加了「↻ 港股抓取」按钮，只对有 `.HK` 且无 A 股代码的车企显示。
+
+## 二、新增种子导入 `src/fin_import.js` + `seed/fin_import.json`
+
+83 条季度记录、13 家车企（2024Q3–2026Q2），来自另一条链路：交易所与监管接口直采
+（东方财富 A股/港股 F10、SEC EDGAR XBRL、巨潮、港交所披露易）+ 财经媒体交叉核对。
+每条都带 `sources`。
+
+补的是三大报表里没有、或此前拿不到的东西：
+
+- **季度销量 `sales`** —— 单车指标的分母，报表里没有
+- **港股公司的历史季度** —— fin_em 覆盖不到
+- **四个新增可选字段**：`netProfitEx` 扣非归母 / `govGrant` 政府补助 /
+  `jvIncome` 合联营投资收益 / `overseasPct` 海外收入占比。
+  前三个合起来回答一个问题：这家的利润是主业赚的，还是补助和投资收益撑起来的。
+
+按 CLAUDE.md 第 4 条，这四个只加进 `fin_db.cleanQ` 的键列表，不改任何已有字段的含义；
+老记录读出来是 `undefined` → `NUM()` 转成 `null`，既有逻辑不受影响，不需要迁移。
+
+三条纪律写死在代码里：
+
+1. 一律 `manual:false` 入库 —— `upsertQuarterly` 自动跳过你手改过的记录，导入不会覆盖人工核对过的数字；
+2. **默认 dry-run**，必须显式 `apply:true` 才写库；
+3. 生成种子时差分不出单季的期间**直接跳过不猜**（25 条），跳过原因写在 `seed/fin_import.json` 的 `skipped` 里。
+
+接口：
+
+- `GET  /api/fin/import-preview[?company=]` — 预演：要插多少、覆盖多少、几条因手改而保留
+- `POST /api/fin/import` `{apply:true, company?, overwriteManual?}` — 落库
+
+**「东风」故意没有导入**：auto-insight 里的东风是 600006.SH 东风汽车股份，
+另一边的数据是 00489.HK 东风集团股份（已于 2026-03-18 私有化退市），两个不同主体。
+这条写在种子文件的 `notMapped` 里。
+
+## 三、实测
+
+在容器里起服务跑通（假 DB_PATH，未连外网）：
+
+| 用例 | 结果 |
+| --- | --- |
+| `import-preview` | 83 条待插、0 覆盖、0 未知车企 |
+| `import {apply:true}` | 写入 83 条；奇瑞 2026Q1 营收 658.70 亿 / 归母 41.70 亿 —— 与独立抓的港股 F10 逐位一致 |
+| 手改一条后重新导入 | `saved 82, skippedManual 1`，手改值 999 被保住，`manual` 仍为 true |
+| 写接口无令牌 | 401 |
+| `hk-probe` 无令牌 | 401（`GUARDED_GET` 生效） |
+| `hk-probe` 传非港股车企 | 500 +「没有港股代码(.HK),港股源不适用:长安汽车」 |
+| 出站被拦时 | 干净报错、不挂起、进程存活（容器出网白名单挡住了东方财富） |
+| 原有接口 | `/api/health`、`/api/fin`、`/api/models` 全部 200，行为未变 |
+
+## 新增/修改文件
+
+| 文件 | 动作 |
+| --- | --- |
+| `src/fin_hk.js` | 新增 |
+| `src/fin_import.js` | 新增 |
+| `seed/fin_import.json` | 新增（83 条季度记录 + 口径说明 + 跳过清单） |
+| `server.js` | 加 4 条路由 + `fin-hk` 全量任务，其余未动 |
+| `src/fin_db.js` | `cleanQ` 加 4 个可选字段键 |
+| `src/guard.js` | `GUARDED_GET` 加 `/fin/hk-probe` |
+| `public/fin-board.js` | 加「↻ 港股抓取」按钮 + `seedCompanyHK()` |
+| `CLAUDE.md` | 模块清单补 3 行 |
+
+## 遗留
+
+- **港股现金流量表拿不到**（reportName 未知），`ocf`/`financingCF` 对这 6 家为空。
+  前端「现金流与还款风险」主题对这几家会缺一项，评分要留意。
+- 种子里 `govGrant` / `jvIncome` / `overseasPct` 覆盖稀疏 —— A 股来源的「其他收益」科目
+  只是政府补助的近似，精确值要翻财报附注。
+- 前端还没有展示新增四个字段的位置，目前只入库不显示。

@@ -16,7 +16,7 @@ const TOKEN = (process.env.ADMIN_TOKEN || "").trim();
 // 挂载在 /api 下,因此这里的路径不含 /api 前缀
 const PUBLIC_WRITE = new Set(["/detail", "/subscribe"]);
 // 会打外部接口/花钱的 GET
-const GUARDED_GET = [/^\/fin\/em-probe/];
+const GUARDED_GET = [/^\/fin\/em-probe/, /^\/fin\/hk-probe/];
 
 // 按 IP 限流的公开接口。/detail 每次要打 2 次博查 + 1 次 LLM,/brand-market 每个
 // 没见过的品牌名都会触发一次 LLM 小结 —— 都是公开可调的花钱路径,必须限。

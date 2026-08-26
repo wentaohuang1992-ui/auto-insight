@@ -62,7 +62,11 @@ const NUM = (v) => { const n = typeof v === "number" ? v : parseFloat(v); return
 function cleanQ(r) {
   const o = {};
   for (const k of ["revenue", "netProfit", "operatingCost", "inventory", "ap", "rdSpend",
-    "ocf", "cash", "stDebt", "ltDebt", "ar", "financingCF", "totalAssets", "totalLiab", "invFinished", "invRaw", "dealerCoef", "rdCap"])
+    "ocf", "cash", "stDebt", "ltDebt", "ar", "financingCF", "totalAssets", "totalLiab", "invFinished", "invRaw", "dealerCoef", "rdCap",
+    // —— 2026-08 新增可选字段(只加不改;老记录读出来是 undefined → NUM 转成 null,既有逻辑不受影响) ——
+    // netProfitEx 扣非归母 / govGrant 政府补助 / jvIncome 合联营投资收益 / overseasPct 海外收入占比(%)
+    // 前三个合起来回答一个问题:这家的利润是主业赚的,还是补助和投资收益撑起来的。
+    "netProfitEx", "govGrant", "jvIncome", "overseasPct"])
     o[k] = NUM(r[k]);
   o.sales = r.sales == null ? null : Math.round(NUM(r.sales) || 0);
   o.retailReg = r.retailReg == null ? null : Math.round(NUM(r.retailReg) || 0);

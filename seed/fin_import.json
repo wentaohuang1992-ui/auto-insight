@@ -1,0 +1,2377 @@
+{
+  "generatedAt": "2026-08-26",
+  "origin": "auto-db v1.1（一手接口采集 + 媒体来源交叉核对）",
+  "caliber": "集团合并口径、GAAP 归母、单季、金额单位亿元、销量单位辆",
+  "companyMapping": {
+    "seres": "赛力斯",
+    "baic_bluepark": "北汽",
+    "chery": "奇瑞汽车",
+    "saic": "上汽集团",
+    "jac": "江淮",
+    "changan": "长安汽车",
+    "gac": "广汽集团",
+    "byd": "比亚迪",
+    "geely": "吉利汽车",
+    "gwm": "长城汽车",
+    "liauto": "理想汽车",
+    "leapmotor": "零跑汽车",
+    "xpeng": "小鹏汽车",
+    "nio": "蔚来汽车"
+  },
+  "notMapped": {
+    "东风": "auto-insight 的「东风」是 600006.SH 东风汽车股份；auto-db 的 dongfeng 是 00489.HK 东风集团股份（2026-03 私有化退市）。两个不同主体，不导入。"
+  },
+  "skipped": [
+    "北汽 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "北汽 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "比亚迪 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "比亚迪 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "长安汽车 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "长安汽车 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "奇瑞汽车 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "广汽集团 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "广汽集团 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "吉利汽车 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "吉利汽车 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "吉利汽车 2025Q2：缺 2025Q1 累计数，无法差分成单季，跳过（不猜）",
+    "吉利汽车 2025Q4：缺 2025Q3 累计数，无法差分成单季，跳过（不猜）",
+    "吉利汽车 2026Q2：缺 2026Q1 累计数，无法差分成单季，跳过（不猜）",
+    "长城汽车 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "长城汽车 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "江淮 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "江淮 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "零跑汽车 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "零跑汽车 2025Q2：缺 2025Q1 累计数，无法差分成单季，跳过（不猜）",
+    "零跑汽车 2025Q4：缺 2025Q3 累计数，无法差分成单季，跳过（不猜）",
+    "上汽集团 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "上汽集团 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）",
+    "赛力斯 2024Q2：缺 2024Q1 累计数，无法差分成单季，跳过（不猜）",
+    "赛力斯 2024Q4：缺 2024Q3 累计数，无法差分成单季，跳过（不猜）"
+  ],
+  "rows": [
+    {
+      "company": "上汽集团",
+      "year": 2025,
+      "q": 1,
+      "revenue": 1408.6,
+      "operatingCost": 1296.67,
+      "netProfit": 30.23,
+      "rdSpend": 38.81,
+      "ocf": 39.99,
+      "inventory": 796.4,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 28.5,
+      "govGrant": null,
+      "jvIncome": 15.39,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "上汽集团(600104)利润表 2025年一季度",
+          "url": "https://vip.stock.finance.sina.com.cn/corp/go.php/vFD_ProfitStatement/stockid/600104/ctrl/2025/displaytype/4.phtml"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "上汽集团",
+      "year": 2025,
+      "q": 2,
+      "revenue": 1587.28,
+      "operatingCost": 1454.48,
+      "netProfit": 29.95,
+      "rdSpend": 42.85,
+      "ocf": 170.38,
+      "inventory": 758.57,
+      "ap": 2305.53,
+      "cash": 1910.34,
+      "totalAssets": 9256.57,
+      "totalLiab": 5692.17,
+      "sales": null,
+      "netProfitEx": 25.81,
+      "govGrant": null,
+      "jvIncome": 10.88,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "上海汽车集团股份有限公司2025年半年度报告",
+          "url": "https://www.saicmotor.com/chinese/images/tzzgx/ggb/dqgg/2025ndqgg/2025/8/28/66C9B3BCABCF420ABAB34D9A29AB1ED8.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "上汽集团",
+      "year": 2025,
+      "q": 3,
+      "revenue": 1694.02,
+      "operatingCost": 1543.91,
+      "netProfit": 20.83,
+      "rdSpend": 44.48,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 16.91,
+      "govGrant": null,
+      "jvIncome": 17.82,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "上汽集团(600104)利润表 2025年三季度（前三季度累计）",
+          "url": "https://vip.stock.finance.sina.com.cn/corp/go.php/vFD_ProfitStatement/stockid/600104/ctrl/2025/displaytype/4.phtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "上汽集团",
+      "year": 2025,
+      "q": 4,
+      "revenue": 1872.5381,
+      "operatingCost": 1615.2969,
+      "netProfit": 20.048,
+      "rdSpend": 54.9006,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 3.0089,
+      "govGrant": null,
+      "jvIncome": 13.6682,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "上汽集团 2025FY 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22600104.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "medium"
+    },
+    {
+      "company": "上汽集团",
+      "year": 2026,
+      "q": 1,
+      "revenue": 1404.1788,
+      "operatingCost": 1226.4858,
+      "netProfit": 30.2602,
+      "rdSpend": 40.2248,
+      "ocf": 319.85,
+      "inventory": 825.1,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 27.7557,
+      "govGrant": 9.1333,
+      "jvIncome": 11.5525,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "上汽集团 2026Q1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22600104.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "2026Q1 累计即单季；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "北汽",
+      "year": 2025,
+      "q": 1,
+      "revenue": 37.73,
+      "operatingCost": 40.56,
+      "netProfit": -9.53,
+      "rdSpend": null,
+      "ocf": -2.37,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "北汽蓝谷(600733.SH)：2025年一季报净利润为-9.53亿元，同比亏损减少",
+          "url": "https://m.jiemian.com/article/12723531.html"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "北汽",
+      "year": 2025,
+      "q": 2,
+      "revenue": 57.44,
+      "operatingCost": 59.82,
+      "netProfit": -13.55,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "北汽蓝谷（600733）2025年中报简析：营收上升亏损收窄，短期债务压力上升",
+          "url": "https://news.qq.com/rain/a/20250817A01BDW00"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "medium"
+    },
+    {
+      "company": "北汽",
+      "year": 2025,
+      "q": 3,
+      "revenue": 58.67,
+      "operatingCost": null,
+      "netProfit": -11.18,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "北汽蓝谷前三季度营收153.84亿元同比增56.69%，归母净利润-34.26亿元同比增23.73%，销售费用同比增长1.83%",
+          "url": "https://finance.sina.com.cn/stock/aiassist/yjbg/2025-10-24/doc-infuyvpk8407827.shtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "北汽",
+      "year": 2025,
+      "q": 4,
+      "revenue": 125.5619,
+      "operatingCost": null,
+      "netProfit": -11.3733,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "北汽蓝谷 2025FY 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22600733.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "medium"
+    },
+    {
+      "company": "北汽",
+      "year": 2026,
+      "q": 1,
+      "revenue": 40.9929,
+      "operatingCost": 39.7477,
+      "netProfit": -8.7044,
+      "rdSpend": 5.2781,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 29000,
+      "netProfitEx": -8.7884,
+      "govGrant": 0.0875,
+      "jvIncome": -0.0544,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "北汽蓝谷 2026Q1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22600733.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "2026Q1 累计即单季；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "北汽",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": -9.9956,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 72599,
+      "netProfitEx": -10.1616,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "享界仍处战略投入期 本期经营亏损！北汽蓝谷上半年预亏17.7到19.7亿元",
+          "url": "https://finance.sina.com.cn/tech/roll/2026-07-13/doc-inihsckz2201700.shtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2026H1 − 2026Q1；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "奇瑞汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 682.24,
+      "operatingCost": 597.66,
+      "netProfit": 46.5,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "营收降3.45%、毛利增超两成！奇瑞汽车一季度净利润41.7亿元，海外销量占比超六成",
+          "url": "https://finance.sina.cn/2026-04-29/detail-inhwenax0905761.d.html"
+        }
+      ],
+      "note": "2025Q1 累计即单季；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "奇瑞汽车",
+      "year": 2025,
+      "q": 2,
+      "revenue": 733.57,
+      "operatingCost": 633.94,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 46.3,
+      "sources": [
+        {
+          "title": "海外收入增51%！奇瑞汽车上半年营收1432.80亿元，同比增长1.2%",
+          "url": "https://www.163.com/dy/article/L4PIEA4Q0519APGA.html"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "奇瑞汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 732.52,
+      "operatingCost": null,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "奇瑞汽车(09973)前三季度母公司拥有人应占溢利为143.65亿元，同比增长28.01%",
+          "url": "https://finance.stockstar.com/IG2025103100025198.shtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "medium"
+    },
+    {
+      "company": "奇瑞汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": 854.54,
+      "operatingCost": null,
+      "netProfit": 46.54,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": 367.52,
+      "ap": 1102.13,
+      "cash": 469.55,
+      "totalAssets": 2593.47,
+      "totalLiab": 2085.49,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 52.4,
+      "sources": [
+        {
+          "title": "奇瑞汽车股份有限公司2025年度业绩公告",
+          "url": "https://stockn.xueqiu.com/09973/20260318562046.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "high"
+    },
+    {
+      "company": "奇瑞汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 658.7,
+      "operatingCost": 553.06,
+      "netProfit": 41.7,
+      "rdSpend": 28.5,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 602000,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "营收降3.45%、毛利增超两成！奇瑞汽车一季度净利润41.7亿元，海外销量占比超六成",
+          "url": "https://finance.sina.cn/2026-04-29/detail-inhwenax0905761.d.html"
+        }
+      ],
+      "note": "2026Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "奇瑞汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": 774.1,
+      "operatingCost": 649.3,
+      "netProfit": 43.97,
+      "rdSpend": 38.22,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 634.19,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 755500,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 69.1,
+      "sources": [
+        {
+          "title": "奇瑞汽車2026半年報：盈利跑出行業優勢 雙輪驅動打開成長空間",
+          "url": "https://www.hkcd.com/hkcdweb/content/2026/08/20/content_8770678.html"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2026H1 − 2026Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2024,
+      "q": 3,
+      "revenue": 101,
+      "operatingCost": 85.6,
+      "netProfit": -18.1,
+      "rdSpend": 16.3,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 357.5,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 46533,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏汽车季报图解：营收破百亿，交付46533辆，净亏18.1亿",
+          "url": "https://finance.sina.com.cn/tech/csj/2024-11-19/doc-incwrhch5965941.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2024,
+      "q": 4,
+      "revenue": 161.1,
+      "operatingCost": 137.85,
+      "netProfit": -13.3,
+      "rdSpend": 20.1,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 419.6,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 91507,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏汽车季报图解：营收161亿，交付91507辆车 亏损13.9亿",
+          "url": "https://finance.sina.com.cn/tech/csj/2025-03-18/doc-ineqauth6502089.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 158.1,
+      "operatingCost": 133.44,
+      "netProfit": -6.6,
+      "rdSpend": 19.8,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 452.8,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 94008,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏汽车第一季度营收158亿元 经调净亏损4.3亿元",
+          "url": "https://finance.sina.com.cn/tech/2025-05-21/doc-inexiimz6017882.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2025,
+      "q": 2,
+      "revenue": 182.7,
+      "operatingCost": 151.09,
+      "netProfit": -4.8,
+      "rdSpend": 22.1,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 475.7,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 103181,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏汽车第二季度营收183亿元 经调净亏损3.9亿元",
+          "url": "https://finance.sina.com.cn/stock/usstock/c/2025-08-19/doc-infmpizc7601805.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 203.8,
+      "operatingCost": 162.84,
+      "netProfit": -3.8,
+      "rdSpend": 24.3,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 483.3,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 116007,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "三季度收入首破200亿，小鹏就快止损了",
+          "url": "https://m.thepaper.cn/newsDetail_forward_31991420"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": 222.5,
+      "operatingCost": 175.1,
+      "netProfit": 3.83,
+      "rdSpend": 28.7,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 476.6,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 116249,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏汽车季报图解：营收223亿净利3.8亿，扭亏为盈 交付116249辆车",
+          "url": "https://finance.sina.com.cn/tech/csj/2026-03-20/doc-inhrrvnp7983504.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 130.3,
+      "operatingCost": 103.47,
+      "netProfit": -17.8,
+      "rdSpend": 29.1,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 420.9,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 62682,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏季报图解：营收130亿 何小鹏称Robotaxi和人形机器人今年量产",
+          "url": "https://finance.sina.com.cn/wm/2026-05-28/doc-inhzmyer8226173.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "小鹏汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 103295,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "小鹏集团-W：6月共交付新车40126辆 第二季度累计交付量达103295辆",
+          "url": "https://finance.sina.com.cn/stock/hkstock/ggscyd/2026-07-02/doc-inifkiye5928779.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "广汽集团",
+      "year": 2025,
+      "q": 1,
+      "revenue": 198.79,
+      "operatingCost": 198.37,
+      "netProfit": -7.32,
+      "rdSpend": 3.77,
+      "ocf": -112.1,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": -8.93,
+      "govGrant": null,
+      "jvIncome": 10.94,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "广州汽车集团股份有限公司2026年第一季度报告（2025年同期比较数）",
+          "url": "https://stockmc.xueqiu.com/202604/601238_20260430_ZSDY.pdf"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "广汽集团",
+      "year": 2025,
+      "q": 2,
+      "revenue": 227.32,
+      "operatingCost": 235.03,
+      "netProfit": -18.06,
+      "rdSpend": 3.29,
+      "ocf": 4.41,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": -20.52,
+      "govGrant": null,
+      "jvIncome": 8.29,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "广州汽车集团股份有限公司2025年半年度报告摘要",
+          "url": "https://file.finance.qq.com/finance/hs/pdf/2025/08/30/1224623039.PDF"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "广汽集团",
+      "year": 2025,
+      "q": 3,
+      "revenue": 243.18,
+      "operatingCost": 250.25,
+      "netProfit": -17.74,
+      "rdSpend": 2.99,
+      "ocf": -0.57,
+      "inventory": 144.62,
+      "ap": 336.81,
+      "cash": 380.02,
+      "totalAssets": 2129.09,
+      "totalLiab": 964.8,
+      "sales": null,
+      "netProfitEx": -18.3,
+      "govGrant": null,
+      "jvIncome": 9.52,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "广州汽车集团股份有限公司2025年第三季度报告",
+          "url": "https://stockmc.xueqiu.com/202510/601238_20251025_YFI0.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "广汽集团",
+      "year": 2025,
+      "q": 4,
+      "revenue": 296.13,
+      "operatingCost": 294.51,
+      "netProfit": -44.72,
+      "rdSpend": 6.34,
+      "ocf": -42,
+      "inventory": 164.46,
+      "ap": 286.31,
+      "cash": 387.76,
+      "totalAssets": 2149.43,
+      "totalLiab": 1052.6,
+      "sales": null,
+      "netProfitEx": -50.88,
+      "govGrant": null,
+      "jvIncome": -3.9,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "广州汽车集团股份有限公司2025年年度报告摘要",
+          "url": "https://stockmc.xueqiu.com/202603/601238_20260328_DFMD.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "high"
+    },
+    {
+      "company": "广汽集团",
+      "year": 2026,
+      "q": 1,
+      "revenue": 200.39,
+      "operatingCost": 202.17,
+      "netProfit": -6.56,
+      "rdSpend": 5.36,
+      "ocf": -32.46,
+      "inventory": 204.17,
+      "ap": 304.58,
+      "cash": 456.87,
+      "totalAssets": 2238.59,
+      "totalLiab": 1156.7,
+      "sales": null,
+      "netProfitEx": -13.84,
+      "govGrant": null,
+      "jvIncome": 11.61,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "广州汽车集团股份有限公司2026年第一季度报告",
+          "url": "https://stockmc.xueqiu.com/202604/601238_20260430_ZSDY.pdf"
+        }
+      ],
+      "note": "2026Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "广汽集团",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": -36.59,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": -38.16,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "广汽2026上半年预亏40.6亿至45.7亿元",
+          "url": "https://m.gasgoo.com/news/70465560.html"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2026H1 − 2026Q1；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "比亚迪",
+      "year": 2025,
+      "q": 1,
+      "revenue": 1703.6,
+      "operatingCost": null,
+      "netProfit": 91.55,
+      "rdSpend": 142.23,
+      "ocf": 85.81,
+      "inventory": 1543.74,
+      "ap": 2526.63,
+      "cash": 1174.07,
+      "totalAssets": 8405.27,
+      "totalLiab": 5943.66,
+      "sales": null,
+      "netProfitEx": 81.72,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "比亚迪股份有限公司2025年第一季度报告",
+          "url": "https://static.cninfo.com.cn/finalpage/2025-04-26/1223309368.PDF"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "比亚迪",
+      "year": 2025,
+      "q": 2,
+      "revenue": 2009.21,
+      "operatingCost": null,
+      "netProfit": 63.56,
+      "rdSpend": 166.57,
+      "ocf": 232.52,
+      "inventory": 1408.39,
+      "ap": null,
+      "cash": 1117.34,
+      "totalAssets": 8463.43,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 54.28,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 36.46,
+      "sources": [
+        {
+          "title": "比亚迪股份有限公司2025年半年度报告全文",
+          "url": "https://static.cninfo.com.cn/finalpage/2025-08-30/1224626653.PDF"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "比亚迪",
+      "year": 2025,
+      "q": 3,
+      "revenue": 1949.85,
+      "operatingCost": null,
+      "netProfit": 78.22,
+      "rdSpend": 128.7,
+      "ocf": 90.17,
+      "inventory": 1529.7,
+      "ap": 2250.1,
+      "cash": 1197.3,
+      "totalAssets": 9019.3,
+      "totalLiab": 6435.3,
+      "sales": null,
+      "netProfitEx": 68.9,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "比亚迪股份有限公司2025年第三季度报告",
+          "url": "https://disc.static.szse.cn/disc/disk03/finalpage/2025-10-31/c89cc11c-102b-4a6d-9def-c86d3d508102.PDF"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "比亚迪",
+      "year": 2025,
+      "q": 4,
+      "revenue": 2376.99,
+      "operatingCost": null,
+      "netProfit": 92.86,
+      "rdSpend": 142.28,
+      "ocf": 182.86,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": 8837.3,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 89.56,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 38.65,
+      "sources": [
+        {
+          "title": "比亚迪股份有限公司2025年年度报告全文",
+          "url": "https://static.cninfo.com.cn/finalpage/2026-03-28/1225045351.PDF"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "high"
+    },
+    {
+      "company": "比亚迪",
+      "year": 2026,
+      "q": 1,
+      "revenue": 1502.25,
+      "operatingCost": 1219.83,
+      "netProfit": 40.85,
+      "rdSpend": 113.44,
+      "ocf": 27.9,
+      "inventory": 1604.14,
+      "ap": 2129.32,
+      "cash": 757.87,
+      "totalAssets": 9020.77,
+      "totalLiab": 6399.57,
+      "sales": null,
+      "netProfitEx": 41.48,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "比亚迪股份有限公司2026年第一季度报告",
+          "url": "https://disc.static.szse.cn/download/disc/disk03/finalpage/2026-04-29/3412b15e-4812-4410-8308-183b94f48105.PDF"
+        }
+      ],
+      "note": "2026Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "江淮",
+      "year": 2025,
+      "q": 1,
+      "revenue": 98.18,
+      "operatingCost": 88.33,
+      "netProfit": -2.23,
+      "rdSpend": null,
+      "ocf": -12.94,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": -2.9,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "江淮汽车2025年一季度财报深度分析",
+          "url": "https://www.shidaotec.com/fina-analysis/2025-03-31/600418.html"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "medium"
+    },
+    {
+      "company": "江淮",
+      "year": 2025,
+      "q": 2,
+      "revenue": 95.42,
+      "operatingCost": null,
+      "netProfit": -5.5,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "江淮汽车上半年净亏7.73亿，高端乘用车尊界还未呈现规模效益",
+          "url": "https://m.jiemian.com/article/13245396.html"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "江淮",
+      "year": 2025,
+      "q": 3,
+      "revenue": 115.72,
+      "operatingCost": null,
+      "netProfit": -6.61,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "江淮汽车（600418）2025年三季报简析：净利润同比下降329.43%，三费占比上升明显",
+          "url": "https://stock.stockstar.com/RB2025110100005418.shtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "medium"
+    },
+    {
+      "company": "江淮",
+      "year": 2025,
+      "q": 4,
+      "revenue": 155.44,
+      "operatingCost": 131.82,
+      "netProfit": -2.69,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "江淮汽车2025年营收约464.76亿元，2026年瞄准650亿元营收目标",
+          "url": "https://finance.sina.com.cn/jjxw/2026-04-04/doc-inhtichc3030788.shtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "high"
+    },
+    {
+      "company": "江淮",
+      "year": 2026,
+      "q": 1,
+      "revenue": 114.7718,
+      "operatingCost": 101.7575,
+      "netProfit": -6.0599,
+      "rdSpend": 3.6366,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 84254,
+      "netProfitEx": -7.267,
+      "govGrant": 1.2206,
+      "jvIncome": -1.9986,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "江淮汽车 2026Q1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22600418.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "2026Q1 累计即单季；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "江淮",
+      "year": 2026,
+      "q": 2,
+      "revenue": 107.027,
+      "operatingCost": 95.3782,
+      "netProfit": -1.4294,
+      "rdSpend": 4.1897,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": -2.6418,
+      "govGrant": 1.0326,
+      "jvIncome": 0.6537,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "江淮汽车 2026H1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22600418.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2024,
+      "q": 3,
+      "revenue": 429,
+      "operatingCost": 337,
+      "netProfit": 28,
+      "rdSpend": 26,
+      "ocf": 110,
+      "inventory": null,
+      "ap": null,
+      "cash": 1065,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 152831,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车季报图解：营收429亿，净利28亿 交付152831辆车",
+          "url": "https://finance.sina.com.cn/tech/csj/2024-10-31/doc-incunauc9597563.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2024,
+      "q": 4,
+      "revenue": 443,
+      "operatingCost": 353,
+      "netProfit": 35,
+      "rdSpend": 24,
+      "ocf": 87,
+      "inventory": null,
+      "ap": null,
+      "cash": 1128,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 158696,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车第四季度营收443亿元 经调净利润40亿元",
+          "url": "https://finance.sina.com.cn/tech/2025-03-14/doc-inepritr6793183.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 259,
+      "operatingCost": 206,
+      "netProfit": 6.466,
+      "rdSpend": 25,
+      "ocf": 17,
+      "inventory": null,
+      "ap": null,
+      "cash": 1107,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 92864,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车第一季度营收259亿元 经调净利润10亿元",
+          "url": "https://finance.sina.com.cn/tech/2025-05-29/doc-ineyfkfv8187208.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2025,
+      "q": 2,
+      "revenue": 302,
+      "operatingCost": 241,
+      "netProfit": 11,
+      "rdSpend": 28,
+      "ocf": 30,
+      "inventory": null,
+      "ap": null,
+      "cash": 1069,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 111074,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车第二季度营收302亿元 经调净利润15亿元",
+          "url": "https://finance.sina.com.cn/stock/usstock/c/2025-08-28/doc-infnppuh6848972.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 273.65,
+      "operatingCost": 228.65,
+      "netProfit": -6.24,
+      "rdSpend": 30,
+      "ocf": -74,
+      "inventory": null,
+      "ap": null,
+      "cash": 989,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 93211,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车季报图解：营收274亿 交付93211辆车 加速业务出海",
+          "url": "https://finance.sina.com.cn/tech/csj/2025-11-26/doc-infyture9093093.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": 287.75,
+      "operatingCost": 236.53,
+      "netProfit": 0.202,
+      "rdSpend": 30,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 1012,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 109000,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车：2025年净利润11亿元，下降85.8%",
+          "url": "https://finance.sina.com.cn/stock/zqgd/2026-03-12/doc-inhqtqkh4734016.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 230,
+      "operatingCost": 212,
+      "netProfit": -22.9,
+      "rdSpend": 27,
+      "ocf": -61,
+      "inventory": null,
+      "ap": null,
+      "cash": 943,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 95142,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "理想汽车 2026 财年第一财季归母亏损 22.90 亿元，同比由盈转亏",
+          "url": "https://www.donews.com/news/detail/1/6574112.html"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "理想汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 98300,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "新势力半年考：零跑狂卖35万辆登顶，多数车企折戟半年KPI",
+          "url": "https://finance.sina.com.cn/tech/roll/2026-07-06/doc-inifwmvs1914765.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2024,
+      "q": 3,
+      "revenue": 186.735,
+      "operatingCost": 166.661,
+      "netProfit": -50.597,
+      "rdSpend": 33.187,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 422,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 61855,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来第三季度营收186.7亿元 经调净亏损44亿元",
+          "url": "https://finance.sina.com.cn/tech/2024-11-20/doc-incwteuk5332636.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2024,
+      "q": 4,
+      "revenue": 197.034,
+      "operatingCost": 173.945,
+      "netProfit": -71.115,
+      "rdSpend": 36.358,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 419,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 72689,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来第四季度营收197亿元 经调净亏损66亿元",
+          "url": "https://finance.sina.com.cn/tech/2025-03-21/doc-ineqmfqm9608009.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 120.347,
+      "operatingCost": 111.151,
+      "netProfit": -67.5,
+      "rdSpend": 31.814,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 260,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 42094,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来第一季度营收120亿元 经调净亏损63亿元",
+          "url": "https://finance.sina.com.cn/stock/usstock/c/2025-06-03/doc-ineyvkuw5165058.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2025,
+      "q": 2,
+      "revenue": 190.087,
+      "operatingCost": 171.112,
+      "netProfit": -49.948,
+      "rdSpend": 30.07,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 272,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 72056,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来第二季度营收190亿元 经调净亏损41亿元",
+          "url": "https://finance.sina.com.cn/tech/2025-09-02/doc-infpccsz6751823.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 217.939,
+      "operatingCost": 187.693,
+      "netProfit": -34.805,
+      "rdSpend": 23.906,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 367,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 87071,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来第三季度营收218亿元 经调净亏损27亿元",
+          "url": "https://finance.sina.com.cn/tech/2025-11-25/doc-infyrmiy2945669.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": 346.5,
+      "operatingCost": 285.76,
+      "netProfit": 2.83,
+      "rdSpend": 20.26,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 459,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 124800,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来2025年四季度实现单季经营盈利 全年交付与营收创新高",
+          "url": "https://finance.sina.com.cn/jjxw/2026-03-11/doc-inhqqqfs5688334.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 255.3,
+      "operatingCost": 206.71,
+      "netProfit": -3.32,
+      "rdSpend": 18.85,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 482,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 83465,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "一图看懂｜连续两季盈利！蔚来Q1经营利润0.66亿元，交付量超8万辆；毛利率创近四年新高",
+          "url": "https://www.hstong.com/news/detail/26052116375534352"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "蔚来汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 107658,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "蔚来集团2026年第二季度交付量超10万辆同比增长49.4%：6月交付量增长62.9%",
+          "url": "https://finance.sina.com.cn/wm/2026-07-02/doc-inifntfk0458872.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "赛力斯",
+      "year": 2025,
+      "q": 1,
+      "revenue": 191.47,
+      "operatingCost": 138.59,
+      "netProfit": 7.48,
+      "rdSpend": 10.51,
+      "ocf": -76.3,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 3.94,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "赛力斯集团股份有限公司2026年第一季度报告（2025年同期比较数）",
+          "url": "https://stockmc.xueqiu.com/202604/601127_20260430_LC8M.pdf"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "赛力斯",
+      "year": 2025,
+      "q": 2,
+      "revenue": 432.55,
+      "operatingCost": 304.87,
+      "netProfit": 21.93,
+      "rdSpend": 18.79,
+      "ocf": 220.67,
+      "inventory": 32.71,
+      "ap": 627.64,
+      "cash": 479.31,
+      "totalAssets": 1129.12,
+      "totalLiab": 852.01,
+      "sales": null,
+      "netProfitEx": 20.8,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "赛力斯集团股份有限公司2025年半年度报告",
+          "url": "https://cdn-web.seres.cn/uploads/20250902/16d86a4ef54310af944762148f4e9c3a.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "赛力斯",
+      "year": 2025,
+      "q": 3,
+      "revenue": 481.32,
+      "operatingCost": 337.17,
+      "netProfit": 23.71,
+      "rdSpend": 21.3,
+      "ocf": 82.12,
+      "inventory": 34.76,
+      "ap": 700.54,
+      "cash": 595.42,
+      "totalAssets": 1215.06,
+      "totalLiab": 927.8,
+      "sales": null,
+      "netProfitEx": 22.94,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "赛力斯集团股份有限公司2025年第三季度报告",
+          "url": "https://stockmc.xueqiu.com/202510/601127_20251031_9WQ0.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "赛力斯",
+      "year": 2025,
+      "q": 4,
+      "revenue": 545.2,
+      "operatingCost": 388.91,
+      "netProfit": 6.45,
+      "rdSpend": 28.94,
+      "ocf": 62.65,
+      "inventory": 24.47,
+      "ap": 795.99,
+      "cash": 872.87,
+      "totalAssets": 1439.06,
+      "totalLiab": 1020.48,
+      "sales": null,
+      "netProfitEx": 3.68,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 1.44,
+      "sources": [
+        {
+          "title": "赛力斯集团股份有限公司2025年年度报告",
+          "url": "https://stockmc.xueqiu.com/202603/601127_20260331_E7T9.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "high"
+    },
+    {
+      "company": "赛力斯",
+      "year": 2026,
+      "q": 1,
+      "revenue": 257.4571,
+      "operatingCost": 189.9047,
+      "netProfit": 7.5446,
+      "rdSpend": 17.9356,
+      "ocf": -209.5,
+      "inventory": 19.57,
+      "ap": 626.5,
+      "cash": 638.54,
+      "totalAssets": 1237.48,
+      "totalLiab": 815.78,
+      "sales": null,
+      "netProfitEx": 1.029,
+      "govGrant": 9.0972,
+      "jvIncome": -0.1644,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "赛力斯 2026Q1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22601127.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "2026Q1 累计即单季；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "赛力斯",
+      "year": 2026,
+      "q": 2,
+      "revenue": 317.4741,
+      "operatingCost": 251.0611,
+      "netProfit": -24.7133,
+      "rdSpend": 19.3998,
+      "ocf": 85.74,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": 1283.54,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": -24.814,
+      "govGrant": 1.22,
+      "jvIncome": -0.195,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "赛力斯 2026H1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22601127.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2026H1 − 2026Q1；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "长城汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 399.6,
+      "operatingCost": null,
+      "netProfit": 17.51,
+      "rdSpend": 19.05,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 14.5,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长城一季报出炉：一场关于利润的\"寻踪\"（含2025Q1比较数）",
+          "url": "https://caifuhao.eastmoney.com/news/20260430124731893364920"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "medium"
+    },
+    {
+      "company": "长城汽车",
+      "year": 2025,
+      "q": 2,
+      "revenue": 523.7,
+      "operatingCost": null,
+      "netProfit": 45.86,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 280,
+      "totalAssets": 2221.27,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 21.31,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长城汽车上半年归母净利润63.4亿元",
+          "url": "https://m.rccaijing.com/news-7367467038145180848.html"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "长城汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 612.52,
+      "operatingCost": 496.12,
+      "netProfit": 22.98,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 18.94,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长城汽车前三季度营收1535.82亿元同比增7.96%，归母净利润86.35亿元同比降17.20%，毛利率下降2.37个百分点",
+          "url": "https://finance.sina.com.cn/stock/aiassist/yjbg/2025-10-24/doc-infuyvpn6895971.shtml"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "长城汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": 692.42,
+      "operatingCost": 573.04,
+      "netProfit": 12.3,
+      "rdSpend": 37.96,
+      "ocf": null,
+      "inventory": 261.48,
+      "ap": 796.47,
+      "cash": 288.46,
+      "totalAssets": 2252.88,
+      "totalLiab": 1373.96,
+      "sales": 400400,
+      "netProfitEx": 5.84,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": 41.09,
+      "sources": [
+        {
+          "title": "长城汽车股份有限公司2025年年度报告",
+          "url": "https://stockmc.xueqiu.com/202603/601633_20260328_47JJ.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3",
+      "_confidence": "high"
+    },
+    {
+      "company": "长城汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 451.0934,
+      "operatingCost": 367.8576,
+      "netProfit": 9.4546,
+      "rdSpend": 22.416,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 269000,
+      "netProfitEx": 4.8204,
+      "govGrant": 1.845,
+      "jvIncome": 1.3395,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长城汽车 2026Q1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22601633.SH%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "2026Q1 累计即单季；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "长城汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": 15.2954,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 315000,
+      "netProfitEx": 11.4296,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长城汽车股份有限公司2026年半年度业绩预告（公告编号2026-088）",
+          "url": "https://stockmc.xueqiu.com/202607/601633_20260715_20QT.pdf"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2026H1 − 2026Q1；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "长安汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 341.31,
+      "operatingCost": 294,
+      "netProfit": 13.53,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 7.88,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长安汽车一季度净利润下降74.09% 竟然是这个原因！（含2025Q1比较数）",
+          "url": "https://finance.sina.com.cn/jjxw/2026-05-11/doc-inhxphzp0543727.shtml"
+        }
+      ],
+      "note": "2025Q1 累计即单季",
+      "_confidence": "high"
+    },
+    {
+      "company": "长安汽车",
+      "year": 2025,
+      "q": 2,
+      "revenue": 385.6,
+      "operatingCost": 326.93,
+      "netProfit": 9.38,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": 6.89,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "\"新长安\"半年报：营收净利润下滑，新能源转型趋势向好",
+          "url": "https://m.163.com/dy/article/K7OCT27105129QAF.html"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025H1 − 2025Q1",
+      "_confidence": "high"
+    },
+    {
+      "company": "长安汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 422.36,
+      "operatingCost": null,
+      "netProfit": 7.64,
+      "rdSpend": 17.55,
+      "ocf": 101.62,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 711000,
+      "netProfitEx": 5.41,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长安汽车：2025年前三季度营收微增3.58%，扣非净利增长20%",
+          "url": "https://wallstreetcn.com/articles/3757849"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025Q3 − 2025H1",
+      "_confidence": "high"
+    },
+    {
+      "company": "长安汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": 490.728,
+      "operatingCost": null,
+      "netProfit": 10.2022,
+      "rdSpend": 21.186,
+      "ocf": 2.81,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 844000,
+      "netProfitEx": 7.7703,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长安汽车 2025FY 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22000625.SZ%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2025FY − 2025Q3；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "长安汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 327.0644,
+      "operatingCost": 281.0275,
+      "netProfit": 3.5052,
+      "rdSpend": 13.7258,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 557500,
+      "netProfitEx": 2.4239,
+      "govGrant": 1.8741,
+      "jvIncome": 0.0023,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长安汽车 2026Q1 利润表",
+          "url": "https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_GINCOME&columns=ALL&filter=(SECUCODE%3D%22000625.SZ%22)&pageNumber=1&pageSize=8&sortTypes=-1&sortColumns=REPORT_DATE&source=HSF10&client=PC"
+        }
+      ],
+      "note": "2026Q1 累计即单季；已由两个独立来源交叉验证",
+      "_confidence": "verified"
+    },
+    {
+      "company": "长安汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": 5.0448,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 561400,
+      "netProfitEx": 0.3761,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "长安汽车：2026年半年度业绩预告",
+          "url": "https://money.finance.sina.com.cn/corp/view/vCB_AllBulletinDetail.php?stockid=000625&id=12445835"
+        }
+      ],
+      "note": "[派生] 由累计口径差分：2026H1 − 2026Q1；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2024,
+      "q": 3,
+      "revenue": 98.6,
+      "operatingCost": 90.61,
+      "netProfit": -6.9,
+      "rdSpend": 7.8,
+      "ocf": 19.6,
+      "inventory": null,
+      "ap": null,
+      "cash": 187,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 86165,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "零跑汽车第三季营收98.6亿：运营亏损7.4亿 交付86165台车",
+          "url": "https://finance.sina.com.cn/tech/csj/2024-11-11/doc-incvsyze0470427.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2024,
+      "q": 4,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": 0.8,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "解码零跑2024年度财报：成本控制显效，首次实现季度盈利",
+          "url": "https://finance.sina.com.cn/stock/wbstock/2025-03-11/doc-inephwwc8514043.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2025,
+      "q": 1,
+      "revenue": 100.2,
+      "operatingCost": 85.27,
+      "netProfit": -1.3,
+      "rdSpend": 8,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": 257,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 87552,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "零跑汽车第一季营收100亿：交付87552辆车 亏损1.3亿",
+          "url": "https://finance.sina.com.cn/tech/csj/2025-05-19/doc-inexcfvw2113979.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2025,
+      "q": 3,
+      "revenue": 194.5,
+      "operatingCost": 166.3,
+      "netProfit": 1.5,
+      "rdSpend": null,
+      "ocf": 48.8,
+      "inventory": null,
+      "ap": null,
+      "cash": 339.2,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 173852,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "零跑汽车第三季度营业收入194.5亿元 净利润1.5亿元",
+          "url": "https://finance.sina.com.cn/stock/estate/integration/2025-11-17/doc-infxtkqa3524856.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2025,
+      "q": 4,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": null,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "零跑汽车：首度全年盈利，销量营收翻倍增长",
+          "url": "https://finance.sina.com.cn/wm/2026-03-16/doc-inhrezkm8659613.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2026,
+      "q": 1,
+      "revenue": 108.2,
+      "operatingCost": 98.03,
+      "netProfit": -3.9,
+      "rdSpend": 10.4,
+      "ocf": -66.1,
+      "inventory": null,
+      "ap": null,
+      "cash": 306.3,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 110155,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "零跑汽车一季度亏损3.9亿元，毛利率不足10%，全年销量与利润目标不变，将推第二品牌",
+          "url": "https://finance.sina.com.cn/stock/t/2026-05-16/doc-inhyassk5654504.shtml"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）",
+      "_confidence": "high"
+    },
+    {
+      "company": "零跑汽车",
+      "year": 2026,
+      "q": 2,
+      "revenue": null,
+      "operatingCost": null,
+      "netProfit": null,
+      "rdSpend": null,
+      "ocf": null,
+      "inventory": null,
+      "ap": null,
+      "cash": null,
+      "totalAssets": null,
+      "totalLiab": null,
+      "sales": 246332,
+      "netProfitEx": null,
+      "govGrant": null,
+      "jvIncome": null,
+      "overseasPct": null,
+      "sources": [
+        {
+          "title": "零跑汽车6月全球交付93376台 同比增长95%",
+          "url": "https://www.nbd.com.cn/articles/2026-07-01/4443113.html"
+        }
+      ],
+      "note": "单季口径（来源已是单季披露）；⚠ 业绩预告口径（区间中值），非正式报表",
+      "_confidence": "low"
+    }
+  ]
+}

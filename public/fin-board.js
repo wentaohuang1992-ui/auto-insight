@@ -345,7 +345,7 @@
     const parts = PByC[c.id] || [];
     const partRows = parts.length ? parts.map(p => `<tr ondblclick="FINBOARD.editPart('${p.id}')"><td>${ESC(p.part)}</td><td>${ESC(p.selfDev)}</td><td>${ESC(p.stage)}</td><td style="text-align:left">${ESC(p.product || "")}</td><td style="text-align:left">${ESC(p.replace || "")}</td><td><button class="fminib" onclick="FINBOARD.editPart('${p.id}')">改</button></td></tr>`).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">暂无自研部件记录</td></tr>`;
     return `${pills}
-      <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : ""}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
+      <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">季度财务 · 近 8 季(单季口径)</h3>${finBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财经运营 · 近 8 季(蓝底=自动计算)</h3>${opBlock || finBlock}</div>
@@ -427,6 +427,12 @@
       if (btn) { btn.disabled = true; btn.textContent = "东方财富抓取中…"; }
       try { await fetch("/api/fin/em-seed-company", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: name }) }); pollJob("emcompany:" + name, btn, "东方财富抓取中"); }
       catch (e) { if (btn) { btn.disabled = false; btn.textContent = "↻ 东方财富抓取(A股)"; } alert("启动失败:" + e.message); }
+    },
+    // 港股源:补 A 股源覆盖不到的奇瑞/吉利/理想/零跑/小鹏/蔚来
+    async seedCompanyHK(name, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = "港股抓取中…"; }
+      try { await fetch("/api/fin/hk-seed-company", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: name }) }); pollJob("hkcompany:" + name, btn, "港股抓取中"); }
+      catch (e) { if (btn) { btn.disabled = false; btn.textContent = "↻ 港股抓取"; } alert("启动失败:" + e.message); }
     },
   });
 
