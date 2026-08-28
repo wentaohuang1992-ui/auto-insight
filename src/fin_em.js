@@ -1,7 +1,7 @@
 // 东方财富 F10 三大报表抓取 → 单季口径 → 季度表。
 // 数据源即财报(交易所披露),补上 LLM 抓不到的存货/应付/经营现金流等细项。
 // 仅适用 A 股(.SH/.SZ);港股/美股另走他源。利润表/现金流量表为累计→本模块换算为单季;资产负债表取期末。
-import { listCompanies, getAll, upsertQuarterly, slug } from "./fin_db.js";
+import { listCompanies, getAll, upsertQuarterly, upsertStatement, slug } from "./fin_db.js";
 import { fetchWithTimeout } from "./http.js";
 
 // 旧 F10 ajax 端点(emweb .../NewFinanceAnalysis/*AjaxNew)已改返回 HTML(拦截页/失效),弃用。
@@ -81,16 +81,37 @@ export async function buildQuartersEM(company) {
     });
   }
   out.sort((a, b) => a.year - b.year || a.q - b.q);
-  return { code, sampleKeys, counts: { income: inc.length, balance: bal.length, cash: cf.length }, quarters: out };
+
+  // —— 完整三表(as-reported):每个报告期存整行(数值列原样保留=元;前端按标准科目表展示并换算单位) ——
+  // 不做累计→单季差分:财报三表本就按报告期(一季报/中报/三季报/年报)阅读,累计口径最faithful。
+  const rowRaw = (r) => {
+    const o = { REPORT_DATE: r.REPORT_DATE };
+    for (const k in r) { const v = r[k]; if (k !== "REPORT_DATE" && v != null && v !== "" && typeof v !== "boolean" && !isNaN(+v)) o[k] = +v; }
+    return o;
+  };
+  const RT = { 1: "一季报", 2: "中报", 3: "三季报", 4: "年报" };
+  const byDate = {};
+  const idxStmt = (arr, kind) => { for (const r of arr) { const rd = r.REPORT_DATE; if (rd) (byDate[rd] = byDate[rd] || {})[kind] = rowRaw(r); } };
+  idxStmt(inc, "income"); idxStmt(bal, "balance"); idxStmt(cf, "cashflow");
+  const statements = Object.keys(byDate).map((rd) => {
+    const k = ymq(rd); if (!k) return null;
+    return { company: company.id, period: rd, year: k.y, q: k.q, reportType: RT[k.q], label: `${k.y}${RT[k.q]}`,
+      income: byDate[rd].income || {}, balance: byDate[rd].balance || {}, cashflow: byDate[rd].cashflow || {}, sources: src };
+  }).filter(Boolean).sort((a, b) => b.period.localeCompare(a.period));
+
+  return { code, sampleKeys, counts: { income: inc.length, balance: bal.length, cash: cf.length }, quarters: out, statements };
 }
 
 export async function seedCompanyEM(idOrName, { save = true } = {}) {
   const c = listCompanies().find((x) => x.id === idOrName || x.id === slug(idOrName) || x.name === idOrName);
   if (!c) throw new Error("未找到车企:" + idOrName);
   const res = await buildQuartersEM(c);
-  let saved = 0;
-  if (save) for (const r of res.quarters) { const u = upsertQuarterly(r, { manual: false }); if (u.ok) saved++; }
-  return { company: c.name, code: res.code, fetched: res.counts, quarters: res.quarters.length, saved, sampleKeys: res.sampleKeys, preview: res.quarters.slice(-4) };
+  let saved = 0, savedStmt = 0;
+  if (save) {
+    for (const r of res.quarters) { const u = upsertQuarterly(r, { manual: false }); if (u.ok) saved++; }
+    for (const s of res.statements) { const u = upsertStatement(s, { manual: false }); if (u && u.ok) savedStmt++; }
+  }
+  return { company: c.name, code: res.code, fetched: res.counts, quarters: res.quarters.length, saved, statements: res.statements.length, savedStmt, sampleKeys: res.sampleKeys, preview: res.quarters.slice(-4) };
 }
 
 // 全量(仅 A 股)——验证通过后再用

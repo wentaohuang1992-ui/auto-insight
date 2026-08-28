@@ -93,6 +93,7 @@
   let QByC = {};             // company id -> sorted quarterly asc
   let MByC = {};             // company id -> sorted monthly asc
   let PByC = {};             // company id -> parts[]
+  let SByC = {};             // company id -> statements[](完整三表,按报告期)
   let PERIODS = [];          // [{type:'q'|'y', y, q?, label}]
   let FTOP = "company";     // company|flash|dash
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
@@ -102,11 +103,12 @@
 
   // ---------- 适配 ----------
   function build(d) {
-    RAW = d; BYID = {}; QByC = {}; MByC = {}; PByC = {};
-    (d.companies || []).forEach(c => { BYID[c.id] = c; QByC[c.id] = []; MByC[c.id] = []; PByC[c.id] = []; });
+    RAW = d; BYID = {}; QByC = {}; MByC = {}; PByC = {}; SByC = {};
+    (d.companies || []).forEach(c => { BYID[c.id] = c; QByC[c.id] = []; MByC[c.id] = []; PByC[c.id] = []; SByC[c.id] = []; });
     (d.quarterly || []).forEach(q => { if (QByC[q.company]) QByC[q.company].push(q); });
     (d.salesMonthly || []).forEach(m => { if (MByC[m.company]) MByC[m.company].push(m); });
     (d.parts || []).forEach(p => { if (PByC[p.company]) PByC[p.company].push(p); });
+    (d.statements || []).forEach(s => { if (SByC[s.company]) SByC[s.company].push(s); });
     for (const id in QByC) QByC[id].sort((a, b) => a.year - b.year || a.q - b.q);
     for (const id in MByC) MByC[id].sort((a, b) => a.year - b.year || a.month - b.month);
     // 期间清单:所有出现过的 年/季 + 完整四季的年度
@@ -299,6 +301,55 @@
   }
 
   // ====== 车企视图 ======
+  // 标准三表科目表:[datacenter列名, 中文标签, 单位?]。单位默认亿(值÷1e8);eps 为元/股(原样)。
+  // 数据层存的是整行原始值,所以列名即使个别对不上也不丢数据——那一行全期为空会自动隐藏,回头改这里即可。
+  const SPEC_INC = [
+    ["TOTAL_OPERATE_INCOME", "营业总收入"], ["OPERATE_INCOME", "营业收入"],
+    ["TOTAL_OPERATE_COST", "营业总成本"], ["OPERATE_COST", "营业成本"], ["OPERATE_TAX_ADD", "税金及附加"],
+    ["SALE_EXPENSE", "销售费用"], ["MANAGE_EXPENSE", "管理费用"], ["RESEARCH_EXPENSE", "研发费用"], ["FINANCE_EXPENSE", "财务费用"],
+    ["INVEST_INCOME", "投资收益"], ["INVEST_JOINT_INCOME", "对联营合营投资收益"], ["FAIRVALUE_CHANGE_INCOME", "公允价值变动收益"],
+    ["CREDIT_IMPAIRMENT_INCOME", "信用减值损失"], ["ASSET_IMPAIRMENT_INCOME", "资产减值损失"],
+    ["OPERATE_PROFIT", "营业利润"], ["NONBUSINESS_INCOME", "营业外收入"], ["NONBUSINESS_EXPENSE", "营业外支出"],
+    ["TOTAL_PROFIT", "利润总额"], ["INCOME_TAX", "所得税费用"], ["NETPROFIT", "净利润"],
+    ["PARENT_NETPROFIT", "归属母公司股东净利润"], ["MINORITY_INTEREST", "少数股东损益"],
+    ["DEDUCT_PARENT_NETPROFIT", "扣非归母净利润"], ["BASIC_EPS", "基本每股收益", "eps"],
+  ];
+  const SPEC_BAL = [
+    ["MONETARYFUNDS", "货币资金"], ["TRADE_FINASSET", "交易性金融资产"], ["NOTE_ACCOUNTS_RECE", "应收票据及应收账款"],
+    ["ACCOUNTS_RECE", "应收账款"], ["PREPAYMENT", "预付款项"], ["INVENTORY", "存货"], ["CONTRACT_ASSET", "合同资产"],
+    ["TOTAL_CURRENT_ASSETS", "流动资产合计"], ["LONG_EQUITY_INVEST", "长期股权投资"], ["FIXED_ASSET", "固定资产"],
+    ["CIP", "在建工程"], ["INTANGIBLE_ASSET", "无形资产"], ["GOODWILL", "商誉"], ["TOTAL_NONCURRENT_ASSETS", "非流动资产合计"],
+    ["TOTAL_ASSETS", "资产总计"], ["SHORT_LOAN", "短期借款"], ["NOTE_ACCOUNTS_PAYABLE", "应付票据及应付账款"],
+    ["ADVANCE_RECEIVABLES", "预收款项"], ["CONTRACT_LIAB", "合同负债"], ["TOTAL_CURRENT_LIAB", "流动负债合计"],
+    ["LONG_LOAN", "长期借款"], ["BOND_PAYABLE", "应付债券"], ["TOTAL_NONCURRENT_LIAB", "非流动负债合计"],
+    ["TOTAL_LIABILITIES", "负债合计"], ["SHARE_CAPITAL", "实收资本(股本)"], ["CAPITAL_RESERVE", "资本公积"],
+    ["SURPLUS_RESERVE", "盈余公积"], ["UNASSIGN_RPOFIT", "未分配利润"], ["TOTAL_PARENT_EQUITY", "归属母公司股东权益"],
+    ["MINORITY_EQUITY", "少数股东权益"], ["TOTAL_EQUITY", "股东权益合计"],
+  ];
+  const SPEC_CF = [
+    ["TOTAL_OPERATE_INFLOW", "经营活动现金流入小计"], ["TOTAL_OPERATE_OUTFLOW", "经营活动现金流出小计"], ["NETCASH_OPERATE", "经营活动现金流量净额"],
+    ["TOTAL_INVEST_INFLOW", "投资活动现金流入小计"], ["TOTAL_INVEST_OUTFLOW", "投资活动现金流出小计"], ["NETCASH_INVEST", "投资活动现金流量净额"],
+    ["TOTAL_FINANCE_INFLOW", "筹资活动现金流入小计"], ["TOTAL_FINANCE_OUTFLOW", "筹资活动现金流出小计"], ["NETCASH_FINANCE", "筹资活动现金流量净额"],
+    ["CCE_ADD", "现金及等价物净增加额"], ["END_CCE", "期末现金及等价物余额"],
+  ];
+  // 完整三表:全部报告期为列(新→旧),标准科目为行,按报表分组。全期为空的科目行自动隐藏。
+  function stmtTable(c) {
+    const S = (SByC[c.id] || []).slice().sort((a, b) => (b.period || "").localeCompare(a.period || "")).slice(0, 10);
+    if (!S.length) return `<div class="fhint">暂无完整三表。点上方「↻ 东方财富抓取(A股)」抓一次(现在抓的是全字段三表、全部历史期)。</div>`;
+    const fmt2 = (v, unit) => v == null ? '<span style="color:var(--muted)">—</span>' : (unit === "eps" ? (+v).toFixed(2) : (v / 1e8).toFixed(2));
+    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">科目 \\ 报告期</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
+    const grp = (t) => `<tr><td colspan="${S.length + 1}" style="background:#EEF2F8;font-weight:700;color:#1B2F66;text-align:left">${t}</td></tr>`;
+    const rowsFor = (which, spec) => spec.map(([key, label, unit]) => {
+      const vals = S.map(s => (s[which] || {})[key] ?? null);
+      if (vals.every(v => v == null)) return ""; // 全期为空(多半列名对不上)→ 隐藏,数据未丢,改 SPEC 即可
+      return `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td style="white-space:nowrap">${fmt2(v, unit)}</td>`).join("")}</tr>`;
+    }).join("");
+    return `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>
+      ${grp("利润表(亿元)")}${rowsFor("income", SPEC_INC)}
+      ${grp("资产负债表(亿元)")}${rowsFor("balance", SPEC_BAL)}
+      ${grp("现金流量表(亿元)")}${rowsFor("cashflow", SPEC_CF)}
+    </tbody></table></div>`;
+  }
   function buildCompany() {
     const cs = allCompanies();
     if (!C_SEL || !BYID[C_SEL]) C_SEL = cs[0].id;
@@ -323,7 +374,8 @@
     }
     // 三表 + 关键指标 + 财报原文入口
     const recentQ = Q.slice(-8);
-    let stmtBlock = `<div class="fhint">暂无季度财务。<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">抓取</button></div>`, idxBlock = "";
+    const stmtBlock = stmtTable(c);   // 完整三表:全部报告期 × 标准科目(来自 statements 集合)
+    let idxBlock = "";
     if (recentQ.length) {
       const qh = `<tr><th>科目 \\ 报告期</th>${recentQ.map(x => `<th>${String(x.year).slice(2)}Q${x.q} <span class="fminib" style="padding:1px 5px" onclick="FINBOARD.editQ('${x.id}')">✎</span></th>`).join("")}</tr>`;
       const yq = (x, k) => { const py = qFind(c.id, x.year - 1, x.q); return py ? yoy(x[k], py[k]) : null; };
@@ -332,30 +384,8 @@
         const yh = o.yoyKey ? (() => { const yv = yq(x, o.yoyKey); return yv != null ? `<span class="syoy ${yv >= 0 ? "up" : "dn"}">${yv >= 0 ? "▲" : "▼"}${Math.abs(yv).toFixed(1)}%</span>` : ""; })() : "";
         return `<td${o.calc ? ' class="calc"' : ""}>${v == null ? "—" : (typeof v === "number" ? v.toFixed(o.dec ?? 1) : v)}${yh}</td>`;
       }).join("")}</tr>`;
-      const grp = (t) => `<tr><td colspan="${recentQ.length + 1}" style="background:#EEF2F8;font-weight:700;color:#1B2F66">${t}</td></tr>`;
       const gm = (x) => (x.revenue && x.operatingCost != null) ? (x.revenue - x.operatingCost) / x.revenue * 100 : null;
       const tbl = (body) => `<div class="fscroll"><table class="ftbl"><thead>${qh}</thead><tbody>${body}</tbody></table></div>`;
-      stmtBlock = tbl(
-        grp("利润表(亿元)")
-        + row("营业收入", x => x.revenue, { yoyKey: "revenue" })
-        + row("营业成本", x => x.operatingCost)
-        + row("毛利率(%)", gm, { calc: true })
-        + row("归母净利润", x => x.netProfit, { yoyKey: "netProfit", dec: 2 })
-        + row("扣非归母", x => x.netProfitEx, { dec: 2 })
-        + row("研发投入", x => x.rdSpend)
-        + grp("资产负债表(亿元)")
-        + row("货币资金", x => x.cash)
-        + row("应收账款", x => x.ar)
-        + row("存货", x => x.inventory)
-        + row("应付账款", x => x.ap)
-        + row("短期借款", x => x.stDebt)
-        + row("长期借款", x => x.ltDebt)
-        + row("总资产", x => x.totalAssets)
-        + row("总负债", x => x.totalLiab)
-        + grp("现金流量表(亿元)")
-        + row("经营性现金流", x => x.ocf)
-        + row("筹资性现金流", x => x.financingCF)
-      );
       const doi = (x) => x.operatingCost ? x.inventory / x.operatingCost * 91 : null, dpo = (x) => x.operatingCost ? x.ap / x.operatingCost * 91 : null;
       idxBlock = tbl(
         row("毛利率(%)", gm, { calc: true })
@@ -415,8 +445,8 @@
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 近 8 个报告期(单季口径)</h3>${stmtBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 近 8 个报告期(蓝底=自动计算)</h3>${idxBlock || stmtBlock}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 全部报告期(累计口径,东方财富 F10 全字段)</h3>${stmtBlock}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 近 8 季(单季口径,蓝底=自动计算)</h3>${idxBlock || '<div class="fhint">暂无季度数据,抓取后自动计算。</div>'}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 10px;font-size:14px">财报原文</h3>${dlBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px">自研智驾部件追踪 <button class="fminib" onclick="FINBOARD.addPart('${c.id}')">＋ 新增部件</button></h3>
         <div class="fscroll"><table class="ftbl"><thead><tr><th>部件</th><th>自研/外购</th><th>阶段</th><th>方案</th><th>替代对象</th><th></th></tr></thead><tbody>${partRows}</tbody></table></div></div>`;

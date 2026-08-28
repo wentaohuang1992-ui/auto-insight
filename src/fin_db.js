@@ -19,7 +19,7 @@ const pid = (company, part) => `${company}:${slug(part)}`;
 
 // reviews:财报解读(2026-08 新增顶层键)。按 CLAUDE.md 第 4 条,加进 blank() 即可,
 // 靠 { ...blank(), ...readStore(...) } 的展开顺序自动兼容老文件,不需要迁移。
-function blank() { return { companies: [], salesMonthly: [], quarterly: [], parts: [], reviews: [], updatedAt: null }; }
+function blank() { return { companies: [], salesMonthly: [], quarterly: [], parts: [], reviews: [], statements: [], updatedAt: null }; }
 function load() { return { ...blank(), ...readStore(FIN_PATH, blank) }; }
 function save(db) { db.updatedAt = now(); return writeStore(FIN_PATH, db); }
 
@@ -105,8 +105,8 @@ export function getAll() {
   const db = ensureSeeded();
   return {
     companies: db.companies, salesMonthly: db.salesMonthly, quarterly: db.quarterly, parts: db.parts,
-    reviews: db.reviews || [],
-    meta: { companies: db.companies.length, quarterly: db.quarterly.length, salesMonthly: db.salesMonthly.length, parts: db.parts.length, reviews: (db.reviews || []).length, updatedAt: db.updatedAt },
+    reviews: db.reviews || [], statements: db.statements || [],
+    meta: { companies: db.companies.length, quarterly: db.quarterly.length, salesMonthly: db.salesMonthly.length, parts: db.parts.length, reviews: (db.reviews || []).length, statements: (db.statements || []).length, updatedAt: db.updatedAt },
   };
 }
 export function listCompanies() { return ensureSeeded().companies; }
@@ -134,6 +134,7 @@ export function deleteCompany(id) {
   db.quarterly = db.quarterly.filter((q) => q.company !== id);
   db.salesMonthly = db.salesMonthly.filter((m) => m.company !== id);
   db.parts = db.parts.filter((p) => p.company !== id);
+  if (Array.isArray(db.statements)) db.statements = db.statements.filter((s) => s.company !== id);
   save(db); return n !== db.companies.length;
 }
 
@@ -161,6 +162,33 @@ export function putQuarterly(id, patch) {
 export function deleteQuarterly(id) {
   const db = ensureSeeded(); const n = db.quarterly.length;
   db.quarterly = db.quarterly.filter((x) => x.id !== id); save(db); return n !== db.quarterly.length;
+}
+
+// ============ 完整财务三表(as-reported,按报告期整行存;数值单位=元,前端换算) ============
+function stmtId(company, period) { return `${company}:${period}`; }
+function cleanStmtRows(o) {
+  const r = {};
+  if (o && typeof o === "object") for (const k in o) {
+    if (k === "REPORT_DATE") { r[k] = o[k]; continue; }
+    const n = NUM(o[k]); if (n != null) r[k] = n;
+  }
+  return r;
+}
+export function upsertStatement(rec, { manual = false } = {}) {
+  if (!rec || !rec.company || !rec.period) return { skipped: "invalid" };
+  const db = ensureSeeded();
+  if (!Array.isArray(db.statements)) db.statements = [];
+  const id = stmtId(rec.company, rec.period);
+  const clean = {
+    id, company: rec.company, period: rec.period,
+    year: +rec.year || null, q: +rec.q || null, reportType: rec.reportType || "", label: rec.label || rec.period,
+    income: cleanStmtRows(rec.income), balance: cleanStmtRows(rec.balance), cashflow: cleanStmtRows(rec.cashflow),
+    sources: Array.isArray(rec.sources) ? rec.sources : [], manual, updatedAt: now(),
+  };
+  const i = db.statements.findIndex((x) => x.id === id);
+  if (i >= 0) { if (db.statements[i].manual && !manual) return { skipped: "manual", id }; db.statements[i] = clean; }
+  else db.statements.push(clean);
+  save(db); return { ok: true, id };
 }
 
 // ============ 月度销量 ============
