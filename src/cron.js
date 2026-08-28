@@ -8,6 +8,7 @@ import {
   digestIsoSet, recordDigestFailure,
 } from "./db.js";
 import { buildDigestEmail } from "./digest.js";
+import { runWatch } from "./fin_watch.js";
 import { sendDigest } from "./mailer.js";
 import { seedModels } from "./models_seed.js";
 import { updateFromNews } from "./models_incremental.js";
@@ -300,6 +301,7 @@ export function startCron() {
   cron.schedule("40 8 1 * *", () => refreshCadence().catch((e) => console.error("[cron] 上市节奏", e)), { timezone: TZ });
   cron.schedule("20 8 * * 1", () => refreshStorage().catch((e) => console.error("[cron] 存储洞察", e)), { timezone: TZ });
   cron.schedule("30 8 * * *", () => dailyJob(), { timezone: TZ });
+  cron.schedule("50 8 * * *", () => runWatch({}).catch((e) => console.error("[cron] 财报哨兵", e)), { timezone: TZ });
   cron.schedule("0 9 * * *", () => sendDaily().catch((e) => console.error("[cron] 发送", e)), { timezone: TZ });
   console.log(`[cron] 已排程:每月1号 08:00 财报 / 08:10 车型库 / 08:40 上市节奏;每周一 08:20 存储洞察;每天 08:30 日报(失败重试${RETRY_MAX}次)+ 补漏 / 09:00 邮件 (时区 ${TZ})`);
 

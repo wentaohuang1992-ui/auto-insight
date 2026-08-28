@@ -14,6 +14,7 @@ import * as findb from "./src/fin_db.js";
 import { seedAllFin, seedOneCompanyFin } from "./src/fin_seed.js";
 import { seedCompanyEM, seedAllEM, pickAShare } from "./src/fin_em.js";
 import { seedCompanyHK, seedAllHK, pickHK } from "./src/fin_hk.js";
+import { runWatch, watchStatus } from "./src/fin_watch.js";
 import { importSeed, coverage as finCoverage } from "./src/fin_import.js";
 import { generateReview, generateAllReviews } from "./src/fin_review.js";
 import * as flash from "./src/fin_flash.js";
@@ -248,6 +249,18 @@ app.post("/api/fin/flash", (req, res) => {
     : flash.generateAllFlash({ group, withSearch: req.body?.withSearch !== false });
   run.then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
      .catch((e) => { console.error("[fin-flash]", name || group || "all", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "生成失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+// —— 财报哨兵:每天盯新财报,发现即同步进车企视图库并刷新速递。自诊断:GET 看上次完整报告 ——
+app.get("/api/fin/watch", (req, res) => { try { res.json(watchStatus()); } catch (e) { fail(res)(e); } });
+app.post("/api/fin/watch/run", (req, res) => {
+  const key = "fin-watch";
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  runWatch({ apply: req.body?.apply !== false }) // apply:false 为演练(不写库、不重生成,只报告会发现什么)
+    .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
+    .catch((e) => { console.error("[fin-watch]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
   res.status(202).json({ status: "started", key });
 });
 // 名单与报告期维护

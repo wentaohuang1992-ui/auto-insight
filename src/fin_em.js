@@ -4,8 +4,11 @@
 import { listCompanies, getAll, upsertQuarterly, slug } from "./fin_db.js";
 import { fetchWithTimeout } from "./http.js";
 
-const F10 = "https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis";
-const HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://emweb.securities.eastmoney.com/" };
+// 旧 F10 ajax 端点(emweb .../NewFinanceAnalysis/*AjaxNew)已改返回 HTML(拦截页/失效),弃用。
+// 改用东方财富数据中心 v1 接口(一手数据源地图里实测返回干净 JSON),字段名与下方 pick() 本就一致。
+const DC = "https://datacenter.eastmoney.com/securities/api/data/v1/get";
+const RPT = { lrbAjaxNew: "RPT_F10_FINANCE_GINCOME", zcfzbAjaxNew: "RPT_F10_FINANCE_GBALANCE", xjllbAjaxNew: "RPT_F10_FINANCE_GCASHFLOW" };
+const HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://data.eastmoney.com/", "Accept": "application/json, text/plain, */*" };
 
 // "601127.SH" / "600733.SH / 1958.HK" → "SH601127";无 A 股代码返回 null
 export function pickAShare(ticker) {
@@ -17,11 +20,22 @@ const YI = (v) => (v == null ? null : v / 1e8);                 // 元 → 亿�
 function ymq(rd) { const m = String(rd || "").match(/(\d{4})-(\d{2})/); if (!m) return null; const q = { 3: 1, 6: 2, 9: 3, 12: 4 }[+m[2]]; return q ? { y: +m[1], q } : null; }
 
 async function emGet(path, code) {
-  const url = `${F10}/${path}?companyType=4&reportDateType=0&reportType=1&code=${code}`;
-  const r = await fetchWithTimeout(url, { headers: HEADERS });
+  // pickAShare 输出形如 SZ002594 → datacenter 需要 SECUCODE "002594.SZ"
+  const m = String(code).match(/^(SH|SZ)(\d{6})$/i);
+  const secucode = m ? `${m[2]}.${m[1].toUpperCase()}` : code;
+  const reportName = RPT[path] || path;
+  const params = new URLSearchParams({
+    reportName, columns: "ALL", filter: `(SECUCODE="${secucode}")`,
+    pageNumber: "1", pageSize: "20", sortTypes: "-1", sortColumns: "REPORT_DATE",
+    source: "HSF10", client: "PC",
+  });
+  const r = await fetchWithTimeout(`${DC}?${params}`, { headers: HEADERS });
   if (!r.ok) throw new Error(`${path} HTTP ${r.status}`);
-  const j = await r.json();
-  const data = Array.isArray(j) ? j : (j.data || (j.Result && j.Result.Data) || j.Data || []);
+  const text = await r.text();
+  let j;
+  try { j = JSON.parse(text); }
+  catch { throw new Error(`东方财富返回非 JSON(${path}),疑似拦截页/端点失效/IP 受限。前120字:${text.slice(0, 120).replace(/\s+/g, " ")}`); }
+  const data = j?.result?.data || (Array.isArray(j) ? j : (j.data || (j.Result && j.Result.Data) || j.Data || []));
   return Array.isArray(data) ? data : [];
 }
 
