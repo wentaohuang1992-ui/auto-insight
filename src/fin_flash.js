@@ -192,8 +192,10 @@ async function structuredFacts(entity, periods) {
 // ---------------------------------------------------------------------
 async function gather(entity, periods) {
   const qs = [];
-  for (const p of periods) qs.push(`${entity.name} ${p.label} 营业收入 净利润 同比`);
-  qs.push(`${entity.name} ${periods.map((p) => p.year).join(" ")} 销量 交付 毛利率 海外`);
+  // 每期一条:把销量并进来——利润表没有销量,只能从检索补(总结第一项要它)。
+  for (const p of periods) qs.push(`${entity.name} ${p.label} 销量 交付量 营业收入 归母净利润 同比`);
+  // 一条跨期的"驱动/拖累"查询:解读的核心观点(海外拉动、毛利率、汇兑/减值等)从这里来。
+  qs.push(`${entity.name} ${periods.map((p) => p.year).join(" ")} 海外 出口 毛利率 汇兑 净利润 下滑 原因`);
   const blocks = await pool(qs, 3, async (q) => {
     try {
       const rs = await bochaSearch(q, { count: 8, freshness: "noLimit" });
@@ -221,7 +223,11 @@ export function numericGuard(text, factsJson, ctx) {
   const bad = new Set();
   for (const m of String(text).matchAll(/-?\d+(?:\.\d+)?/g)) {
     const n = m[0];
-    if (pool.has(n) || pool.has(String(Number(n)))) continue;
+    const num = Number(n), abs = Math.abs(num);
+    if (pool.has(n) || pool.has(String(num))) continue;
+    // 数量级能溯源即放行:正负号往往由"下降/增长"这类措辞承载,检索资料里未必以带符号形式出现
+    // (如资料写"同比下降3.0%",总结写"同比-3.0%")。数量级仍必须在事实/资料里找得到,防幻觉本意不变。
+    if (pool.has(String(abs)) || pool.has(abs.toFixed(1)) || pool.has(abs.toFixed(2)) || pool.has(String(Math.round(abs)))) continue;
     if (/^(19|20)\d{2}$/.test(n)) continue;              // 年份
     if (["0", "1", "2", "3", "4"].includes(n)) continue; // 季度号等结构性数字
     bad.add(n);
@@ -230,18 +236,21 @@ export function numericGuard(text, factsJson, ctx) {
 }
 
 function schemaFor(entity, periods, facts) {
-  return `请为【${entity.name}】写财报速递总结,每个报告期一段。
+  return `请为【${entity.name}】写财报速递,每个报告期一段。目标是下面这种"数字 + 客观经营波动"的完整段落,信息密度要够。
 
-【铁律,违反即作废】
-1. **不得出现下面「结构化事实」和「检索资料」里都没有的数字**。不许自己算比例、不许换算单位、不许估算。
-2. 每段 2-4 句、80-160 字。第一句必须落到营收与净利的具体数字与同比上。
-3. 之后可以补充:销量/交付、毛利率变化、海外占比、一次性损益(汇兑、减值、补助)、
-   分红回购 —— 但**只写检索资料里真实提到的**,资料里没有就不写。
-4. 不要写"表现良好""压力较大"这种没有数字支撑的评价。
-5. 结构化事实里为 null 的字段就是没有,别从检索资料里硬凑一个数顶上去。
-6. 数据实在不足以成段时,summary 直接写"该期公开数据不足,待补"。
+【示例:学它的结构和密度,里面数字全是占位符 XX,绝对不要照抄这里的数字】
+"上半年整车销售 XX 万辆(同比+XX%),实现营收 XX 亿元(同比+XX%),归母净利润 XX 亿元(同比-XX%);海外销量 XX 万辆(同比+XX%)创历史新高,归母净利润大幅下降主要系海外税收补贴收益收回延期及汇率波动影响(本期汇兑损失约 XX 亿元),综合毛利率 XX% 与去年同期基本持平,主营业务盈利能力并未恶化。"
 
-【结构化事实(来自交易所披露的定期报表)】
+【每段包含两部分,连成一段话写】
+① 数字行:销量(万辆,带同比) → 营收(亿元,带同比) → 归母净利(亿元,带同比)。营收和归母用下面「结构化事实」里的(交易所报表,最可靠);销量来自检索资料。
+② 客观经营波动:落到检索资料里真实提到的驱动/拖累——海外销量与占比、毛利率、一次性损益(汇兑、减值、政府补助)、研发投入、核心归母/扣非与归母的背离、现金储备等,点明"利润为什么这样变"。有几条写几条。
+
+【铁律】
+1. 数字一律原样抄「结构化事实」或「检索资料」,不许自己算、换算单位、四舍五入成别的数、估算。销量/毛利率/海外占比等只能来自检索资料;结构化事实里为 null 的就是没有,不许硬凑。
+2. 检索资料里找不到销量就跳过销量、从营收写起,不编。整段数据实在不足就只写"该期公开数据不足,待补"。
+3. 每段 100-220 字,一段话,不分点,不写"表现良好""稳健"这类没有数字或事实支撑的评价。
+
+【结构化事实(来自交易所披露的定期报表,营收/归母/同比以此为准)】
 ${JSON.stringify(facts, null, 1)}
 
 只输出一个 JSON 对象:
@@ -286,11 +295,11 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
       ctx = g.ctx; urls = g.urls;
       for (let i = 0; i < 2; i++) {
         attempts = i + 1;
-        const extra = i === 0 ? "" : `\n\n上一次你写出了资料里没有的数字:${guard.unsupported.join("、")}。请重写,只用给定数值。`;
+        const extra = i === 0 ? "" : `\n\n上一次你写出了资料/事实里都没有的数字:${guard.unsupported.join("、")}。请尽量改掉,只用给定数值;确实查不到的那个数就别写。`;
         const out = await chatJSON(`${schemaFor(entity, ps, facts)}${extra}\n\n【检索资料】\n${ctx}`, 2600, MODEL);
         const gd = numericGuard(JSON.stringify(out?.periods || out), facts, ctx);
-        if (gd.ok) { llmOut = out; mode = "llm"; guard = gd; break; }
-        guard = gd;
+        llmOut = out; mode = "llm"; guard = gd;   // 软校验:这一版先留下,不因为有存疑数字就丢弃退回模板
+        if (gd.ok) break;                          // 干净就收工;不干净再给一次自我纠正机会,仍不干净就带「待核」标记输出
       }
     } catch (e) { errors.push("检索/生成失败:" + e.message); }
   } else if (!process.env.BOCHA_API_KEY || !process.env.DEEPSEEK_API_KEY) {
@@ -307,11 +316,17 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
     const f = facts[p.key];
     const llm = llmOut?.periods?.[p.key];
     const okUrl = (arr) => (Array.isArray(arr) ? arr.filter((s) => s && s.url && urls.includes(s.url)).slice(0, 3) : []);
+    const summary = (llm?.summary || "").trim() || templateSummary(f, status[p.key]);
+    // 软校验:逐段挑出「数量级在本期结构化事实与检索资料里都找不到」的数字,只标记、不改动正文
+    const 待核 = (mode === "llm" && llm?.summary)
+      ? numericGuard(summary, f || {}, ctx).unsupported
+      : [];
     row.periods[p.key] = {
       label: p.label,
       状态: status[p.key],
       发布时间: f?.发布时间 || null,
-      总结: (llm?.summary || "").trim() || templateSummary(f, status[p.key]),
+      总结: summary,
+      待核,
       facts: f,
       sources: okUrl(llm?.sources),
     };
