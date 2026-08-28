@@ -47,7 +47,7 @@
     .instbl tbody tr{cursor:pointer}.instbl tbody tr.sel td{background:#EEF3FF}
     .fbase{display:flex;flex-wrap:wrap;gap:16px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:14px}
     .fbase .nm{font-size:17px;font-weight:700}.fbase .kv{font-size:12px;color:var(--ink-2,#3A434F)}.fbase .kv b{color:var(--ink,#1B2230)}
-    .fbase .note{flex-basis:100%;font-size:11.5px;color:var(--muted)}
+    .fbase .note{font-size:11.5px;color:var(--muted)}
     .fpills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
     .fpill{font:inherit;font-size:13px;padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;color:var(--ink-2,#3A434F)}
     .fpill.on{background:#2E5BD8;color:#fff;border-color:#2E5BD8}
@@ -359,14 +359,22 @@
     const fmtN = (v, unit) => {
       if (v == null) return '<span style="color:var(--muted)">—</span>';
       if (unit === "eps") return (+v).toFixed(2);
-      return (v / D_UNIT).toLocaleString("zh-CN", { maximumFractionDigits: D_UNIT >= 1e8 ? 2 : 0 });
+      const frac = D_UNIT >= 1e8 ? 2 : 0;
+      return (v / D_UNIT).toLocaleString("zh-CN", { minimumFractionDigits: frac, maximumFractionDigits: frac });
     };
     const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">科目(${unitTxt})</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
-    const rows = spec.map(([key, label, unit]) => {
-      const vals = S.map(s => (s[D_STMT] || {})[key] ?? null);
-      if (vals.every(v => v == null)) return "";
-      return `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td style="white-space:nowrap;text-align:right">${fmtN(v, unit)}</td>`).join("")}</tr>`;
-    }).join("");
+    const rowHtml = (label, vals, unit) => vals.every(v => v == null) ? "" :
+      `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td style="white-space:nowrap;text-align:right">${fmtN(v, unit)}</td>`).join("")}</tr>`;
+    let rows;
+    if (/\.HK/i.test(c.ticker || "")) {
+      // 港股:中文科目名即标签,按各期出现过的科目顺序直接遍历(每股类不缩放)
+      const keys = []; const seen = new Set();
+      for (const s of S) for (const key in (s[D_STMT] || {})) if (!seen.has(key)) { seen.add(key); keys.push(key); }
+      rows = keys.map(key => rowHtml(ESC(key), S.map(s => (s[D_STMT] || {})[key] ?? null), /每股/.test(key) ? "eps" : "")).join("");
+    } else {
+      // A 股:标准科目表(datacenter 列名 → 中文标签)
+      rows = spec.map(([key, label, unit]) => rowHtml(label, S.map(s => (s[D_STMT] || {})[key] ?? null), unit)).join("");
+    }
     return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>`;
   }
   function buildCompany() {
@@ -467,7 +475,7 @@
     const parts = PByC[c.id] || [];
     const partRows = parts.length ? parts.map(p => `<tr ondblclick="FINBOARD.editPart('${p.id}')"><td>${ESC(p.part)}</td><td>${ESC(p.selfDev)}</td><td>${ESC(p.stage)}</td><td style="text-align:left">${ESC(p.product || "")}</td><td style="text-align:left">${ESC(p.replace || "")}</td><td><button class="fminib" onclick="FINBOARD.editPart('${p.id}')">改</button></td></tr>`).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">暂无自研部件记录</td></tr>`;
     return `${pills}
-      <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
+      <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button>${c.note ? `<span class="note">${ESC(c.note)}</span>` : ""}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 近 8 季(单季口径,蓝底=自动计算)</h3>${idxBlock || '<div class="fhint">暂无季度数据,抓取后自动计算。</div>'}</div>

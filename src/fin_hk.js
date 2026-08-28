@@ -13,7 +13,7 @@
 //      哪天找到了,设环境变量 HK_CASHFLOW_REPORT=<reportName> 就能自动接上,不用改代码。
 //
 // 数据源同为交易所披露的定期报告,东方财富只是把它结构化了。
-import { listCompanies, getAll, upsertQuarterly, slug } from "./fin_db.js";
+import { listCompanies, getAll, upsertQuarterly, upsertStatement, slug } from "./fin_db.js";
 import { fetchWithTimeout } from "./http.js";
 import { pickAShare } from "./fin_em.js";
 
@@ -179,8 +179,26 @@ export async function buildQuartersHK(company, { halfYear = false } = {}) {
   }
   out.sort((a, b) => a.year - b.year || a.q - b.q);
 
+  // —— 完整三表(港股):长表 ITEM_NAME/AMOUNT 按报告期折成 {中文科目名: 值元}(自描述,前端直接遍历) ——
+  const rawByDate = (rows) => {
+    const d = {};
+    for (const r of rows) {
+      const rd = r.REPORT_DATE, name = String(r.ITEM_NAME || "").trim(), v = NUM(r.AMOUNT);
+      if (!rd || !name || v == null) continue;
+      (d[rd] = d[rd] || {})[name] = v; // 港股 AMOUNT 同为元(YI=v/1e8),前端换算与 A 股一致
+    }
+    return d;
+  };
+  const incD = rawByDate(incRows), balD = rawByDate(balRows), cfD = rawByDate(cfRows);
+  const RT = { 1: "一季报", 2: "中报", 3: "三季报", 4: "年报" };
+  const statements = [...new Set([...Object.keys(incD), ...Object.keys(balD), ...Object.keys(cfD)])].map((rd) => {
+    const k = ymq(rd); if (!k) return null;
+    return { company: company.id, period: rd, year: k.y, q: k.q, reportType: RT[k.q] || "", label: `${k.y}${RT[k.q] || ""}`,
+      income: incD[rd] || {}, balance: balD[rd] || {}, cashflow: cfD[rd] || {}, sources: src };
+  }).filter(Boolean).sort((a, b) => b.period.localeCompare(a.period));
+
   return {
-    code, quarters: out, skipped,
+    code, quarters: out, skipped, statements,
     meta: { ...inc.meta, aShareAlso: pickAShare(company.ticker) },
     counts: { income: incRows.length, balance: balRows.length, cash: cfRows.length },
     unmapped: { income: inc.unmapped, balance: bal.unmapped, cash: cf.unmapped },
@@ -200,11 +218,14 @@ export async function seedCompanyHK(idOrName, { save = true, halfYear = false } 
   if (res.skipped.length) warn.push(`${res.skipped.length} 个期间差分不出单季已跳过(该公司可能只披露中报/年报;要按半年口径入库请带 halfYear)`);
   if (res.unmapped.income.length) warn.push(`利润表有 ${res.unmapped.income.length} 个科目未映射,如需要请补进 fin_hk.js 的 INCOME_MAP`);
 
-  let saved = 0;
-  if (save) for (const r of res.quarters) { const u = upsertQuarterly(r, { manual: false }); if (u.ok) saved++; }
+  let saved = 0, savedStmt = 0;
+  if (save) {
+    for (const r of res.quarters) { const u = upsertQuarterly(r, { manual: false }); if (u.ok) saved++; }
+    for (const s of res.statements || []) { const u = upsertStatement(s, { manual: false }); if (u && u.ok) savedStmt++; }
+  }
   return {
     company: c.name, code: res.code, currency: res.meta.currency, standard: res.meta.standard,
-    fetched: res.counts, quarters: res.quarters.length, saved, warn,
+    fetched: res.counts, quarters: res.quarters.length, saved, statements: (res.statements || []).length, savedStmt, warn,
     skipped: res.skipped, unmapped: res.unmapped, cashflowReport: res.cashflowReport,
     preview: res.quarters.slice(-4),
   };
