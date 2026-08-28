@@ -98,6 +98,7 @@
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
   let C_SEL = "";            // 车企视图 选中
   let I_THEME = "t1", I_QI = 0, I_MODE = "", I_KIND = "", I_SEL = "";  // 洞察
+  let D_PI = 0, D_SORT = "", D_DIR = -1, D_MODE = "", D_KIND = "";       // 财务大盘点
 
   // ---------- 适配 ----------
   function build(d) {
@@ -246,6 +247,7 @@
       <button class="${FTOP === "company" ? "on" : ""}" onclick="FINBOARD.top('company')">车企视图</button>
       <button class="${FTOP === "insight" ? "on" : ""}" onclick="FINBOARD.top('insight')">决策洞察</button>
       <button class="${FTOP === "flash" ? "on" : ""}" onclick="FINBOARD.top('flash')">财报速递</button>
+      <button class="${FTOP === "dash" ? "on" : ""}" onclick="FINBOARD.top('dash')">财务大盘点</button>
       <span style="flex:1"></span>
       <button class="fminib" onclick="FINBOARD.seedAll(this)">↻ 全量财报抓取</button>
       <button class="fminib" onclick="FINBOARD.admin()">▦ 管理车企/数据</button>
@@ -262,6 +264,7 @@
     if (FTOP === "company") return topTabs() + buildCompany();
     if (FTOP === "insight") return topTabs() + buildInsight();
     if (FTOP === "flash") return topTabs() + buildFlash();
+    if (FTOP === "dash") return topTabs() + buildDashboard();
     return topTabs() + buildAdmin();
   }
 
@@ -484,6 +487,110 @@
       <div class="fcard"><div class="fscroll"><table class="ftbl instbl"><thead><tr>${T.head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
 
+  // ====== 财务大盘点(结构化横向对比) ======
+  // 每家一行、关键指标一列,数据全部取自季度财务库(交易所报表口径)。
+  // 单季取该季记录,年度按单季求和(与「管理总表」periodAgg 同口径)。
+  // 单位:营收/归母/扣非/研发/现金流=亿元;销量=万辆;ASP=万元;单车净利=元。
+  function dashCols() {
+    return [
+      { k: "revenue", t: "营收(亿)", dec: 1, yoyKey: "revYoY" },
+      { k: "netProfit", t: "归母净利(亿)", dec: 2, yoyKey: "npYoY" },
+      { k: "gm", t: "毛利率(%)", dec: 1 },
+      { k: "netProfitEx", t: "扣非(亿)", dec: 2 },
+      { k: "rdSpend", t: "研发(亿)", dec: 1 },
+      { k: "ocf", t: "经营现金流(亿)", dec: 1 },
+      { k: "sales", t: "销量(万辆)", dec: 2, yoyKey: "salesYoY" },
+      { k: "asp", t: "单车ASP(万)", dec: 2 },
+      { k: "npPer", t: "单车净利(元)", dec: 0 },
+      { k: "overseasPct", t: "海外占比(%)", dec: 1 },
+    ];
+  }
+  function metricsFrom(cur, prev) {
+    const rev = cur.revenue, np = cur.netProfit, sales = cur.sales;
+    return {
+      revenue: rev, revYoY: yoy(rev, prev && prev.revenue),
+      netProfit: np, npYoY: yoy(np, prev && prev.netProfit),
+      gm: (rev && cur.operatingCost != null) ? (rev - cur.operatingCost) / rev * 100 : null,
+      netProfitEx: cur.netProfitEx ?? null,
+      rdSpend: cur.rdSpend ?? null,
+      ocf: cur.ocf ?? null,
+      sales: sales ?? null, salesYoY: yoy(sales, prev && prev.sales),
+      asp: (rev != null && sales) ? rev / sales : null,        // 营收亿/销量万 = 万元
+      npPer: (np != null && sales) ? np / sales * 1e4 : null,   // 归母亿/销量万 = 万元 → ×1e4 元
+      overseasPct: cur.overseasPct ?? null,
+    };
+  }
+  function dashAgg(id, p) {
+    if (p.type === "q") {
+      const cur = qFind(id, p.y, p.q); if (!cur) return null;
+      return metricsFrom(cur, qFind(id, p.y - 1, p.q));
+    }
+    const qs = (QByC[id] || []).filter(x => x.year === p.y); if (!qs.length) return null;
+    const pqs = (QByC[id] || []).filter(x => x.year === p.y - 1);
+    const sum = (arr, k) => arr.reduce((a, x) => a + (x[k] || 0), 0);
+    const lastOf = (arr, k) => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i][k] != null) return arr[i][k]; return null; };
+    const agg = (arr) => ({
+      revenue: sum(arr, "revenue"), netProfit: sum(arr, "netProfit"), operatingCost: sum(arr, "operatingCost"),
+      rdSpend: sum(arr, "rdSpend"), ocf: sum(arr, "ocf"), sales: sum(arr, "sales"),
+      netProfitEx: sum(arr, "netProfitEx"), overseasPct: lastOf(arr, "overseasPct"),
+    });
+    return metricsFrom(agg(qs), pqs.length ? agg(pqs) : null);
+  }
+  function dashData() {
+    const p = PERIODS[D_PI] || PERIODS[0];
+    const cols = dashCols();
+    let list = allCompanies()
+      .filter(c => (!D_MODE || c.type === D_MODE) && (!D_KIND || c.kind === D_KIND))
+      .map(c => ({ c, m: dashAgg(c.id, p) }));
+    const sk = D_SORT || "revenue";
+    list.sort((x, y) => {
+      const a = x.m ? x.m[sk] : null, b = y.m ? y.m[sk] : null;
+      if (a == null && b == null) return 0; if (a == null) return 1; if (b == null) return -1;
+      return (b - a) * (D_DIR < 0 ? 1 : -1);
+    });
+    return { p, cols, list };
+  }
+  // 剪贴板兜底:navigator.clipboard 不可用(非 https/旧浏览器)时用临时 textarea + execCommand
+  function fallbackCopy(text, done) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+      if (done) done();
+    } catch (_) { alert("复制失败,请手动框选表格复制。"); }
+  }
+  function buildDashboard() {
+    if (!(RAW.quarterly || []).length)
+      return `<div class="fhint" style="margin-top:14px">财务库里还没有季度数据。去「管理总表」上方点「↻ 全量财报抓取」,或在「车企视图」里逐家抓取/录入,这里就能看结构化对比。</div>`;
+    const { p, cols, list } = dashData();
+    const popts = PERIODS.map((x, i) => `<option value="${i}" ${i === D_PI ? "selected" : ""}>${x.label}</option>`).join("");
+    const { mo, ko } = modeKindOpts(D_MODE, D_KIND);
+    const th = (col) => `<th class="fsort ${D_SORT === col.k ? "on" : ""}" style="cursor:pointer;white-space:nowrap" onclick="FINBOARD.dashSort('${col.k}')">${col.t}${D_SORT === col.k ? (D_DIR < 0 ? " ▼" : " ▲") : ""}</th>`;
+    const head = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">车企</th>${cols.map(th).join("")}</tr>`;
+    const cell = (m, col) => {
+      const v = m ? m[col.k] : null;
+      const base = v == null ? "<span style=\"color:var(--muted)\">—</span>" : v.toFixed(col.dec);
+      const yh = (m && col.yoyKey && m[col.yoyKey] != null) ? yoyHtml(m[col.yoyKey]) : "";
+      return `<td style="white-space:nowrap">${base}${yh}</td>`;
+    };
+    const rows = list.map(({ c, m }) => `<tr>
+      <td style="text-align:left;position:sticky;left:0;background:#fff;font-weight:600;white-space:nowrap">${ESC(c.name)} <span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span></td>
+      ${cols.map(col => cell(m, col)).join("")}
+    </tr>`).join("");
+    return `
+      <div class="fbanner">财务大盘点 —— 各家 <b>${ESC(p.label)}</b> 关键财务指标横向对比,数据取自季度财务库(交易所报表口径)。点表头排序,「复制到 Excel」可整表粘贴。</div>
+      <div class="ftool">
+        <span class="lab">报告期</span><select id="fd-p" onchange="FINBOARD.dashApply()">${popts}</select>
+        <span class="lab">阵营</span><select id="fd-mode" onchange="FINBOARD.dashApply()">${mo}</select>
+        <span class="lab">类型</span><select id="fd-kind" onchange="FINBOARD.dashApply()">${ko}</select>
+        <span style="flex:1"></span>
+        <button class="fminib" onclick="FINBOARD.dashCopy(this)">⧉ 复制到 Excel</button>
+      </div>
+      <div style="overflow-x:auto"><table class="ftbl">${head}${rows}</table></div>
+      <div class="fhint" style="margin-top:8px">毛利率 = (营收−营业成本)/营收;单车 ASP = 营收/销量;单车净利 = 归母净利/销量。「—」表示该期该项暂无结构化数据。年度为四季求和口径。</div>`;
+  }
+
   // 把交互函数挂到 FINBOARD(下一段补全:top/applyAdmin/sort/pick/theme/applyIns/insSel/seed/edit)
   Object.assign(window.FINBOARD, {
     render, rerender,
@@ -509,6 +616,17 @@
     theme(k) { I_THEME = k; I_SEL = ""; rerender(); },
     applyIns() { const q = document.getElementById("fi-q"), m = document.getElementById("fi-mode"), k = document.getElementById("fi-kind"); if (q) I_QI = +q.value; if (m) I_MODE = m.value; if (k) I_KIND = k.value; rerender(); },
     insSel(id) { I_SEL = id; rerender(); },
+    dashApply() { const p = document.getElementById("fd-p"), m = document.getElementById("fd-mode"), k = document.getElementById("fd-kind"); if (p) D_PI = +p.value; if (m) D_MODE = m.value; if (k) D_KIND = k.value; rerender(); },
+    dashSort(k) { if (D_SORT === k) { D_DIR = -D_DIR; } else { D_SORT = k; D_DIR = -1; } rerender(); },
+    dashCopy(btn) {
+      const { p, cols, list } = dashData();
+      const header = ["车企", "报告期", ...cols.map(c => c.t)].join("\t");
+      const lines = list.map(({ c, m }) => [c.name, p.label, ...cols.map(col => (m && m[col.k] != null) ? m[col.k].toFixed(col.dec) : "")].join("\t"));
+      const tsv = [header, ...lines].join("\n");
+      const done = () => { if (btn) { const o = btn.textContent; btn.textContent = "✓ 已复制"; setTimeout(() => btn.textContent = o, 1500); } };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done).catch(() => fallbackCopy(tsv, done));
+      else fallbackCopy(tsv, done);
+    },
   });
 
   // ====== 重新加载 ======
