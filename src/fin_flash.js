@@ -19,7 +19,8 @@
 import { readStore, writeStore, resolveStorePath } from "./store.js";
 import { fetchWithTimeout } from "./http.js";
 import { bochaSearch } from "./search.js";
-import { chatJSON } from "./llm.js";
+import { chatJSON, parseJSON } from "./llm.js";
+import { responsesWebSearch } from "./ds_search.js";
 import { pool } from "./pool.js";
 
 const FLASH_PATH = resolveStorePath("FLASH_PATH", "flash.json");
@@ -286,24 +287,40 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
 
   const { facts, errors, source, status } = await structuredFacts(entity, ps);
 
+  const engine = (process.env.FLASH_ENGINE || "bocha").toLowerCase(); // bocha(默认) | native
   let ctx = "", urls = [], mode = "template", guard = { ok: true, unsupported: [] }, attempts = 0;
-  let llmOut = null;
-  const canLLM = withSearch && process.env.DEEPSEEK_API_KEY && process.env.BOCHA_API_KEY;
+  let llmOut = null, nativeCites = [];
+  // native 引擎让 DeepSeek 自己联网搜,不需要 BOCHA_API_KEY;bocha 引擎需要博查。
+  const canLLM = withSearch && process.env.DEEPSEEK_API_KEY && (engine === "native" || process.env.BOCHA_API_KEY);
   if (canLLM) {
     try {
-      const g = await gather(entity, ps);
-      ctx = g.ctx; urls = g.urls;
-      for (let i = 0; i < 2; i++) {
-        attempts = i + 1;
-        const extra = i === 0 ? "" : `\n\n上一次你写出了资料/事实里都没有的数字:${guard.unsupported.join("、")}。请尽量改掉,只用给定数值;确实查不到的那个数就别写。`;
-        const out = await chatJSON(`${schemaFor(entity, ps, facts)}${extra}\n\n【检索资料】\n${ctx}`, 2600, MODEL);
-        const gd = numericGuard(JSON.stringify(out?.periods || out), facts, ctx);
-        llmOut = out; mode = "llm"; guard = gd;   // 软校验:这一版先留下,不因为有存疑数字就丢弃退回模板
-        if (gd.ok) break;                          // 干净就收工;不干净再给一次自我纠正机会,仍不干净就带「待核」标记输出
+      if (engine === "native") {
+        // —— 引擎 A:DeepSeek Responses API 原生 web_search(模型自己搜、自己合成,一次调用)——
+        const inp = `联网检索【${entity.name}】以下报告期的销量、营收、归母净利与经营波动,` +
+          `严格按 instructions 里的 JSON 结构只输出 JSON:${ps.map((p) => p.label).join("、")}`;
+        const r = await responsesWebSearch(schemaFor(entity, ps, facts), inp);
+        ctx = r.evidence; nativeCites = r.citations || []; urls = nativeCites.map((c) => c.url);
+        const out = parseJSON(r.text);
+        guard = numericGuard(JSON.stringify(out?.periods || out), facts, ctx);
+        llmOut = out; mode = "llm-native"; attempts = 1;
+      } else {
+        // —— 引擎 B:博查检索 → DeepSeek 合成(默认,原逻辑)——
+        const g = await gather(entity, ps);
+        ctx = g.ctx; urls = g.urls;
+        for (let i = 0; i < 2; i++) {
+          attempts = i + 1;
+          const extra = i === 0 ? "" : `\n\n上一次你写出了资料/事实里都没有的数字:${guard.unsupported.join("、")}。请尽量改掉,只用给定数值;确实查不到的那个数就别写。`;
+          const out = await chatJSON(`${schemaFor(entity, ps, facts)}${extra}\n\n【检索资料】\n${ctx}`, 2600, MODEL);
+          const gd = numericGuard(JSON.stringify(out?.periods || out), facts, ctx);
+          llmOut = out; mode = "llm"; guard = gd;   // 软校验:这一版先留下,不因为有存疑数字就丢弃退回模板
+          if (gd.ok) break;                          // 干净就收工;不干净再给一次自我纠正机会,仍不干净就带「待核」标记输出
+        }
       }
     } catch (e) { errors.push("检索/生成失败:" + e.message); }
-  } else if (!process.env.BOCHA_API_KEY || !process.env.DEEPSEEK_API_KEY) {
-    errors.push("未配置 BOCHA_API_KEY / DEEPSEEK_API_KEY,只输出结构化数据");
+  } else if (!process.env.DEEPSEEK_API_KEY) {
+    errors.push("未配置 DEEPSEEK_API_KEY,只输出结构化数据");
+  } else if (engine !== "native" && !process.env.BOCHA_API_KEY) {
+    errors.push("未配置 BOCHA_API_KEY(或设 FLASH_ENGINE=native 用 DeepSeek 原生搜索),只输出结构化数据");
   }
 
   const row = {
@@ -318,9 +335,10 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
     const okUrl = (arr) => (Array.isArray(arr) ? arr.filter((s) => s && s.url && urls.includes(s.url)).slice(0, 3) : []);
     const summary = (llm?.summary || "").trim() || templateSummary(f, status[p.key]);
     // 软校验:逐段挑出「数量级在本期结构化事实与检索资料里都找不到」的数字,只标记、不改动正文
-    const 待核 = (mode === "llm" && llm?.summary)
+    const 待核 = (mode.startsWith("llm") && llm?.summary)
       ? numericGuard(summary, f || {}, ctx).unsupported
       : [];
+    const per = okUrl(llm?.sources);
     row.periods[p.key] = {
       label: p.label,
       状态: status[p.key],
@@ -328,7 +346,8 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
       总结: summary,
       待核,
       facts: f,
-      sources: okUrl(llm?.sources),
+      // native 引擎的正文不一定自带 sources,用返回的引用兜底
+      sources: per.length ? per : (mode === "llm-native" ? nativeCites.filter((c) => c.url).slice(0, 3) : []),
     };
   }
 
