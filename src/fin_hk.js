@@ -156,21 +156,23 @@ export async function buildQuartersHK(company, { halfYear = false } = {}) {
     const isHalf = halfYear && halfSpan(y, q) && single(inc.cum, y, q, "revenue") == null;
     if (rev == null && !b) { skipped.push(`${y}Q${q}:缺上一期累计数,差分不出单季`); continue; }
 
-    const e = ex[y + "Q" + q] || {};
+    const e = ex[y + "Q" + q] || {}, e0 = e;
     out.push({
       company: company.id, year: y, q,
       revenue: YI(rev), operatingCost: YI(cost),
       rdSpend: YI(flow(inc.cum, y, q, "rdSpend")),
       netProfit: YI(flow(inc.cum, y, q, "netProfit")),
       jvIncome: YI(flow(inc.cum, y, q, "jvIncome")),
-      ocf: YI(flow(cf.cum, y, q, "ocf")),
-      financingCF: YI(flow(cf.cum, y, q, "financingCF")),
+      // 港股现金流量表暂时拿不到:源里没有就沿用库里已有值,绝不清空
+      ocf: YI(flow(cf.cum, y, q, "ocf")) ?? e0.ocf ?? null,
+      financingCF: YI(flow(cf.cum, y, q, "financingCF")) ?? e0.financingCF ?? null,
       inventory: YI(b && b.inventory), ap: YI(b && b.ap), cash: YI(b && b.cash),
       stDebt: YI(b && b.stDebt), ltDebt: YI(b && b.ltDebt), ar: YI(b && b.ar),
       totalAssets: YI(b && b.totalAssets), totalLiab: YI(b && b.totalLiab),
       // 报表里没有的,沿用库里已有值,不清空
       sales: e.sales ?? null, retailReg: e.retailReg ?? null, dealerCoef: e.dealerCoef ?? null,
       invFinished: e.invFinished ?? null, invRaw: e.invRaw ?? null, rdCap: e.rdCap ?? null,
+      netProfitEx: e.netProfitEx ?? null, govGrant: e.govGrant ?? null, overseasPct: e.overseasPct ?? null,
       sources: src,
       note: isHalf ? "⚠ 港股半年报口径:本条覆盖两个季度(该公司不披露季报),比率类指标可用,绝对值不要与单季公司横比" : "",
     });

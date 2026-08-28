@@ -341,11 +341,38 @@
         <tr><td>研发占比(%)</td>${recentQ.map(x => `<td class="calc">${fmt(rdr(x), 1)}</td>`).join("")}</tr>
       </tbody></table></div>`;
     }
+    // 财报解读（自动抓数 → 规则算信号 → LLM 只叙述，数字过校验）
+    const revs = ((RAW && RAW.reviews) || []).filter(r => r.company === c.id)
+      .sort((a, b) => b.year - a.year || b.q - a.q);
+    const rv = revs[0];
+    const GCLR = { "健康": "#0ca30c", "承压": "#fab219", "预警": "#d03b3b" };
+    const reviewBlock = !rv
+      ? `<div class="fhint">还没有财报解读。<button class="fminib" onclick="FINBOARD.genReview('${ESC(c.name)}',this)">⚡ 生成财报解读</button>
+         <span style="color:var(--muted)">会先自动抓一次最新财报，再生成。</span></div>`
+      : `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+           <span style="font-size:12px;padding:2px 9px;border-radius:99px;color:#fff;background:${GCLR[rv.grade] || "#898781"}">${ESC(rv.grade || "")}</span>
+           <b style="font-size:14px">${rv.year}Q${rv.q}</b>
+           <span style="color:var(--muted);font-size:11px">${rv.mode === "llm" ? "LLM 叙述 · 数字已校验" : "纯规则版（未调用 LLM）"} · ${String(rv.generatedAt || "").slice(0, 16).replace("T", " ")}</span>
+           <button class="fminib" onclick="FINBOARD.genReview('${ESC(c.name)}',this)">↻ 重新生成</button>
+         </div>
+         <div style="font-size:15px;font-weight:600;line-height:1.5;margin-bottom:12px">${ESC(rv.verdict || "")}</div>
+         ${(rv.themes || []).map(t => `<div style="margin-bottom:10px">
+            <div style="font-size:13px;font-weight:600">${ESC(t.title)} ${(t.signals || []).map(x => `<span class="ktag">${ESC(x)}</span>`).join("")}</div>
+            <ul style="margin:4px 0 0;padding-left:18px;font-size:13px;color:var(--muted)">${(t.points || []).map(x => `<li>${ESC(x)}</li>`).join("")}</ul>
+          </div>`).join("")}
+         ${(rv.supplier_implication || []).length ? `<div style="margin-top:12px;padding:10px 12px;border-left:3px solid #7A1530;background:rgba(122,21,48,.05)">
+            <div style="font-size:12px;font-weight:700;margin-bottom:4px">对我们的含义</div>
+            <ul style="margin:0;padding-left:18px;font-size:13px">${rv.supplier_implication.map(x => `<li>${ESC(x)}</li>`).join("")}</ul></div>` : ""}
+         ${(rv.watch_next || []).length ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">下季盯：${rv.watch_next.map(ESC).join("；")}</div>` : ""}
+         ${rv.counter_evidence ? `<div style="margin-top:6px;font-size:12px;color:var(--muted)">反证：${ESC(rv.counter_evidence)}</div>` : ""}
+         ${(rv.dataGaps || []).length ? `<div style="margin-top:6px;font-size:11px;color:var(--muted)">数据缺口 ${rv.dataGaps.length} 项：${rv.dataGaps.slice(0, 8).map(ESC).join("、")}${rv.dataGaps.length > 8 ? " …" : ""}</div>` : ""}`;
+
     // 自研部件
     const parts = PByC[c.id] || [];
     const partRows = parts.length ? parts.map(p => `<tr ondblclick="FINBOARD.editPart('${p.id}')"><td>${ESC(p.part)}</td><td>${ESC(p.selfDev)}</td><td>${ESC(p.stage)}</td><td style="text-align:left">${ESC(p.product || "")}</td><td style="text-align:left">${ESC(p.replace || "")}</td><td><button class="fminib" onclick="FINBOARD.editPart('${p.id}')">改</button></td></tr>`).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">暂无自研部件记录</td></tr>`;
     return `${pills}
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">季度财务 · 近 8 季(单季口径)</h3>${finBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财经运营 · 近 8 季(蓝底=自动计算)</h3>${opBlock || finBlock}</div>
@@ -427,6 +454,12 @@
       if (btn) { btn.disabled = true; btn.textContent = "东方财富抓取中…"; }
       try { await fetch("/api/fin/em-seed-company", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: name }) }); pollJob("emcompany:" + name, btn, "东方财富抓取中"); }
       catch (e) { if (btn) { btn.disabled = false; btn.textContent = "↻ 东方财富抓取(A股)"; } alert("启动失败:" + e.message); }
+    },
+    // 一键财报解读:后端会先抓一次最新财报,再算信号、生成解读
+    async genReview(name, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = "抓数据并生成中…"; }
+      try { await fetch("/api/fin/review", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: name }) }); pollJob("review:" + name, btn, "抓数据并生成中"); }
+      catch (e) { if (btn) { btn.disabled = false; btn.textContent = "⚡ 生成财报解读"; } alert("启动失败:" + e.message); }
     },
     // 港股源:补 A 股源覆盖不到的奇瑞/吉利/理想/零跑/小鹏/蔚来
     async seedCompanyHK(name, btn) {

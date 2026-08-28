@@ -60,6 +60,9 @@ export async function buildQuartersEM(company) {
       ltDebt: YI(b && b.lt), ar: YI(b && b.ar), totalAssets: YI(b && b.ta), totalLiab: YI(b && b.tl),
       sales: e.sales ?? null, retailReg: e.retailReg ?? null, dealerCoef: e.dealerCoef ?? null,
       invFinished: e.invFinished ?? null, invRaw: e.invRaw ?? null, rdCap: e.rdCap ?? null,
+      // 三大报表里没有的新增字段,同样沿用库里已有值 —— 否则 cleanQ 会把它们清成 null
+      netProfitEx: e.netProfitEx ?? null, govGrant: e.govGrant ?? null,
+      jvIncome: e.jvIncome ?? null, overseasPct: e.overseasPct ?? null,
       sources: src,
     });
   }

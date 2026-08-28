@@ -17,7 +17,9 @@ const qid = (company, year, q) => `${company}:${year}Q${q}`;
 const mid = (company, year, month) => `${company}:${year}-${String(month).padStart(2, "0")}`;
 const pid = (company, part) => `${company}:${slug(part)}`;
 
-function blank() { return { companies: [], salesMonthly: [], quarterly: [], parts: [], updatedAt: null }; }
+// reviews:财报解读(2026-08 新增顶层键)。按 CLAUDE.md 第 4 条,加进 blank() 即可,
+// 靠 { ...blank(), ...readStore(...) } 的展开顺序自动兼容老文件,不需要迁移。
+function blank() { return { companies: [], salesMonthly: [], quarterly: [], parts: [], reviews: [], updatedAt: null }; }
 function load() { return { ...blank(), ...readStore(FIN_PATH, blank) }; }
 function save(db) { db.updatedAt = now(); return writeStore(FIN_PATH, db); }
 
@@ -103,7 +105,8 @@ export function getAll() {
   const db = ensureSeeded();
   return {
     companies: db.companies, salesMonthly: db.salesMonthly, quarterly: db.quarterly, parts: db.parts,
-    meta: { companies: db.companies.length, quarterly: db.quarterly.length, salesMonthly: db.salesMonthly.length, parts: db.parts.length, updatedAt: db.updatedAt },
+    reviews: db.reviews || [],
+    meta: { companies: db.companies.length, quarterly: db.quarterly.length, salesMonthly: db.salesMonthly.length, parts: db.parts.length, reviews: (db.reviews || []).length, updatedAt: db.updatedAt },
   };
 }
 export function listCompanies() { return ensureSeeded().companies; }
@@ -214,6 +217,41 @@ export function addPart(rec) {
 export function deletePart(id) {
   const db = ensureSeeded(); const n = db.parts.length;
   db.parts = db.parts.filter((x) => x.id !== id); save(db); return n !== db.parts.length;
+}
+
+// ============ 财报解读 ============
+// 一家车企一个期间一条,重跑覆盖。人工编辑过的(manual:true)不被自动生成覆盖。
+export function upsertReview(rec, { manual = false } = {}) {
+  if (!rec || !rec.company || !rec.year || !rec.q) return { skipped: "invalid" };
+  const db = ensureSeeded();
+  db.reviews = db.reviews || [];
+  const id = `${rec.company}:${rec.year}Q${rec.q}`;
+  const i = db.reviews.findIndex((x) => x.id === id);
+  if (i >= 0) {
+    if (db.reviews[i].manual && !manual) return { skipped: "manual", id };
+    db.reviews[i] = { ...db.reviews[i], ...rec, id, manual, updatedAt: now() };
+  } else {
+    db.reviews.push({ id, ...rec, manual, updatedAt: now() });
+  }
+  save(db);
+  return { ok: true, id };
+}
+export function getReview(company, year, q) {
+  const db = ensureSeeded();
+  return (db.reviews || []).find((x) => x.id === `${company}:${year}Q${q}`) || null;
+}
+export function listReviews(company) {
+  const db = ensureSeeded();
+  const rs = (db.reviews || []).filter((x) => !company || x.company === company);
+  return rs.sort((a, b) => b.year - a.year || b.q - a.q);
+}
+export function deleteReview(id) {
+  const db = ensureSeeded();
+  db.reviews = db.reviews || [];
+  const n = db.reviews.length;
+  db.reviews = db.reviews.filter((x) => x.id !== id);
+  save(db);
+  return n !== db.reviews.length;
 }
 
 export { slug };

@@ -14,7 +14,8 @@ import * as findb from "./src/fin_db.js";
 import { seedAllFin, seedOneCompanyFin } from "./src/fin_seed.js";
 import { seedCompanyEM, seedAllEM, pickAShare } from "./src/fin_em.js";
 import { seedCompanyHK, seedAllHK, pickHK } from "./src/fin_hk.js";
-import { importSeed } from "./src/fin_import.js";
+import { importSeed, coverage as finCoverage } from "./src/fin_import.js";
+import { generateReview, generateAllReviews } from "./src/fin_review.js";
 import * as dsdb from "./src/ds_db.js";
 import { updateDownshift } from "./src/ds_seed.js";
 import * as clouddb from "./src/cloud_db.js";
@@ -231,10 +232,42 @@ app.post("/api/fin/hk-seed-company", (req, res) => {
   res.status(202).json({ status: "started", key });
 });
 
+// —— 财报解读:一键「自动抓数据 → 算指标与信号 → 生成结构化解读」——
+// 读:公开;生成:要令牌 + 最短间隔 + 全局预算(会打东方财富和 DeepSeek)
+app.get("/api/fin/review", (req, res) => {
+  try {
+    const { company, year, q } = req.query || {};
+    if (company && year && q) {
+      const r = findb.getReview(findb.slug(company) === company ? company : findb.slug(company), +year, +q);
+      return r ? res.json(r) : res.status(404).json({ error: "还没有这一期的解读,先生成" });
+    }
+    res.json({ items: findb.listReviews(company || null) });
+  } catch (e) { fail(res)(e); }
+});
+app.post("/api/fin/review", (req, res) => {
+  const name = cleanName(req.body?.company);
+  if (!name) return res.status(400).json({ error: "缺少 company" });
+  const key = "review:" + name;
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已生成过 ${name},请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  generateReview(name, { year: req.body?.year || null, q: req.body?.q || null, refetchData: req.body?.refetch !== false })
+    .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: { period: `${r.year}Q${r.q}`, grade: r.grade, mode: r.mode, signals: r.signals_detail.length } }; })
+    .catch((e) => { console.error("[fin-review]", name, e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "生成失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+app.delete("/api/fin/review/:id", (req, res) => res.json({ ok: findb.deleteReview(req.params.id) }));
+
 // —— 种子导入(交易所/监管接口直采 + 媒体交叉核对的一批历史季度数据) ——
 // 预览:只算不写,看清楚要插多少、覆盖多少、有几条因为你手改过而保留
 app.get("/api/fin/import-preview", (req, res) => {
   try { res.json(importSeed({ apply: false, company: req.query?.company || null })); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+// 覆盖率体检:哪家、哪个字段还是空的,以及该用哪个源去补。排查"数据怎么这么多缺"先看这个。
+app.get("/api/fin/coverage", (req, res) => {
+  try { res.json(finCoverage({ minYear: Number(req.query?.since) || 2025 })); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 // 落库:必须显式 apply:true。手改过的记录(manual:true)默认不覆盖。
@@ -305,8 +338,23 @@ app.post("/api/models/seed-brand", (req, res) => {
 });
 
 const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refreshStorage, news: generateDaily, models: seedModels, "fin-seed": seedAllFin,
+  // A 股全量。seedAllEM 之前只 import 了没接路由,等于一直没法一键跑 —— 补上。
+  "fin-em": seedAllEM,
   // 港股全量:只跑没有 A 股代码的那几家,不和东方财富 A 股源抢同一家
-  "fin-hk": () => seedAllHK({ halfYear: false }) };
+  "fin-hk": () => seedAllHK({ halfYear: false }),
+  // 一键补齐财务库。顺序是有讲究的:
+  //   先两个报表源(A股 → 港股)把三大报表灌满,最后再用种子「只填空」补上
+  //   报表里没有的东西(季度销量、扣非、政府补助、合联营投资收益、海外收入占比)。
+  //   反过来先导种子的话,后面的报表源虽然会覆盖自己那几项,但顺序乱了不好排查。
+  // 全量财报解读:每家抓一次数 + 生成一份最新期解读
+  "fin-review": () => generateAllReviews({ onlyCore: false }),
+  "fin-review-core": () => generateAllReviews({ onlyCore: true }),
+  "fin-all": async () => {
+    const em = await seedAllEM();
+    const hk = await seedAllHK({ halfYear: false });
+    const imp = importSeed({ apply: true });
+    return { aShare: em, hk, seedImport: { saved: imp.saved, filled: imp.fieldsToFill } };
+  } };
 app.post("/api/refresh", (req, res) => {
   const what = String(req.body?.what || "");
   const run = RUNNERS[what];

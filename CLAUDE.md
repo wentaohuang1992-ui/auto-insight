@@ -80,6 +80,10 @@ src/
   fin_hk.js            东方财富 F10 抓取(**港股**,长表按科目名折叠)→ 同上。
                        补 fin_em 覆盖不到的 6 家:奇瑞/吉利/理想/零跑/小鹏/蔚来
   fin_import.js        一次性种子导入(交易所直采 + 媒体交叉核对),读 seed/fin_import.json
+                       + coverage():覆盖率体检,排查"哪里缺、该点哪个按钮"
+  fin_review.js        【财报解读】一键:自动抓数 → 纯 JS 算指标与 11 条风险信号 →
+                       DeepSeek 只做叙述 → 数字校验(正文里的数字必须在事实里找得到)→ 落库。
+                       数据靠算,叙述才靠模型 —— 别让模型自己看财报写数字。
   digest.js mailer.js  日报邮件渲染 / 发送(Resend)
 
 public/                前端单页 + 4 个板块脚本 + api-auth.js(自动带令牌头)
