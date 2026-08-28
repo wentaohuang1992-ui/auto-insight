@@ -430,7 +430,7 @@
       const gh = `<tr><td colspan="${PS.length + 1}" style="background:#F1F4F8;font-weight:700;text-align:left">${g === "整车" ? "整车企业" : "零部件供应商"} · ${list.length} 家</td></tr>`;
       return gh + list.map(e => {
         const r = byId[e.id];
-        const tag = r && r.mode !== "llm" ? `<span class="ktag" title="未调用大模型,只有结构化数字">模板</span>` : "";
+        const tag = r && !String(r.mode || "").startsWith("llm") ? `<span class="ktag" title="未调用大模型,只有结构化数字">模板</span>` : "";
         const err = r && r.errors && r.errors.length
           ? `<div style="font-size:10px;color:#D14343">${ESC(r.errors[0]).slice(0, 46)}</div>` : "";
         return `<tr>

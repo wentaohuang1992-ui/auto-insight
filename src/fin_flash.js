@@ -279,7 +279,7 @@ function templateSummary(f, st) {
 // ---------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------
-export async function generateFlash(nameOrId, { periods = null, withSearch = true, save: doSave = true } = {}) {
+export async function generateFlash(nameOrId, { periods = null, withSearch = true, save: doSave = true, full = false } = {}) {
   const db = ensureSeeded();
   const ps = periods || db.periods || DEFAULT_PERIODS;
   const entity = db.entities.find((e) => e.id === nameOrId || e.name === nameOrId);
@@ -287,31 +287,44 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
 
   const { facts, errors, source, status } = await structuredFacts(entity, ps);
 
+  // —— 增量:历史期(已定稿、上次已成功)复用缓存,只对"当前还在变的那一期"重新检索+合成。——
+  // 当前期 = 期数组末位(DEFAULT_PERIODS 升序,末位即最新),它永远重生成;
+  // 历史期:上次生成成功(有发布时间且总结非失败/模板)就跳过;失败过或从没成功的仍会重做。
+  // full 或环境变量 FLASH_FULL=1 时强制全量(改了提示词想让历史期也套新格式时用一次)。
+  const liveKey = ps.length ? ps[ps.length - 1].key : null;
+  const prior = db.rows?.find((r) => r.id === entity.id)?.periods || {};
+  const forceFull = full || process.env.FLASH_FULL === "1";
+  const isGoodCached = (pd) => pd && pd.发布时间 && pd.总结 &&
+    !/待补|取数失败|尚未披露|未调用大模型|数据不足/.test(pd.总结);
+  const genPeriods = ps.filter((p) => forceFull || p.key === liveKey || !isGoodCached(prior[p.key]));
+  const genKeys = new Set(genPeriods.map((p) => p.key));
+  const factsGen = Object.fromEntries(genPeriods.map((p) => [p.key, facts[p.key]]));
+
   const engine = (process.env.FLASH_ENGINE || "bocha").toLowerCase(); // bocha(默认) | native
   let ctx = "", urls = [], mode = "template", guard = { ok: true, unsupported: [] }, attempts = 0;
   let llmOut = null, nativeCites = [];
   // native 引擎让 DeepSeek 自己联网搜,不需要 BOCHA_API_KEY;bocha 引擎需要博查。
-  const canLLM = withSearch && process.env.DEEPSEEK_API_KEY && (engine === "native" || process.env.BOCHA_API_KEY);
+  const canLLM = withSearch && genPeriods.length && process.env.DEEPSEEK_API_KEY && (engine === "native" || process.env.BOCHA_API_KEY);
   if (canLLM) {
     try {
       if (engine === "native") {
         // —— 引擎 A:DeepSeek Responses API 原生 web_search(模型自己搜、自己合成,一次调用)——
         const inp = `联网检索【${entity.name}】以下报告期的销量、营收、归母净利与经营波动,` +
-          `严格按 instructions 里的 JSON 结构只输出 JSON:${ps.map((p) => p.label).join("、")}`;
-        const r = await responsesWebSearch(schemaFor(entity, ps, facts), inp);
+          `严格按 instructions 里的 JSON 结构只输出 JSON:${genPeriods.map((p) => p.label).join("、")}`;
+        const r = await responsesWebSearch(schemaFor(entity, genPeriods, factsGen), inp);
         ctx = r.evidence; nativeCites = r.citations || []; urls = nativeCites.map((c) => c.url);
         const out = parseJSON(r.text);
-        guard = numericGuard(JSON.stringify(out?.periods || out), facts, ctx);
+        guard = numericGuard(JSON.stringify(out?.periods || out), factsGen, ctx);
         llmOut = out; mode = "llm-native"; attempts = 1;
       } else {
         // —— 引擎 B:博查检索 → DeepSeek 合成(默认,原逻辑)——
-        const g = await gather(entity, ps);
+        const g = await gather(entity, genPeriods);
         ctx = g.ctx; urls = g.urls;
         for (let i = 0; i < 2; i++) {
           attempts = i + 1;
           const extra = i === 0 ? "" : `\n\n上一次你写出了资料/事实里都没有的数字:${guard.unsupported.join("、")}。请尽量改掉,只用给定数值;确实查不到的那个数就别写。`;
-          const out = await chatJSON(`${schemaFor(entity, ps, facts)}${extra}\n\n【检索资料】\n${ctx}`, 2600, MODEL);
-          const gd = numericGuard(JSON.stringify(out?.periods || out), facts, ctx);
+          const out = await chatJSON(`${schemaFor(entity, genPeriods, factsGen)}${extra}\n\n【检索资料】\n${ctx}`, 2600, MODEL);
+          const gd = numericGuard(JSON.stringify(out?.periods || out), factsGen, ctx);
           llmOut = out; mode = "llm"; guard = gd;   // 软校验:这一版先留下,不因为有存疑数字就丢弃退回模板
           if (gd.ok) break;                          // 干净就收工;不干净再给一次自我纠正机会,仍不干净就带「待核」标记输出
         }
@@ -319,7 +332,7 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
     } catch (e) { errors.push("检索/生成失败:" + e.message); }
   } else if (!process.env.DEEPSEEK_API_KEY) {
     errors.push("未配置 DEEPSEEK_API_KEY,只输出结构化数据");
-  } else if (engine !== "native" && !process.env.BOCHA_API_KEY) {
+  } else if (genPeriods.length && engine !== "native" && !process.env.BOCHA_API_KEY) {
     errors.push("未配置 BOCHA_API_KEY(或设 FLASH_ENGINE=native 用 DeepSeek 原生搜索),只输出结构化数据");
   }
 
@@ -331,6 +344,21 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
   };
   for (const p of ps) {
     const f = facts[p.key];
+    if (!genKeys.has(p.key)) {
+      // 历史期:复用上次缓存,不重新检索/调模型。数字仍用本轮 F10 的新值(实为同值),发布时间兜底。
+      const prev = prior[p.key] || {};
+      row.periods[p.key] = {
+        label: p.label,
+        状态: status[p.key],
+        发布时间: f?.发布时间 || prev.发布时间 || null,
+        总结: prev.总结 || templateSummary(f, status[p.key]),
+        待核: prev.待核 || [],
+        facts: f || prev.facts || null,
+        sources: prev.sources || [],
+        cached: true,
+      };
+      continue;
+    }
     const llm = llmOut?.periods?.[p.key];
     const okUrl = (arr) => (Array.isArray(arr) ? arr.filter((s) => s && s.url && urls.includes(s.url)).slice(0, 3) : []);
     const summary = (llm?.summary || "").trim() || templateSummary(f, status[p.key]);
@@ -348,6 +376,7 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
       facts: f,
       // native 引擎的正文不一定自带 sources,用返回的引用兜底
       sources: per.length ? per : (mode === "llm-native" ? nativeCites.filter((c) => c.url).slice(0, 3) : []),
+      cached: false,
     };
   }
 
@@ -361,19 +390,33 @@ export async function generateFlash(nameOrId, { periods = null, withSearch = tru
   return row;
 }
 
-/** 全量:整车 12 + 供应商 5。串行跑,每家之间不并发,免得把检索额度一次打光。 */
-export async function generateAllFlash({ group = null, withSearch = true } = {}) {
+/** 全量:整车 12 + 供应商 5。并发跑,默认 4 家同时(FLASH_CONCURRENCY 可调)。
+ *  之前串行是为了压检索额度,但那也是 17 家排队跑到几分钟的根源;
+ *  并发 + guard 的全局预算兜底,既快又不至于把额度一次打爆。 */
+export async function generateAllFlash({ group = null, withSearch = true, full = false } = {}) {
   const db = ensureSeeded();
   const list = db.entities.filter((e) => !group || e.group === group);
-  const detail = [];
-  for (const e of list) {
+  const CONC = Math.max(1, parseInt(process.env.FLASH_CONCURRENCY || "4", 10));
+  const rows = [];
+  const detail = await pool(list, CONC, async (e) => {
     try {
-      const r = await generateFlash(e.id, { withSearch });
-      detail.push({ name: e.name, mode: r.mode, errors: r.errors.length,
-        periods: Object.fromEntries(Object.entries(r.periods).map(([k, v]) => [k, v.发布时间 || "无日期"])) });
-    } catch (err) { console.error("[fin_flash]", e.name, err.message); detail.push({ name: e.name, error: err.message }); }
+      // save:false —— 并发时各自不写盘,避免 read-modify-write 互相覆盖丢行;跑完统一存一次。
+      const r = await generateFlash(e.id, { withSearch, save: false, full });
+      rows.push(r);
+      return { name: e.name, mode: r.mode, errors: r.errors.length,
+        periods: Object.fromEntries(Object.entries(r.periods).map(([k, v]) => [k, v.发布时间 || "无日期"])) };
+    } catch (err) { console.error("[fin_flash]", e.name, err.message); return { name: e.name, error: err.message }; }
+  });
+  // 并发结束后一次性落盘
+  if (rows.length) {
+    const cur = load();
+    cur.periods = db.periods || DEFAULT_PERIODS;
+    const ids = new Set(rows.map((r) => r.id));
+    cur.rows = [...(cur.rows || []).filter((r) => !ids.has(r.id)), ...rows]
+      .sort((a, b) => (a.group === b.group ? 0 : a.group === "整车" ? -1 : 1));
+    save(cur);
   }
-  return { total: list.length, done: detail.filter((d) => !d.error).length, detail };
+  return { total: list.length, done: detail.filter((d) => d && !d.error).length, detail: detail.filter(Boolean) };
 }
 
 // —— 名单维护 ——

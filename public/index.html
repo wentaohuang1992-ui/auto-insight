@@ -153,6 +153,15 @@
   .panel{padding:16px 20px 22px}
   .ov{background:#F7F9FC;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--ink-2);line-height:1.65;margin-bottom:10px}
   .ov .t{font-size:10px;font-family:var(--mono);color:var(--brand);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}.ov b{color:var(--ink)}
+  .topnews{background:linear-gradient(180deg,#F2F6FF,#F7F9FC);border:1px solid var(--line-2);border-left:3px solid var(--brand-2);border-radius:11px;padding:13px 15px;margin-bottom:16px}
+  .topnews .tnh{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+  .topnews .tnt{font-size:13px;font-weight:800;color:var(--brand)}
+  .topnews .tnd{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .topnews .tnov{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin-bottom:8px}
+  .topnews .tni{font-size:12.5px;color:var(--ink-2);line-height:1.7;padding-left:14px;position:relative;margin-bottom:3px}
+  .topnews .tni::before{content:"\203A";position:absolute;left:2px;color:var(--brand-2);font-weight:700}
+  .topnews .tni a{color:var(--brand-2);text-decoration:none;font-size:11px;margin-left:4px}
+  .topnews .tnmore{display:inline-block;margin-top:6px;font-size:11.5px;color:var(--brand-2);cursor:pointer;font-weight:600}
   .members{font-size:11.5px;color:var(--muted);margin-bottom:14px}.members b{color:var(--ink-2)}
   .subsubtabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
   .sst{appearance:none;cursor:pointer;font-family:var(--sans);font-size:12.5px;font-weight:600;border:1px solid var(--line-2);background:#fff;color:var(--ink-2);border-radius:7px;padding:6px 12px}
@@ -306,6 +315,7 @@
   </header>
 
   <main class="wrap">
+    <div class="topnews" id="topnews" hidden></div>
     <section class="sec" id="sec-fin" hidden>
       <div class="head">
         <div class="ref">SECTION 03 · FINANCIALS</div>
@@ -898,7 +908,23 @@ document.getElementById("sub-btn").onclick=async()=>{const inp=document.getEleme
 
 function tick(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("zh-CN",{hour12:false});}
 setInterval(tick,1000);tick();
-loaded.news=true;loadSection("news");
+
+// 顶部「今日要闻」框:复用当日日报(/api/news),综述 + 前 3 条要闻(带来源链接)。失败则静默不显示。
+function openNewsTab(){const t=document.querySelector('.tab[data-tab="news"]');if(t)t.click();window.scrollTo({top:0,behavior:"smooth"});}
+async function loadTopNews(){
+  const box=document.getElementById("topnews");
+  try{
+    const r=await fetch("/api/news");if(!r.ok)return;const d=await r.json();
+    const items=((d&&d.items)||[]).slice(0,3);
+    const ov=d&&d.overview?`<div class="tnov">${esc(d.overview)}</div>`:"";
+    const lis=items.map(it=>`<div class="tni">${esc(it.title)}${it.url?`<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source||host(it.url))} \u2197</a>`:it.source?`<span style="color:var(--muted);font-size:11px;margin-left:4px">${esc(it.source)}</span>`:""}</div>`).join("");
+    if(!ov&&!lis)return;
+    box.innerHTML=`<div class="tnh"><span class="tnt">\uD83D\uDCF0 今日要闻</span><span class="tnd">${esc(d.date||"")}</span></div>${ov}${lis}<span class="tnmore" onclick="openNewsTab()">展开完整日报 \u2192</span>`;
+    box.hidden=false;
+  }catch(_){/* 顶部框失败不影响页面其余部分 */}
+}
+
+loaded.news=true;loadSection("news");loadTopNews();
 </script>
 </body>
 </html>
