@@ -94,7 +94,7 @@
   let MByC = {};             // company id -> sorted monthly asc
   let PByC = {};             // company id -> parts[]
   let PERIODS = [];          // [{type:'q'|'y', y, q?, label}]
-  let FTOP = "admin";        // admin|company|insight
+  let FTOP = "company";     // company|flash|dash
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
   let C_SEL = "";            // 车企视图 选中
   let I_THEME = "t1", I_QI = 0, I_MODE = "", I_KIND = "", I_SEL = "";  // 洞察
@@ -243,11 +243,9 @@
 
   function topTabs() {
     return `<div class="ftop">
-      <button class="${FTOP === "admin" ? "on" : ""}" onclick="FINBOARD.top('admin')">管理总表</button>
       <button class="${FTOP === "company" ? "on" : ""}" onclick="FINBOARD.top('company')">车企视图</button>
-      <button class="${FTOP === "insight" ? "on" : ""}" onclick="FINBOARD.top('insight')">决策洞察</button>
       <button class="${FTOP === "flash" ? "on" : ""}" onclick="FINBOARD.top('flash')">财报速递</button>
-      <button class="${FTOP === "dash" ? "on" : ""}" onclick="FINBOARD.top('dash')">财务大盘点</button>
+      <button class="${FTOP === "dash" ? "on" : ""}" onclick="FINBOARD.top('dash')">财务指标一览</button>
       <span style="flex:1"></span>
       <button class="fminib" onclick="FINBOARD.seedAll(this)">↻ 全量财报抓取</button>
       <button class="fminib" onclick="FINBOARD.admin()">▦ 管理车企/数据</button>
@@ -261,11 +259,9 @@
 
   function html() {
     if (!RAW || !(RAW.companies || []).length) return `<div class="fempty">财务库为空。点上方「全量财报抓取」用 DeepSeek 按财报起草数据,或在「管理车企/数据」里手动录入。</div>`;
-    if (FTOP === "company") return topTabs() + buildCompany();
-    if (FTOP === "insight") return topTabs() + buildInsight();
     if (FTOP === "flash") return topTabs() + buildFlash();
     if (FTOP === "dash") return topTabs() + buildDashboard();
-    return topTabs() + buildAdmin();
+    return topTabs() + buildCompany();
   }
 
   // ====== 管理总表 ======
@@ -325,27 +321,67 @@
       const last = recent[recent.length - 1], prev = M.find(x => x.year === last.year - 1 && x.month === last.month);
       monthBlock = `<div style="display:flex;gap:22px;margin-bottom:12px"><div><div style="font-size:21px;font-weight:700">${fmt0(last.sales)}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div></div><div class="fbars">${bars}</div><div class="fxax">${xax}</div>`;
     }
-    // 季度财务 + 财经运营
+    // 三表 + 关键指标 + 财报原文入口
     const recentQ = Q.slice(-8);
-    let finBlock = `<div class="fhint">暂无季度财务。<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">抓取</button></div>`, opBlock = "";
+    let stmtBlock = `<div class="fhint">暂无季度财务。<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">抓取</button></div>`, idxBlock = "";
     if (recentQ.length) {
-      const qh = `<tr><th>科目 \\ 季度</th>${recentQ.map(x => `<th>${String(x.year).slice(2)}Q${x.q} <span class="fminib" style="padding:1px 5px" onclick="FINBOARD.editQ('${x.id}')">✎</span></th>`).join("")}</tr>`;
+      const qh = `<tr><th>科目 \\ 报告期</th>${recentQ.map(x => `<th>${String(x.year).slice(2)}Q${x.q} <span class="fminib" style="padding:1px 5px" onclick="FINBOARD.editQ('${x.id}')">✎</span></th>`).join("")}</tr>`;
       const yq = (x, k) => { const py = qFind(c.id, x.year - 1, x.q); return py ? yoy(x[k], py[k]) : null; };
-      finBlock = `<div class="fscroll"><table class="ftbl"><thead>${qh}</thead><tbody>
-        <tr><td>营业收入(亿)</td>${recentQ.map(x => `<td>${fmt(x.revenue)}${(() => { const v = yq(x, "revenue"); return v != null ? `<span class="syoy ${v >= 0 ? "up" : "dn"}">${v >= 0 ? "▲" : "▼"}${Math.abs(v).toFixed(1)}%</span>` : ""; })()}</td>`).join("")}</tr>
-        <tr><td>净利润(亿)</td>${recentQ.map(x => `<td>${fmt(x.netProfit)}${(() => { const v = yq(x, "netProfit"); return v != null ? `<span class="syoy ${v >= 0 ? "up" : "dn"}">${v >= 0 ? "▲" : "▼"}${Math.abs(v).toFixed(1)}%</span>` : ""; })()}</td>`).join("")}</tr>
-      </tbody></table></div>`;
-      const doi = (x) => x.operatingCost ? x.inventory / x.operatingCost * 91 : null, dpo = (x) => x.operatingCost ? x.ap / x.operatingCost * 91 : null, rdr = (x) => x.revenue ? x.rdSpend / x.revenue * 100 : null;
-      opBlock = `<div class="fscroll"><table class="ftbl"><thead>${qh}</thead><tbody>
-        <tr><td>营业成本(亿)</td>${recentQ.map(x => `<td>${fmt(x.operatingCost)}</td>`).join("")}</tr>
-        <tr><td>存货余额(亿)</td>${recentQ.map(x => `<td>${fmt(x.inventory)}</td>`).join("")}</tr>
-        <tr><td>应付账款(亿)</td>${recentQ.map(x => `<td>${fmt(x.ap)}</td>`).join("")}</tr>
-        <tr><td>研发投入(亿)</td>${recentQ.map(x => `<td>${fmt(x.rdSpend)}</td>`).join("")}</tr>
-        <tr><td>DOI(天)</td>${recentQ.map(x => `<td class="calc">${fmt(doi(x), 0)}</td>`).join("")}</tr>
-        <tr><td>DPO(天)</td>${recentQ.map(x => `<td class="calc">${fmt(dpo(x), 0)}</td>`).join("")}</tr>
-        <tr><td>研发占比(%)</td>${recentQ.map(x => `<td class="calc">${fmt(rdr(x), 1)}</td>`).join("")}</tr>
-      </tbody></table></div>`;
+      const row = (label, fn, o = {}) => `<tr><td>${label}</td>${recentQ.map(x => {
+        const v = fn(x);
+        const yh = o.yoyKey ? (() => { const yv = yq(x, o.yoyKey); return yv != null ? `<span class="syoy ${yv >= 0 ? "up" : "dn"}">${yv >= 0 ? "▲" : "▼"}${Math.abs(yv).toFixed(1)}%</span>` : ""; })() : "";
+        return `<td${o.calc ? ' class="calc"' : ""}>${v == null ? "—" : (typeof v === "number" ? v.toFixed(o.dec ?? 1) : v)}${yh}</td>`;
+      }).join("")}</tr>`;
+      const grp = (t) => `<tr><td colspan="${recentQ.length + 1}" style="background:#EEF2F8;font-weight:700;color:#1B2F66">${t}</td></tr>`;
+      const gm = (x) => (x.revenue && x.operatingCost != null) ? (x.revenue - x.operatingCost) / x.revenue * 100 : null;
+      const tbl = (body) => `<div class="fscroll"><table class="ftbl"><thead>${qh}</thead><tbody>${body}</tbody></table></div>`;
+      stmtBlock = tbl(
+        grp("利润表(亿元)")
+        + row("营业收入", x => x.revenue, { yoyKey: "revenue" })
+        + row("营业成本", x => x.operatingCost)
+        + row("毛利率(%)", gm, { calc: true })
+        + row("归母净利润", x => x.netProfit, { yoyKey: "netProfit", dec: 2 })
+        + row("扣非归母", x => x.netProfitEx, { dec: 2 })
+        + row("研发投入", x => x.rdSpend)
+        + grp("资产负债表(亿元)")
+        + row("货币资金", x => x.cash)
+        + row("应收账款", x => x.ar)
+        + row("存货", x => x.inventory)
+        + row("应付账款", x => x.ap)
+        + row("短期借款", x => x.stDebt)
+        + row("长期借款", x => x.ltDebt)
+        + row("总资产", x => x.totalAssets)
+        + row("总负债", x => x.totalLiab)
+        + grp("现金流量表(亿元)")
+        + row("经营性现金流", x => x.ocf)
+        + row("筹资性现金流", x => x.financingCF)
+      );
+      const doi = (x) => x.operatingCost ? x.inventory / x.operatingCost * 91 : null, dpo = (x) => x.operatingCost ? x.ap / x.operatingCost * 91 : null;
+      idxBlock = tbl(
+        row("毛利率(%)", gm, { calc: true })
+        + row("净利率(%)", x => x.revenue ? x.netProfit / x.revenue * 100 : null, { calc: true })
+        + row("单车ASP(万)", x => x.sales ? x.revenue / x.sales : null, { calc: true, dec: 2 })
+        + row("单车净利(元)", x => x.sales ? x.netProfit / x.sales * 1e4 : null, { calc: true, dec: 0 })
+        + row("研发占比(%)", x => x.revenue ? x.rdSpend / x.revenue * 100 : null, { calc: true })
+        + row("资产负债率(%)", x => x.totalAssets ? x.totalLiab / x.totalAssets * 100 : null, { calc: true })
+        + row("DOI 存货周转(天)", doi, { calc: true, dec: 0 })
+        + row("DPO 应付周转(天)", dpo, { calc: true, dec: 0 })
+        + row("净现比", x => x.netProfit ? x.ocf / x.netProfit : null, { calc: true, dec: 2 })
+      );
     }
+    // 财报原文入口:先给官方个股页(零后端、必开);确切年报/半年报 PDF 链接待 fin_reports 接入后补
+    const tkr = (c.ticker || "").toUpperCase();
+    const mA = tkr.match(/(\d{6})\.(SH|SZ)/), mH = tkr.match(/(\d{4,5})\.HK/);
+    const dls = [];
+    if (mA) {
+      const cd = mA[1], mk = mA[2] === "SH" ? "sh" : "sz";
+      dls.push(["东方财富 · 财务数据", `https://data.eastmoney.com/stockdata/${cd}.html`]);
+      dls.push(["新浪财经 · 公司公告", `https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/${mk}${cd}.phtml`]);
+    }
+    if (mH) { const cd = mH[1].padStart(5, "0"); dls.push(["东方财富 · 港股行情", `https://quote.eastmoney.com/hk/${cd}.html`]); }
+    const dlBlock = dls.length
+      ? dls.map(([t, u]) => `<a class="fminib" href="${u}" target="_blank" rel="noopener" style="text-decoration:none">${t} ↗</a>`).join(" ") + `<span class="fhint" style="display:block;margin-top:6px">确切年报/半年报 PDF 链接将在财报抓取接入后补齐。</span>`
+      : `<span class="fhint">该公司暂无可识别的 A股/港股代码,补上代码后这里会出现官方财报入口。</span>`;
     // 财报解读（自动抓数 → 规则算信号 → LLM 只叙述，数字过校验）
     const revs = ((RAW && RAW.reviews) || []).filter(r => r.company === c.id)
       .sort((a, b) => b.year - a.year || b.q - a.q);
@@ -379,8 +415,9 @@
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">季度财务 · 近 8 季(单季口径)</h3>${finBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财经运营 · 近 8 季(蓝底=自动计算)</h3>${opBlock || finBlock}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 近 8 个报告期(单季口径)</h3>${stmtBlock}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 近 8 个报告期(蓝底=自动计算)</h3>${idxBlock || stmtBlock}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 10px;font-size:14px">财报原文</h3>${dlBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px">自研智驾部件追踪 <button class="fminib" onclick="FINBOARD.addPart('${c.id}')">＋ 新增部件</button></h3>
         <div class="fscroll"><table class="ftbl"><thead><tr><th>部件</th><th>自研/外购</th><th>阶段</th><th>方案</th><th>替代对象</th><th></th></tr></thead><tbody>${partRows}</tbody></table></div></div>`;
   }
@@ -562,7 +599,7 @@
   }
   function buildDashboard() {
     if (!(RAW.quarterly || []).length)
-      return `<div class="fhint" style="margin-top:14px">财务库里还没有季度数据。去「管理总表」上方点「↻ 全量财报抓取」,或在「车企视图」里逐家抓取/录入,这里就能看结构化对比。</div>`;
+      return `<div class="fhint" style="margin-top:14px">财务库里还没有季度数据。点上方「↻ 全量财报抓取」,或在「车企视图」里逐家抓取/录入,这里就能看结构化对比。</div>`;
     const { p, cols, list } = dashData();
     const popts = PERIODS.map((x, i) => `<option value="${i}" ${i === D_PI ? "selected" : ""}>${x.label}</option>`).join("");
     const { mo, ko } = modeKindOpts(D_MODE, D_KIND);
@@ -579,7 +616,7 @@
       ${cols.map(col => cell(m, col)).join("")}
     </tr>`).join("");
     return `
-      <div class="fbanner">财务大盘点 —— 各家 <b>${ESC(p.label)}</b> 关键财务指标横向对比,数据取自季度财务库(交易所报表口径)。点表头排序,「复制到 Excel」可整表粘贴。</div>
+      <div class="fbanner">财务指标一览 —— 各家 <b>${ESC(p.label)}</b> 关键财务指标横向对比,数据取自季度财务库(交易所报表口径)。点表头排序,「复制到 Excel」可整表粘贴。</div>
       <div class="ftool">
         <span class="lab">报告期</span><select id="fd-p" onchange="FINBOARD.dashApply()">${popts}</select>
         <span class="lab">阵营</span><select id="fd-mode" onchange="FINBOARD.dashApply()">${mo}</select>
