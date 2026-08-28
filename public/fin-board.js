@@ -94,6 +94,7 @@
   let MByC = {};             // company id -> sorted monthly asc
   let PByC = {};             // company id -> parts[]
   let SByC = {};             // company id -> statements[](完整三表,按报告期)
+  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all";  // 三表:当前表/单位除数/期间类型筛选
   let PERIODS = [];          // [{type:'q'|'y', y, q?, label}]
   let FTOP = "company";     // company|flash|dash
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
@@ -332,23 +333,41 @@
     ["TOTAL_FINANCE_INFLOW", "筹资活动现金流入小计"], ["TOTAL_FINANCE_OUTFLOW", "筹资活动现金流出小计"], ["NETCASH_FINANCE", "筹资活动现金流量净额"],
     ["CCE_ADD", "现金及等价物净增加额"], ["END_CCE", "期末现金及等价物余额"],
   ];
-  // 完整三表:全部报告期为列(新→旧),标准科目为行,按报表分组。全期为空的科目行自动隐藏。
+  // 完整三表:三张表做成 tab 切换;报告期升序(老→新,最右最新);右上角单位切换 + 期间类型筛选。
   function stmtTable(c) {
-    const S = (SByC[c.id] || []).slice().sort((a, b) => (b.period || "").localeCompare(a.period || "")).slice(0, 10);
-    if (!S.length) return `<div class="fhint">暂无完整三表。点上方「↻ 东方财富抓取(A股)」抓一次(现在抓的是全字段三表、全部历史期)。</div>`;
-    const fmt2 = (v, unit) => v == null ? '<span style="color:var(--muted)">—</span>' : (unit === "eps" ? (+v).toFixed(2) : (v / 1e8).toFixed(2));
-    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">科目 \\ 报告期</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
-    const grp = (t) => `<tr><td colspan="${S.length + 1}" style="background:#EEF2F8;font-weight:700;color:#1B2F66;text-align:left">${t}</td></tr>`;
-    const rowsFor = (which, spec) => spec.map(([key, label, unit]) => {
-      const vals = S.map(s => (s[which] || {})[key] ?? null);
-      if (vals.every(v => v == null)) return ""; // 全期为空(多半列名对不上)→ 隐藏,数据未丢,改 SPEC 即可
-      return `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td style="white-space:nowrap">${fmt2(v, unit)}</td>`).join("")}</tr>`;
+    let S = (SByC[c.id] || []).slice().sort((a, b) => (a.period || "").localeCompare(b.period || "")); // 升序
+    if (D_RPT === "quarter") S = S.filter(s => s.q === 1 || s.q === 3);
+    else if (D_RPT === "half") S = S.filter(s => s.q === 2);
+    else if (D_RPT === "year") S = S.filter(s => s.q === 4);
+    S = S.slice(-12); // 最近 12 个报告期(升序,最右最新)
+    const spec = D_STMT === "income" ? SPEC_INC : D_STMT === "balance" ? SPEC_BAL : SPEC_CF;
+    const unitTxt = { 1: "元", 1e3: "千元", 1e4: "万元", 1e6: "百万元", 1e8: "亿元" }[D_UNIT] || "亿元";
+    const stmtTabs = [["income", "利润表"], ["balance", "资产负债表"], ["cashflow", "现金流量表"]]
+      .map(([k, t]) => `<button class="sst" aria-selected="${D_STMT === k}" onclick="FINBOARD.stmtTab('${k}')">${t}</button>`).join("");
+    const unitOpts = [[1, "元"], [1e3, "千"], [1e4, "万"], [1e6, "百万"], [1e8, "亿"]]
+      .map(([v, t]) => `<option value="${v}" ${D_UNIT === v ? "selected" : ""}>${t}</option>`).join("");
+    const rptBtns = [["all", "全部"], ["quarter", "季度"], ["half", "半年度"], ["year", "年度"]]
+      .map(([k, t]) => `<button class="sst" aria-selected="${D_RPT === k}" onclick="FINBOARD.stmtRpt('${k}')">${t}</button>`).join("");
+    const toolbar = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <div class="subsubtabs" style="margin:0">${stmtTabs}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="lab">单位</span><select onchange="FINBOARD.stmtUnit(this.value)">${unitOpts}</select>
+        <div class="subsubtabs" style="margin:0">${rptBtns}</div>
+      </div></div>`;
+    if (!S.length) return toolbar + `<div class="fhint">该期间类型下暂无报告期。换个筛选,或点上方「↻ 东方财富抓取(A股)」抓一次(全字段三表、全部历史)。</div>`;
+    // 数值:除以单位除数、加千分位;EPS 固定为元/股(原样)
+    const fmtN = (v, unit) => {
+      if (v == null) return '<span style="color:var(--muted)">—</span>';
+      if (unit === "eps") return (+v).toFixed(2);
+      return (v / D_UNIT).toLocaleString("zh-CN", { maximumFractionDigits: D_UNIT >= 1e8 ? 2 : 0 });
+    };
+    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">科目(${unitTxt})</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
+    const rows = spec.map(([key, label, unit]) => {
+      const vals = S.map(s => (s[D_STMT] || {})[key] ?? null);
+      if (vals.every(v => v == null)) return "";
+      return `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td style="white-space:nowrap;text-align:right">${fmtN(v, unit)}</td>`).join("")}</tr>`;
     }).join("");
-    return `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>
-      ${grp("利润表(亿元)")}${rowsFor("income", SPEC_INC)}
-      ${grp("资产负债表(亿元)")}${rowsFor("balance", SPEC_BAL)}
-      ${grp("现金流量表(亿元)")}${rowsFor("cashflow", SPEC_CF)}
-    </tbody></table></div>`;
+    return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>`;
   }
   function buildCompany() {
     const cs = allCompanies();
@@ -361,16 +380,22 @@
     // 月销
     let monthBlock = `<div class="fhint">暂无月度销量。<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">抓取</button></div>`;
     if (M.length) {
-      const recent = M.slice(-13), maxS = Math.max(...recent.map(m => m.sales || 0)) || 1;
-      const bars = recent.map((m, i) => `<div class="fbar ${i === recent.length - 1 ? "last" : ""}"><div class="b" style="height:${Math.round((m.sales || 0) / maxS * 100)}%"></div></div>`).join("");
-      const xax = recent.map((m, i) => {
-        const yearStart = i === 0 || m.month === 1 || (i > 0 && recent[i - 1].year !== m.year);
-        const monthTxt = (i % 2 === 0 || yearStart) ? m.month + "月" : "";
-        const yearTxt = yearStart ? `<b style="color:#15307A">${m.year}</b>` : "";
-        return `<span>${monthTxt}${yearTxt ? "<br>" + yearTxt : ""}</span>`;
+      const M2 = M.slice().sort((a, b) => a.year - b.year || a.month - b.month);
+      const byYM = {}; M2.forEach(m => { byYM[m.year + "-" + m.month] = m; });
+      const lastM = M2[M2.length - 1];
+      // 补齐缺失月份 → 连续 14 个月;缺的月柱子淡显,让缺口一眼可见(数据补齐靠产销快报)
+      const seq = []; let yy = lastM.year, mm = lastM.month;
+      for (let i = 0; i < 14; i++) { seq.unshift({ year: yy, month: mm, sales: (byYM[yy + "-" + mm] || {}).sales ?? null }); mm--; if (mm < 1) { mm = 12; yy--; } }
+      const maxS = Math.max(...seq.map(m => m.sales || 0), 1);
+      const wan = (s) => s == null ? "" : (s >= 10000 ? (s / 10000).toFixed(1) + "万" : String(s));
+      const bars = seq.map((m, i) => {
+        const s = m.sales, h = s != null ? Math.round(s / maxS * 90) : 0, isLast = i === seq.length - 1;
+        return `<div class="fbar ${isLast ? "last" : ""}"><div style="font-size:8.5px;color:var(--muted);margin-bottom:2px;white-space:nowrap">${wan(s)}</div><div class="b" style="height:${h}%${s == null ? ";opacity:.12" : ""}"></div></div>`;
       }).join("");
-      const last = recent[recent.length - 1], prev = M.find(x => x.year === last.year - 1 && x.month === last.month);
-      monthBlock = `<div style="display:flex;gap:22px;margin-bottom:12px"><div><div style="font-size:21px;font-weight:700">${fmt0(last.sales)}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div></div><div class="fbars">${bars}</div><div class="fxax">${xax}</div>`;
+      const xax = seq.map((m, i) => `<span>${m.month}月${i === 0 || m.month === 1 ? `<br><b style="color:#15307A">${m.year}</b>` : ""}</span>`).join("");
+      const last = lastM, prev = M.find(x => x.year === last.year - 1 && x.month === last.month);
+      const miss = seq.filter(m => m.sales == null).length;
+      monthBlock = `<div style="display:flex;gap:22px;margin-bottom:12px;align-items:baseline;flex-wrap:wrap"><div><div style="font-size:21px;font-weight:700">${(+last.sales).toLocaleString("zh-CN")}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div>${miss ? `<div style="font-size:11px;color:#B8860B">近 14 个月缺 ${miss} 个月(淡色柱),待产销快报接入补齐</div>` : ""}</div><div class="fbars">${bars}</div><div class="fxax">${xax}</div>`;
     }
     // 三表 + 关键指标 + 财报原文入口
     const recentQ = Q.slice(-8);
@@ -445,8 +470,8 @@
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button><span class="note">${ESC(c.note)}</span></div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 全部报告期(累计口径,东方财富 F10 全字段)</h3>${stmtBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 近 8 季(单季口径,蓝底=自动计算)</h3>${idxBlock || '<div class="fhint">暂无季度数据,抓取后自动计算。</div>'}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 东方财富 F10 全字段(累计口径)</h3>${stmtBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 10px;font-size:14px">财报原文</h3>${dlBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px">自研智驾部件追踪 <button class="fminib" onclick="FINBOARD.addPart('${c.id}')">＋ 新增部件</button></h3>
         <div class="fscroll"><table class="ftbl"><thead><tr><th>部件</th><th>自研/外购</th><th>阶段</th><th>方案</th><th>替代对象</th><th></th></tr></thead><tbody>${partRows}</tbody></table></div></div>`;
@@ -683,6 +708,9 @@
     theme(k) { I_THEME = k; I_SEL = ""; rerender(); },
     applyIns() { const q = document.getElementById("fi-q"), m = document.getElementById("fi-mode"), k = document.getElementById("fi-kind"); if (q) I_QI = +q.value; if (m) I_MODE = m.value; if (k) I_KIND = k.value; rerender(); },
     insSel(id) { I_SEL = id; rerender(); },
+    stmtTab(k) { D_STMT = k; rerender(); },
+    stmtUnit(v) { D_UNIT = +v; rerender(); },
+    stmtRpt(k) { D_RPT = k; rerender(); },
     dashApply() { const p = document.getElementById("fd-p"), m = document.getElementById("fd-mode"), k = document.getElementById("fd-kind"); if (p) D_PI = +p.value; if (m) D_MODE = m.value; if (k) D_KIND = k.value; rerender(); },
     dashSort(k) { if (D_SORT === k) { D_DIR = -D_DIR; } else { D_SORT = k; D_DIR = -1; } rerender(); },
     dashCopy(btn) {
