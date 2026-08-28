@@ -414,9 +414,13 @@
              : `<span style="color:var(--muted)">发布时间未取到</span>`;
       const src = (d.sources || []).map((x, i) =>
         `<a href="${ESC(x.url)}" target="_blank" rel="noopener" style="font-size:10px;margin-right:5px">[${i + 1}]</a>`).join("");
+      const flags = Array.isArray(d["待核"]) && d["待核"].length
+        ? `<div style="font-size:10px;color:#B8860B;margin-top:3px" title="这些数字没能在报表或检索资料里核到,请人工确认后再采用">⚠ 待核:${ESC(d["待核"].join("、"))}</div>`
+        : "";
       return `<td style="text-align:left;white-space:normal;vertical-align:top;line-height:1.6">
         <div style="font-size:11px;margin-bottom:3px">${dateLine}</div>
         <div>${ESC(d["总结"] || "")}</div>
+        ${flags}
         ${src ? `<div style="margin-top:3px">${src}</div>` : ""}</td>`;
     };
 
@@ -441,7 +445,7 @@
 
     return `<div class="fbanner">财报速递 —— 每家一行,每个报告期一列。
       <b>发布时间</b>取自交易所披露的 NOTICE_DATE,营收/净利及同比取自定期报表,
-      总结由检索资料 + 大模型生成并做过<b>数字校验</b>(正文里的数字必须在报表或资料里找得到)。
+      总结由检索资料 + 大模型生成,并做过<b>数字软校验</b>:核不到的数字会用 <b style="color:#B8860B">⚠ 待核</b> 单独标出、不影响正文,人工确认后再采用。
       财报季进行中没发的会标「尚未披露」,和「取数失败」分开显示。</div>
       <div class="ftool">
         <span class="lab">已生成</span><b>${rows.length}/${ents.length}</b>
