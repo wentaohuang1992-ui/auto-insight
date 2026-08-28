@@ -81,6 +81,9 @@ src/
                        补 fin_em 覆盖不到的 6 家:奇瑞/吉利/理想/零跑/小鹏/蔚来
   fin_import.js        一次性种子导入(交易所直采 + 媒体交叉核对),读 seed/fin_import.json
                        + coverage():覆盖率体检,排查"哪里缺、该点哪个按钮"
+  fin_flash.js         【财报速递】横表:每家一行 × 每个报告期「发布时间 + 一句话总结」。
+                       覆盖整车 12 + 零部件供应商 5;不依赖 quarterly 表,自己按代码取数。
+                       数据文件 flash.json。
   fin_review.js        【财报解读】一键:自动抓数 → 纯 JS 算指标与 11 条风险信号 →
                        DeepSeek 只做叙述 → 数字校验(正文里的数字必须在事实里找得到)→ 落库。
                        数据靠算,叙述才靠模型 —— 别让模型自己看财报写数字。
@@ -90,7 +93,7 @@ public/                前端单页 + 4 个板块脚本 + api-auth.js(自动带�
 ```
 
 数据文件(默认都在 `DB_PATH` 所在目录):
-`data.json`(主库)、`models.json`、`financials.json`、`downshift.json`、`cloud.json`、`storage.json`。
+`data.json`(主库)、`models.json`、`financials.json`、`flash.json`、`downshift.json`、`cloud.json`、`storage.json`。
 
 仓库内还有 `seed/fin_import.json` —— 一次性导入用的种子,不是运行时数据文件,不会被写。
 

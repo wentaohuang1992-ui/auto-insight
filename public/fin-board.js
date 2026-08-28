@@ -245,6 +245,7 @@
       <button class="${FTOP === "admin" ? "on" : ""}" onclick="FINBOARD.top('admin')">管理总表</button>
       <button class="${FTOP === "company" ? "on" : ""}" onclick="FINBOARD.top('company')">车企视图</button>
       <button class="${FTOP === "insight" ? "on" : ""}" onclick="FINBOARD.top('insight')">决策洞察</button>
+      <button class="${FTOP === "flash" ? "on" : ""}" onclick="FINBOARD.top('flash')">财报速递</button>
       <span style="flex:1"></span>
       <button class="fminib" onclick="FINBOARD.seedAll(this)">↻ 全量财报抓取</button>
       <button class="fminib" onclick="FINBOARD.admin()">▦ 管理车企/数据</button>
@@ -260,6 +261,7 @@
     if (!RAW || !(RAW.companies || []).length) return `<div class="fempty">财务库为空。点上方「全量财报抓取」用 DeepSeek 按财报起草数据,或在「管理车企/数据」里手动录入。</div>`;
     if (FTOP === "company") return topTabs() + buildCompany();
     if (FTOP === "insight") return topTabs() + buildInsight();
+    if (FTOP === "flash") return topTabs() + buildFlash();
     return topTabs() + buildAdmin();
   }
 
@@ -380,6 +382,77 @@
         <div class="fscroll"><table class="ftbl"><thead><tr><th>部件</th><th>自研/外购</th><th>阶段</th><th>方案</th><th>替代对象</th><th></th></tr></thead><tbody>${partRows}</tbody></table></div></div>`;
   }
 
+  // ====== 财报速递 ======
+  // 结构:每家一行,每个报告期两列(发布时间 + 财报总结)。数据来自 /api/fin/flash,
+  // 与季度财务表是两套东西 —— 那张是逐季数字,这张是一句话速览。
+  let FLASH = null, FLASH_LOADING = false;
+  function loadFlash() {
+    if (FLASH || FLASH_LOADING) return;
+    FLASH_LOADING = true;
+    fetch("/api/fin/flash").then(r => r.json()).then(d => { FLASH = d; FLASH_LOADING = false; rerender(); })
+      .catch(() => { FLASH_LOADING = false; });
+  }
+  function buildFlash() {
+    if (!FLASH) { loadFlash(); return `<div class="fempty">正在读取财报速递…</div>`; }
+    const PS = FLASH.periods || [];
+    const rows = FLASH.rows || [];
+    const ents = FLASH.entities || [];
+    const byId = {}; rows.forEach(r => byId[r.id] = r);
+
+    // 一个报告期一列:发布时间作为小字标在总结上方。
+    // 之前是「发布时间」「总结」各占一列,3 个报告期就 7 列,横向滚不完。
+    const th = (w, t, al) => `<th style="min-width:${w}px;text-align:${al || "left"}">${t}</th>`;
+    const head = `<tr>${th(132, "车企")}${PS.map(p => th(285, ESC(p.label))).join("")}</tr>`;
+
+    const ST = { "未披露": ["#8A6D00", "尚未披露"], "取数失败": ["#D14343", "取数失败"], "无结构化源": ["var(--muted)", "无结构化源"] };
+    const cell = (d) => {
+      if (!d) return `<td style="text-align:left;color:var(--muted)">未生成</td>`;
+      const st = d["状态"] && d["状态"] !== "ok" ? ST[d["状态"]] : null;
+      const dateLine = d["发布时间"]
+        ? `<span style="font-weight:700">${ESC(d["发布时间"])}</span> <span style="color:var(--muted)">发布</span>`
+        : st ? `<span style="color:${st[0]}">${st[1]}</span>`
+             : `<span style="color:var(--muted)">发布时间未取到</span>`;
+      const src = (d.sources || []).map((x, i) =>
+        `<a href="${ESC(x.url)}" target="_blank" rel="noopener" style="font-size:10px;margin-right:5px">[${i + 1}]</a>`).join("");
+      return `<td style="text-align:left;white-space:normal;vertical-align:top;line-height:1.6">
+        <div style="font-size:11px;margin-bottom:3px">${dateLine}</div>
+        <div>${ESC(d["总结"] || "")}</div>
+        ${src ? `<div style="margin-top:3px">${src}</div>` : ""}</td>`;
+    };
+
+    const groupRows = (g) => {
+      const list = ents.filter(e => e.group === g);
+      if (!list.length) return "";
+      const gh = `<tr><td colspan="${PS.length + 1}" style="background:#F1F4F8;font-weight:700;text-align:left">${g === "整车" ? "整车企业" : "零部件供应商"} · ${list.length} 家</td></tr>`;
+      return gh + list.map(e => {
+        const r = byId[e.id];
+        const tag = r && r.mode !== "llm" ? `<span class="ktag" title="未调用大模型,只有结构化数字">模板</span>` : "";
+        const err = r && r.errors && r.errors.length
+          ? `<div style="font-size:10px;color:#D14343">${ESC(r.errors[0]).slice(0, 46)}</div>` : "";
+        return `<tr>
+          <td style="text-align:left;vertical-align:top">
+            <b>${ESC(e.name)}</b>${tag}
+            <div style="font-size:10px;color:var(--muted)">${ESC([e.aShare, e.hk].filter(Boolean).join(" / ") || "未上市")}</div>${err}
+            <button class="fminib" style="margin-top:5px" onclick="FINBOARD.genFlash('${ESC(e.name)}',this)">${r ? "↻ 重新生成" : "生成"}</button></td>
+          ${PS.map(p => cell(r && r.periods && r.periods[p.key])).join("")}
+        </tr>`;
+      }).join("");
+    };
+
+    return `<div class="fbanner">财报速递 —— 每家一行,每个报告期一列。
+      <b>发布时间</b>取自交易所披露的 NOTICE_DATE,营收/净利及同比取自定期报表,
+      总结由检索资料 + 大模型生成并做过<b>数字校验</b>(正文里的数字必须在报表或资料里找得到)。
+      财报季进行中没发的会标「尚未披露」,和「取数失败」分开显示。</div>
+      <div class="ftool">
+        <span class="lab">已生成</span><b>${rows.length}/${ents.length}</b>
+        <button class="qbtn" onclick="FINBOARD.genFlash('',this)">↻ 全部生成</button>
+        <button class="fminib" onclick="FINBOARD.genFlashGroup('整车',this)">只跑整车</button>
+        <button class="fminib" onclick="FINBOARD.genFlashGroup('供应商',this)">只跑供应商</button>
+        <span class="basis">${FLASH.updatedAt ? "更新于 " + String(FLASH.updatedAt).slice(0, 16).replace("T", " ") : ""}</span>
+      </div>
+      <div class="fscroll"><table class="ftbl"><thead>${head}</thead><tbody>${groupRows("整车")}${groupRows("供应商")}</tbody></table></div>`;
+  }
+
   // ====== 决策洞察 ======
   function buildInsight() {
     const T = THEME[I_THEME];
@@ -411,6 +484,21 @@
   Object.assign(window.FINBOARD, {
     render, rerender,
     top(v) { FTOP = v; rerender(); },
+    async genFlash(name, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = name ? "生成中…" : "全部生成中…"; }
+      const key = "flash:" + (name || "all");
+      try {
+        await fetch("/api/fin/flash", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(name ? { company: name } : {}) });
+        pollJob(key, btn, "生成中", () => { FLASH = null; loadFlash(); });
+      } catch (e) { if (btn) { btn.disabled = false; btn.textContent = "生成"; } alert("启动失败:" + e.message); }
+    },
+    async genFlashGroup(group, btn) {
+      if (btn) { btn.disabled = true; btn.textContent = "生成中…"; }
+      try {
+        await fetch("/api/fin/flash", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ group }) });
+        pollJob("flash:" + group, btn, "生成中", () => { FLASH = null; loadFlash(); });
+      } catch (e) { if (btn) { btn.disabled = false; btn.textContent = "只跑" + group; } alert("启动失败:" + e.message); }
+    },
     sort(k) { A_SORT = A_SORT === k ? "" : k; rerender(); },
     applyAdmin() { const p = document.getElementById("fa-p"), m = document.getElementById("fa-mode"), k = document.getElementById("fa-kind"); if (p) A_PI = +p.value; if (m) A_MODE = m.value; if (k) A_KIND = k.value; A_SORT = ""; rerender(); },
     pick(id) { C_SEL = id; rerender(); },
@@ -424,7 +512,8 @@
     try { const r = await fetch("/api/fin"); const d = await r.json(); build(d); rerender(); } catch (e) { console.error(e); }
   }
   // ====== 抓取(异步 + 轮询) ======
-  function pollJob(what, btn, label) {
+  // onDone:任务完成后的额外动作(财报速递要重新拉自己的接口,reload() 只管 /api/fin)
+  function pollJob(what, btn, label, onDone) {
     const t0 = Date.now();
     const timer = setInterval(async () => {
       try {
@@ -432,7 +521,7 @@
         const s = await r.json();
         const sec = Math.round((Date.now() - t0) / 1000);
         if (btn) btn.textContent = `${label}…${sec}s`;
-        if (s.status === "done") { clearInterval(timer); if (btn) { btn.textContent = "✓ 完成"; btn.disabled = false; } await reload(); }
+        if (s.status === "done") { clearInterval(timer); if (btn) { btn.textContent = "✓ 完成"; btn.disabled = false; } await reload(); if (typeof onDone === "function") onDone(); }
         else if (s.status === "error") { clearInterval(timer); if (btn) { btn.textContent = "✗ 失败"; btn.disabled = false; } alert("抓取失败:" + (s.error || "")); }
       } catch (_) {}
     }, 3000);

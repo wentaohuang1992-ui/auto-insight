@@ -16,6 +16,7 @@ import { seedCompanyEM, seedAllEM, pickAShare } from "./src/fin_em.js";
 import { seedCompanyHK, seedAllHK, pickHK } from "./src/fin_hk.js";
 import { importSeed, coverage as finCoverage } from "./src/fin_import.js";
 import { generateReview, generateAllReviews } from "./src/fin_review.js";
+import * as flash from "./src/fin_flash.js";
 import * as dsdb from "./src/ds_db.js";
 import { updateDownshift } from "./src/ds_seed.js";
 import * as clouddb from "./src/cloud_db.js";
@@ -232,6 +233,29 @@ app.post("/api/fin/hk-seed-company", (req, res) => {
   res.status(202).json({ status: "started", key });
 });
 
+// —— 财报速递:一张横表,每家一行,每个报告期「发布时间 + 财报总结」两列 ——
+app.get("/api/fin/flash", (req, res) => { try { res.json(flash.getAll()); } catch (e) { fail(res)(e); } });
+app.post("/api/fin/flash", (req, res) => {
+  const name = cleanName(req.body?.company, 20);
+  const group = req.body?.group === "整车" || req.body?.group === "供应商" ? req.body.group : null;
+  const key = "flash:" + (name || group || "all");
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running", key });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚刚已生成过,请 ${wait} 秒后再试` });
+  const over = overBudget(); if (over) return res.status(429).json({ error: `抓取任务已达每小时上限,请 ${over} 分钟后再试` });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  const run = name
+    ? flash.generateFlash(name, { withSearch: req.body?.withSearch !== false })
+    : flash.generateAllFlash({ group, withSearch: req.body?.withSearch !== false });
+  run.then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
+     .catch((e) => { console.error("[fin-flash]", name || group || "all", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message || "生成失败" }; });
+  res.status(202).json({ status: "started", key });
+});
+// 名单与报告期维护
+app.post("/api/fin/flash/entities", (req, res) => { const r = flash.addEntity(req.body || {}); if (!r) return res.status(409).json({ error: "已存在或缺名称" }); res.json({ ok: true, entity: r }); });
+app.put("/api/fin/flash/entities/:id", (req, res) => { const r = flash.putEntity(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, entity: r }); });
+app.delete("/api/fin/flash/entities/:id", (req, res) => res.json({ ok: flash.deleteEntity(req.params.id) }));
+app.put("/api/fin/flash/periods", (req, res) => { const r = flash.setPeriods(req.body?.periods); if (!r) return res.status(400).json({ error: "periods 必须是非空数组" }); res.json({ ok: true, periods: r }); });
+
 // —— 财报解读:一键「自动抓数据 → 算指标与信号 → 生成结构化解读」——
 // 读:公开;生成:要令牌 + 最短间隔 + 全局预算(会打东方财富和 DeepSeek)
 app.get("/api/fin/review", (req, res) => {
@@ -347,6 +371,9 @@ const RUNNERS = { fin: refreshFinancials, cadence: refreshCadence, storage: refr
   //   报表里没有的东西(季度销量、扣非、政府补助、合联营投资收益、海外收入占比)。
   //   反过来先导种子的话,后面的报表源虽然会覆盖自己那几项,但顺序乱了不好排查。
   // 全量财报解读:每家抓一次数 + 生成一份最新期解读
+  "fin-flash": () => flash.generateAllFlash({}),
+  "fin-flash-oem": () => flash.generateAllFlash({ group: "整车" }),
+  "fin-flash-sup": () => flash.generateAllFlash({ group: "供应商" }),
   "fin-review": () => generateAllReviews({ onlyCore: false }),
   "fin-review-core": () => generateAllReviews({ onlyCore: true }),
   "fin-all": async () => {
