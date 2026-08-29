@@ -445,32 +445,34 @@
       if (seq.length > cap) seq = seq.slice(seq.length - cap);
       const maxS = Math.max(...seq.map(m => m.sales || 0), 1);
       // —— SVG(数据标签 + 环比 + 年份虚线分隔 + X轴线) ——
-      const W = 700, H = 186, padL = 8, padR = 8, padB = 34, padT = 30, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
-      const step = plotW / seq.length, bw = Math.min(30, step * 0.56);
+      const W = 560, H = 150, padL = 6, padR = 6, padB = 30, padT = 26, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
+      const step = plotW / seq.length, bw = Math.min(26, step * 0.56);
+      // 只圆顶部的柱(path):总量做圆角顶,新能源方角铺底 —— 避免灰色圆角与蓝柱之间的缝隙
+      const rtop = (x, y, w, h, r, fill) => { r = Math.max(0, Math.min(r, w / 2, h)); return `<path d="M${x.toFixed(1)},${(y + h).toFixed(1)} L${x.toFixed(1)},${(y + r).toFixed(1)} Q${x.toFixed(1)},${y.toFixed(1)} ${(x + r).toFixed(1)},${y.toFixed(1)} L${(x + w - r).toFixed(1)},${y.toFixed(1)} Q${(x + w).toFixed(1)},${y.toFixed(1)} ${(x + w).toFixed(1)},${(y + r).toFixed(1)} L${(x + w).toFixed(1)},${(y + h).toFixed(1)} Z" fill="${fill}"/>`; };
       let bars = "", vlab = "", mlab = "", xlab = "", ylab = "", ylines = "", ovsPts = [];
       seq.forEach((m, i) => {
         const cx = padL + i * step + step / 2, x = cx - bw / 2;
-        // 年份分隔虚线 + 年份标注(每年第一根柱)
-        if (i > 0 && m.year !== seq[i - 1].year) { const bx = (padL + i * step).toFixed(1); ylines += `<line x1="${bx}" y1="${padT - 6}" x2="${bx}" y2="${baseY}" stroke="#C3CBD8" stroke-width="1" stroke-dasharray="3,3"/>`; }
-        if (i === 0 || m.year !== seq[i - 1].year) ylab += `<text x="${cx.toFixed(1)}" y="${(H - 3)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#15307A">${m.year}</text>`;
+        if (i > 0 && m.year !== seq[i - 1].year) { const bx = (padL + i * step).toFixed(1); ylines += `<line x1="${bx}" y1="${padT - 5}" x2="${bx}" y2="${baseY}" stroke="#C3CBD8" stroke-width="1" stroke-dasharray="3,3"/>`; }
+        if (i === 0 || m.year !== seq[i - 1].year) ylab += `<text x="${cx.toFixed(1)}" y="${(H - 2)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#16264F">${m.year}</text>`;
         if (m.sales != null) {
           const ht = m.sales / maxS * barH, topY = baseY - ht;
           if (m.nev != null) {
-            const nevH = m.nev / maxS * barH, fuelH = Math.max(0, ht - nevH);
-            bars += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${fuelH.toFixed(1)}" rx="2" fill="#C7CDD6"/><rect x="${x.toFixed(1)}" y="${(baseY - nevH).toFixed(1)}" width="${bw.toFixed(1)}" height="${nevH.toFixed(1)}" fill="#2E5BD8"/>`;
-          } else bars += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${ht.toFixed(1)}" rx="2" fill="#8FA6C9"/>`;
-          vlab += `<text x="${cx.toFixed(1)}" y="${(topY - 4).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="#3D4759">${wan(m.sales)}</text>`;
+            const nevH = Math.min(ht, m.nev / maxS * barH);
+            bars += rtop(x, topY, bw, ht, 3, "#C7CDD6");
+            bars += `<rect x="${x.toFixed(1)}" y="${(baseY - nevH).toFixed(1)}" width="${bw.toFixed(1)}" height="${nevH.toFixed(1)}" fill="#16264F"/>`;
+          } else bars += rtop(x, topY, bw, ht, 3, "#16264F");
+          vlab += `<text x="${cx.toFixed(1)}" y="${(topY - 4).toFixed(1)}" text-anchor="middle" font-size="8" fill="#3D4759">${wan(m.sales)}</text>`;
           const prev = i > 0 ? seq[i - 1].sales : null;
-          if (prev) { const mom = (m.sales / prev - 1) * 100; mlab += `<text x="${cx.toFixed(1)}" y="${(topY - 13).toFixed(1)}" text-anchor="middle" font-size="7.5" fill="${mom >= 0 ? "#D11F35" : "#0E8A5F"}">${mom >= 0 ? "+" : ""}${mom.toFixed(1)}%</text>`; }
-        } else bars += `<rect x="${x.toFixed(1)}" y="${(baseY - 6).toFixed(1)}" width="${bw.toFixed(1)}" height="6" rx="2" fill="#2E5BD8" opacity=".1"/>`;
+          if (prev) { const mom = (m.sales / prev - 1) * 100; mlab += `<text x="${cx.toFixed(1)}" y="${(topY - 12).toFixed(1)}" text-anchor="middle" font-size="7" fill="${mom >= 0 ? "#D11F35" : "#0E8A5F"}">${mom >= 0 ? "+" : ""}${mom.toFixed(1)}%</text>`; }
+        } else bars += `<rect x="${x.toFixed(1)}" y="${(baseY - 5).toFixed(1)}" width="${bw.toFixed(1)}" height="5" rx="2" fill="#16264F" opacity=".08"/>`;
         if (m.overseas != null && m.sales) ovsPts.push([cx, baseY - Math.max(0, Math.min(1, m.overseas / maxS)) * barH]); else ovsPts.push(null);
-        xlab += `<text x="${cx.toFixed(1)}" y="${baseY + 13}" text-anchor="middle" font-size="9.5" fill="#8791A0">${m.label}</text>`;
+        xlab += `<text x="${cx.toFixed(1)}" y="${baseY + 12}" text-anchor="middle" font-size="8.5" fill="#8791A0">${m.label}</text>`;
       });
       let ovsLine = ""; const segs = []; let cu = [];
       ovsPts.forEach(p => { if (p) cu.push(p); else { if (cu.length) segs.push(cu); cu = []; } }); if (cu.length) segs.push(cu);
-      segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#D9822B" stroke-width="1.8"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5" fill="#D9822B"/>`); });
-      const axis = `<line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W - padR}" y2="${baseY.toFixed(1)}" stroke="#B4B2A9" stroke-width="1"/>`;
-      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外,标注环比">${ylines}${bars}${vlab}${mlab}${ovsLine}${axis}${xlab}${ylab}</svg>`;
+      segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#E0A22B" stroke-width="1.6"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2" fill="#E0A22B"/>`); });
+      const axis = `<line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W - padR}" y2="${baseY.toFixed(1)}" stroke="#C7CDD6" stroke-width="1"/>`;
+      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:560px" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外,标注环比">${ylines}${bars}${vlab}${mlab}${ovsLine}${axis}${xlab}${ylab}</svg>`;
       // —— 标签卡:当月销量(同比/环比) + 本年累计(同比/环比) ——
       const lastMo = Ms[Ms.length - 1], prevMo = Ms[Ms.length - 2], lyMo = Ms.find(x => x.year === lastMo.year - 1 && x.month === lastMo.month);
       const prevYtdSameYear = Ms.filter(x => x.year === lastMo.year && x.month < lastMo.month).sort((a, b) => b.month - a.month)[0];
@@ -481,7 +483,7 @@
       // —— 右上角:粒度 + 年份 ——
       const granBtns = [["month", "月度"], ["quarter", "季度"], ["half", "半年度"], ["year", "年度"]].map(([k, t]) => `<button class="sst" aria-selected="${gran === k}" onclick="FINBOARD.salesGran('${k}')">${t}</button>`).join("");
       const yearSel = `<select onchange="FINBOARD.salesYear(this.value)" style="font-size:12px;border:1px solid #D3DAE4;border-radius:7px;padding:4px 8px;background:#fff;color:var(--ink)"><option value="all"${D_SALESYEAR === "all" ? " selected" : ""}>全部年份</option>${years.map(y => `<option value="${y}"${String(D_SALESYEAR) === String(y) ? " selected" : ""}>${y}年</option>`).join("")}</select>`;
-      const legend = `<div style="display:flex;gap:12px;font-size:11px;color:var(--ink-2);flex-wrap:wrap;align-items:center"><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:#2E5BD8"></span>新能源</span><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:#C7CDD6"></span>燃油及其他</span><span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:#D9822B"></span>海外</span></div>`;
+      const legend = `<div style="display:flex;gap:12px;font-size:11px;color:var(--ink-2);flex-wrap:wrap;align-items:center"><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:#16264F"></span>新能源</span><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:#C7CDD6"></span>燃油及其他</span><span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:#E0A22B"></span>海外</span></div>`;
       monthBlock = `<div style="display:flex;gap:8px;margin-bottom:11px;flex-wrap:wrap">${card1}${card2}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">${legend}<div class="subsubtabs" style="margin:0 0 0 auto">${granBtns}</div>${yearSel}</div><div>${svg}</div>`;
     }
     // 三表 + 关键指标 + 财报原文入口
