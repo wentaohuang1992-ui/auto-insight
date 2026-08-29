@@ -94,7 +94,7 @@
   let MByC = {};             // company id -> sorted monthly asc
   let PByC = {};             // company id -> parts[]
   let SByC = {};             // company id -> statements[](完整三表,按报告期)
-  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all", D_IRPT = "all", D_SALESMODE = "abs";  // 三表/单位/期间;D_IRPT=指标独立期间;D_SALESMODE=月度销量图 绝对量/占比
+  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all", D_IRPT = "all", D_SALESGRAN = "month", D_SALESYEAR = "all";  // 三表/单位/期间;D_IRPT=指标独立期间;月度图:粒度+年份
   let PERIODS = [];          // [{type:'q'|'y', y, q?, label}]
   let FTOP = "company";     // company|flash|dash
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
@@ -423,46 +423,59 @@
     // 月销
     let monthBlock = `<div class="fhint">暂无月度销量。<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">抓取</button></div>`;
     if (M.length) {
-      const M2 = M.slice().sort((a, b) => a.year - b.year || a.month - b.month);
-      const byYM = {}; M2.forEach(m => { byYM[m.year + "-" + m.month] = m; });
-      const lastM = M2[M2.length - 1];
-      const seq = []; let yy = lastM.year, mm = lastM.month;
-      for (let i = 0; i < 14; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ year: yy, month: mm, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null }); mm--; if (mm < 1) { mm = 12; yy--; } }
-      const pct = D_SALESMODE === "pct";
+      const Ms = M.slice().sort((a, b) => a.year - b.year || a.month - b.month);
+      const gran = D_SALESGRAN, years = [...new Set(Ms.map(m => m.year))].sort((a, b) => b - a);
+      const wan = (v) => v == null ? "" : (Math.abs(v) >= 10000 ? (v / 10000).toFixed(1) + "万" : String(Math.round(v)));
+      // —— 聚合成桶(月度/季度/半年度/年度) ——
+      let seq;
+      if (gran === "month") {
+        const byYM = {}; Ms.forEach(m => byYM[m.year + "-" + m.month] = m);
+        const lastM = Ms[Ms.length - 1]; seq = []; let yy = lastM.year, mm = lastM.month;
+        for (let i = 0; i < 14; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ label: mm + "月", year: yy, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null, yhead: mm === 1 }); mm--; if (mm < 1) { mm = 12; yy--; } }
+      } else {
+        const bk = (m) => gran === "quarter" ? `${m.year}-Q${Math.ceil(m.month / 3)}` : gran === "half" ? `${m.year}-H${m.month <= 6 ? 1 : 2}` : `${m.year}`;
+        const bl = (m) => gran === "quarter" ? `Q${Math.ceil(m.month / 3)}` : gran === "half" ? (m.month <= 6 ? "H1" : "H2") : `${m.year}`;
+        const bkt = {}, order = [];
+        Ms.forEach(m => { const k = bk(m); if (!bkt[k]) { bkt[k] = { label: bl(m), year: m.year, sales: 0, nev: 0, overseas: 0, hn: false, ho: false }; order.push(k); } const b = bkt[k]; b.sales += m.sales || 0; if (m.nev != null) { b.nev += m.nev; b.hn = true; } if (m.overseas != null) { b.overseas += m.overseas; b.ho = true; } });
+        seq = order.map(k => { const b = bkt[k]; return { label: b.label, year: b.year, sales: b.sales || null, nev: b.hn ? b.nev : null, overseas: b.ho ? b.overseas : null, yhead: gran !== "year" }; });
+      }
+      if (D_SALESYEAR !== "all") seq = seq.filter(b => String(b.year) === String(D_SALESYEAR));
+      const cap = gran === "month" ? 14 : gran === "quarter" ? 12 : gran === "half" ? 10 : 99;
+      if (seq.length > cap) seq = seq.slice(seq.length - cap);
       const maxS = Math.max(...seq.map(m => m.sales || 0), 1);
-      const W = 700, H = 212, padL = 8, padR = 8, padB = 34, padT = 14, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
-      const step = plotW / seq.length, bw = Math.min(34, step * 0.6);
-      let barsSvg = "", xlab = "", ovsPts = [];
+      // —— SVG(带数据标签,缩小) ——
+      const W = 700, H = 168, padL = 6, padR = 6, padB = 30, padT = 20, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
+      const step = plotW / seq.length, bw = Math.min(30, step * 0.58);
+      let bars = "", xlab = "", vlab = "", ovsPts = [];
       seq.forEach((m, i) => {
         const cx = padL + i * step + step / 2, x = cx - bw / 2;
         if (m.sales != null) {
-          const ht = pct ? barH : (m.sales / maxS * barH), topY = baseY - ht;
-          if (m.nev != null && m.sales) {
-            const nevH = pct ? (m.nev / m.sales * barH) : (m.nev / maxS * barH), fuelH = Math.max(0, ht - nevH);
-            barsSvg += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${fuelH.toFixed(1)}" rx="3" fill="#C7CDD6"/>`;
-            barsSvg += `<rect x="${x.toFixed(1)}" y="${(baseY - nevH).toFixed(1)}" width="${bw.toFixed(1)}" height="${nevH.toFixed(1)}" fill="#2E5BD8"/>`;
-          } else {
-            barsSvg += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${ht.toFixed(1)}" rx="3" fill="#8FA6C9"/>`;
-          }
-        } else {
-          barsSvg += `<rect x="${x.toFixed(1)}" y="${(baseY - 7).toFixed(1)}" width="${bw.toFixed(1)}" height="7" rx="2" fill="#2E5BD8" opacity=".12"/>`;
-        }
-        if (m.overseas != null && m.sales) {
-          const denom = pct ? m.sales : maxS, oy = baseY - Math.max(0, Math.min(1, m.overseas / denom)) * barH;
-          ovsPts.push([cx, oy]);
-        } else ovsPts.push(null);
-        xlab += `<text x="${cx.toFixed(1)}" y="${H - 14}" text-anchor="middle" font-size="10" fill="#8791A0">${m.month}月</text>` + ((i === 0 || m.month === 1) ? `<text x="${cx.toFixed(1)}" y="${H - 3}" text-anchor="middle" font-size="9" font-weight="700" fill="#15307A">${m.year}</text>` : "");
+          const ht = m.sales / maxS * barH, topY = baseY - ht;
+          if (m.nev != null) {
+            const nevH = m.nev / maxS * barH, fuelH = Math.max(0, ht - nevH);
+            bars += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${fuelH.toFixed(1)}" rx="2" fill="#C7CDD6"/><rect x="${x.toFixed(1)}" y="${(baseY - nevH).toFixed(1)}" width="${bw.toFixed(1)}" height="${nevH.toFixed(1)}" fill="#2E5BD8"/>`;
+          } else bars += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${ht.toFixed(1)}" rx="2" fill="#8FA6C9"/>`;
+          vlab += `<text x="${cx.toFixed(1)}" y="${(topY - 4).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="#3D4759">${wan(m.sales)}</text>`;
+        } else bars += `<rect x="${x.toFixed(1)}" y="${(baseY - 6).toFixed(1)}" width="${bw.toFixed(1)}" height="6" rx="2" fill="#2E5BD8" opacity=".1"/>`;
+        if (m.overseas != null && m.sales) ovsPts.push([cx, baseY - Math.max(0, Math.min(1, m.overseas / maxS)) * barH]); else ovsPts.push(null);
+        xlab += `<text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="9.5" fill="#8791A0">${m.label}</text>` + (m.yhead ? `<text x="${cx.toFixed(1)}" y="${H - 2}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#15307A">${m.year}</text>` : "");
       });
-      let ovsLine = ""; const segs = []; let cur = [];
-      ovsPts.forEach(p => { if (p) cur.push(p); else { if (cur.length) segs.push(cur); cur = []; } });
-      if (cur.length) segs.push(cur);
-      segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#D9822B" stroke-width="2"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#D9822B"/>`); });
-      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="月度销量结构:柱分新能源与燃油,折线为海外销量">${barsSvg}${ovsLine}${xlab}</svg>`;
-      const last = lastM, prev = M.find(x => x.year === last.year - 1 && x.month === last.month);
-      const miss = seq.filter(m => m.sales == null).length;
-      const modeBtns = [["abs", "绝对量"], ["pct", "占比"]].map(([k, t]) => `<button class="sst" aria-selected="${D_SALESMODE === k}" onclick="FINBOARD.salesMode('${k}')">${t}</button>`).join("");
-      const legend = `<div style="display:flex;gap:14px;font-size:11px;color:var(--ink-2);flex-wrap:wrap;align-items:center"><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#2E5BD8"></span>新能源</span><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#C7CDD6"></span>燃油及其他</span><span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;background:#D9822B"></span>海外</span></div>`;
-      monthBlock = `<div style="display:flex;gap:16px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap"><div><div style="font-size:21px;font-weight:700">${(+last.sales).toLocaleString("zh-CN")}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div><div class="subsubtabs" style="margin:0 0 0 auto">${modeBtns}</div></div>${legend}<div style="margin-top:8px">${svg}</div>${miss ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">近 14 个月缺 ${miss} 个月,抓产销快报补齐</div>` : ""}`;
+      let ovsLine = ""; const segs = []; let cu = [];
+      ovsPts.forEach(p => { if (p) cu.push(p); else { if (cu.length) segs.push(cu); cu = []; } }); if (cu.length) segs.push(cu);
+      segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#D9822B" stroke-width="1.8"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5" fill="#D9822B"/>`); });
+      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外">${bars}${vlab}${ovsLine}${xlab}</svg>`;
+      // —— 标签卡:当月销量(同比/环比) + 本年累计(同比/环比) ——
+      const lastMo = Ms[Ms.length - 1], prevMo = Ms[Ms.length - 2], lyMo = Ms.find(x => x.year === lastMo.year - 1 && x.month === lastMo.month);
+      const prevYtdSameYear = Ms.filter(x => x.year === lastMo.year && x.month < lastMo.month).sort((a, b) => b.month - a.month)[0];
+      const mcard = (lab, val, sub) => `<div style="background:#F1F4F8;border-radius:9px;padding:9px 13px;flex:1;min-width:150px"><div style="font-size:11px;color:var(--muted)">${lab}</div><div style="font-size:17px;font-weight:700;margin:1px 0 3px">${val}</div><div style="font-size:11px;color:var(--ink-2);display:flex;gap:12px">${sub}</div></div>`;
+      const rel = (a, b) => (a != null && b) ? yoyHtml(yoy(a, b)) : '<span style="color:var(--muted)">—</span>';
+      const card1 = mcard(`${lastMo.year}年${lastMo.month}月销量(辆)`, (+lastMo.sales).toLocaleString("zh-CN"), `<span>同比 ${rel(lastMo.sales, lyMo && lyMo.sales)}</span><span>环比 ${rel(lastMo.sales, prevMo && prevMo.sales)}</span>`);
+      const card2 = mcard(`本年累计销量(辆)`, lastMo.ytd != null ? (+lastMo.ytd).toLocaleString("zh-CN") : "—", `<span>同比 ${rel(lastMo.ytd, lyMo && lyMo.ytd)}</span><span>环比 ${rel(lastMo.ytd, prevYtdSameYear && prevYtdSameYear.ytd)}</span>`);
+      // —— 右上角:粒度 + 年份 ——
+      const granBtns = [["month", "月度"], ["quarter", "季度"], ["half", "半年度"], ["year", "年度"]].map(([k, t]) => `<button class="sst" aria-selected="${gran === k}" onclick="FINBOARD.salesGran('${k}')">${t}</button>`).join("");
+      const yearSel = `<select onchange="FINBOARD.salesYear(this.value)" style="font-size:12px;border:1px solid #D3DAE4;border-radius:7px;padding:4px 8px;background:#fff;color:var(--ink)"><option value="all"${D_SALESYEAR === "all" ? " selected" : ""}>全部年份</option>${years.map(y => `<option value="${y}"${String(D_SALESYEAR) === String(y) ? " selected" : ""}>${y}年</option>`).join("")}</select>`;
+      const legend = `<div style="display:flex;gap:12px;font-size:11px;color:var(--ink-2);flex-wrap:wrap;align-items:center"><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:#2E5BD8"></span>新能源</span><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:#C7CDD6"></span>燃油及其他</span><span style="display:flex;align-items:center;gap:5px"><span style="width:13px;height:3px;background:#D9822B"></span>海外</span></div>`;
+      monthBlock = `<div style="display:flex;gap:8px;margin-bottom:11px;flex-wrap:wrap">${card1}${card2}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">${legend}<div class="subsubtabs" style="margin:0 0 0 auto">${granBtns}</div>${yearSel}</div><div>${svg}</div>`;
     }
     // 三表 + 关键指标 + 财报原文入口
     const stmtBlock = stmtTable(c);        // 完整三表:全部报告期 × 标准科目(来自 statements)
@@ -512,7 +525,7 @@
     return `${pills}
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button>${c.note ? `<span class="note">${ESC(c.note)}</span>` : ""}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量</h3>${monthBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 报表口径</h3>${idxBlock || '<div class="fhint">暂无数据,抓取后自动计算。</div>'}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 东方财富 F10 全字段(累计口径)</h3>${stmtBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 10px;font-size:14px">财报原文</h3>${dlBlock}</div>
@@ -755,7 +768,8 @@
     stmtUnit(v) { D_UNIT = +v; rerender(); },
     stmtRpt(k) { D_RPT = k; rerender(); },
     idxRpt(k) { D_IRPT = k; rerender(); },
-    salesMode(k) { D_SALESMODE = k; rerender(); },
+    salesGran(k) { D_SALESGRAN = k; rerender(); },
+    salesYear(v) { D_SALESYEAR = v; rerender(); },
     dashApply() { const p = document.getElementById("fd-p"), m = document.getElementById("fd-mode"), k = document.getElementById("fd-kind"); if (p) D_PI = +p.value; if (m) D_MODE = m.value; if (k) D_KIND = k.value; rerender(); },
     dashSort(k) { if (D_SORT === k) { D_DIR = -D_DIR; } else { D_SORT = k; D_DIR = -1; } rerender(); },
     dashCopy(btn) {
