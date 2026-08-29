@@ -430,29 +430,29 @@
       let seq;
       if (gran === "month") {
         const byYM = {}; Ms.forEach(m => byYM[m.year + "-" + m.month] = m);
-        const first = Ms[0], lastM = Ms[Ms.length - 1];
-        // 连续月份:从最早记录显示到最新(上限 24 个月),缺口淡显
-        const span = (lastM.year - first.year) * 12 + (lastM.month - first.month) + 1;
-        const n = Math.min(Math.max(span, 6), 24);
+        const lastM = Ms[Ms.length - 1];
         seq = []; let yy = lastM.year, mm = lastM.month;
-        for (let i = 0; i < n; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ label: mm + "月", year: yy, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null, yhead: mm === 1 }); mm--; if (mm < 1) { mm = 12; yy--; } }
+        for (let i = 0; i < 12; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ label: mm + "月", year: yy, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null }); mm--; if (mm < 1) { mm = 12; yy--; } }
       } else {
         const bk = (m) => gran === "quarter" ? `${m.year}-Q${Math.ceil(m.month / 3)}` : gran === "half" ? `${m.year}-H${m.month <= 6 ? 1 : 2}` : `${m.year}`;
         const bl = (m) => gran === "quarter" ? `Q${Math.ceil(m.month / 3)}` : gran === "half" ? (m.month <= 6 ? "H1" : "H2") : `${m.year}`;
         const bkt = {}, order = [];
         Ms.forEach(m => { const k = bk(m); if (!bkt[k]) { bkt[k] = { label: bl(m), year: m.year, sales: 0, nev: 0, overseas: 0, hn: false, ho: false }; order.push(k); } const b = bkt[k]; b.sales += m.sales || 0; if (m.nev != null) { b.nev += m.nev; b.hn = true; } if (m.overseas != null) { b.overseas += m.overseas; b.ho = true; } });
-        seq = order.map(k => { const b = bkt[k]; return { label: b.label, year: b.year, sales: b.sales || null, nev: b.hn ? b.nev : null, overseas: b.ho ? b.overseas : null, yhead: gran !== "year" }; });
+        seq = order.map(k => { const b = bkt[k]; return { label: b.label, year: b.year, sales: b.sales || null, nev: b.hn ? b.nev : null, overseas: b.ho ? b.overseas : null }; });
       }
       if (D_SALESYEAR !== "all") seq = seq.filter(b => String(b.year) === String(D_SALESYEAR));
-      const cap = gran === "month" ? 14 : gran === "quarter" ? 12 : gran === "half" ? 10 : 99;
+      const cap = gran === "month" ? 12 : gran === "quarter" ? 12 : gran === "half" ? 10 : 99;
       if (seq.length > cap) seq = seq.slice(seq.length - cap);
       const maxS = Math.max(...seq.map(m => m.sales || 0), 1);
-      // —— SVG(带数据标签,缩小) ——
-      const W = 700, H = 168, padL = 6, padR = 6, padB = 30, padT = 20, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
-      const step = plotW / seq.length, bw = Math.min(30, step * 0.58);
-      let bars = "", xlab = "", vlab = "", ovsPts = [];
+      // —— SVG(数据标签 + 环比 + 年份虚线分隔 + X轴线) ——
+      const W = 700, H = 186, padL = 8, padR = 8, padB = 34, padT = 30, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
+      const step = plotW / seq.length, bw = Math.min(30, step * 0.56);
+      let bars = "", vlab = "", mlab = "", xlab = "", ylab = "", ylines = "", ovsPts = [];
       seq.forEach((m, i) => {
         const cx = padL + i * step + step / 2, x = cx - bw / 2;
+        // 年份分隔虚线 + 年份标注(每年第一根柱)
+        if (i > 0 && m.year !== seq[i - 1].year) { const bx = (padL + i * step).toFixed(1); ylines += `<line x1="${bx}" y1="${padT - 6}" x2="${bx}" y2="${baseY}" stroke="#C3CBD8" stroke-width="1" stroke-dasharray="3,3"/>`; }
+        if (i === 0 || m.year !== seq[i - 1].year) ylab += `<text x="${cx.toFixed(1)}" y="${(H - 3)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#15307A">${m.year}</text>`;
         if (m.sales != null) {
           const ht = m.sales / maxS * barH, topY = baseY - ht;
           if (m.nev != null) {
@@ -460,14 +460,17 @@
             bars += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${fuelH.toFixed(1)}" rx="2" fill="#C7CDD6"/><rect x="${x.toFixed(1)}" y="${(baseY - nevH).toFixed(1)}" width="${bw.toFixed(1)}" height="${nevH.toFixed(1)}" fill="#2E5BD8"/>`;
           } else bars += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${ht.toFixed(1)}" rx="2" fill="#8FA6C9"/>`;
           vlab += `<text x="${cx.toFixed(1)}" y="${(topY - 4).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="#3D4759">${wan(m.sales)}</text>`;
+          const prev = i > 0 ? seq[i - 1].sales : null;
+          if (prev) { const mom = (m.sales / prev - 1) * 100; mlab += `<text x="${cx.toFixed(1)}" y="${(topY - 13).toFixed(1)}" text-anchor="middle" font-size="7.5" fill="${mom >= 0 ? "#D11F35" : "#0E8A5F"}">${mom >= 0 ? "+" : ""}${mom.toFixed(1)}%</text>`; }
         } else bars += `<rect x="${x.toFixed(1)}" y="${(baseY - 6).toFixed(1)}" width="${bw.toFixed(1)}" height="6" rx="2" fill="#2E5BD8" opacity=".1"/>`;
         if (m.overseas != null && m.sales) ovsPts.push([cx, baseY - Math.max(0, Math.min(1, m.overseas / maxS)) * barH]); else ovsPts.push(null);
-        xlab += `<text x="${cx.toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="9.5" fill="#8791A0">${m.label}</text>` + (m.yhead ? `<text x="${cx.toFixed(1)}" y="${H - 2}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#15307A">${m.year}</text>` : "");
+        xlab += `<text x="${cx.toFixed(1)}" y="${baseY + 13}" text-anchor="middle" font-size="9.5" fill="#8791A0">${m.label}</text>`;
       });
       let ovsLine = ""; const segs = []; let cu = [];
       ovsPts.forEach(p => { if (p) cu.push(p); else { if (cu.length) segs.push(cu); cu = []; } }); if (cu.length) segs.push(cu);
       segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#D9822B" stroke-width="1.8"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5" fill="#D9822B"/>`); });
-      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外">${bars}${vlab}${ovsLine}${xlab}</svg>`;
+      const axis = `<line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W - padR}" y2="${baseY.toFixed(1)}" stroke="#B4B2A9" stroke-width="1"/>`;
+      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外,标注环比">${ylines}${bars}${vlab}${mlab}${ovsLine}${axis}${xlab}${ylab}</svg>`;
       // —— 标签卡:当月销量(同比/环比) + 本年累计(同比/环比) ——
       const lastMo = Ms[Ms.length - 1], prevMo = Ms[Ms.length - 2], lyMo = Ms.find(x => x.year === lastMo.year - 1 && x.month === lastMo.month);
       const prevYtdSameYear = Ms.filter(x => x.year === lastMo.year && x.month < lastMo.month).sort((a, b) => b.month - a.month)[0];
