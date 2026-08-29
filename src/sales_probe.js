@@ -23,7 +23,7 @@ export async function probeSales(nameOrId) {
 
   // 1) 公告列表 → 筛产销快报
   try {
-    const listUrl = `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=40&page_index=1&ann_type=A&client_source=web&f_node=0&stock_list=${code}`;
+    const listUrl = `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=1&ann_type=A&client_source=web&f_node=0&s_node=0&stock_list=${code}`;
     out.listUrl = listUrl;
     const r = await fetchWithTimeout(listUrl, { headers: UA }, 20000);
     const t = await r.text();

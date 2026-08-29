@@ -10,14 +10,14 @@ import { pickAShare } from "./fin_em.js";
 import { chatJSON } from "./llm.js";
 
 const UA = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept": "application/json,text/plain,*/*", "Referer": "https://data.eastmoney.com/" };
-const ANN_URL = (code, page = 1) => `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=${page}&ann_type=A&client_source=web&f_node=0&stock_list=${code}`;
+const ANN_URL = (code, page = 1) => `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=${page}&ann_type=A&client_source=web&f_node=0&s_node=0&stock_list=${code}`;
 const CONTENT_URL = (ac) => `https://np-cnotice-stock.eastmoney.com/api/content/ann?art_code=${ac}&client_source=web&page_index=1`;
 
-// 分页找产销快报:长安这类高频公告户,快报会被挤到前几十条之外 → 逐页翻,找够就停(最多 5 页=250 条)。
+// 分页找产销快报:长安这类高频公告户,快报会被挤到前几十条之外 → 逐页翻,找够就停(最多 8 页=400 条)。
 async function listChanxiao(code, need = 6) {
   const titleOf = (a) => a.notice_title || a.title || "";
   const cx = []; const seen = new Set(); let sampleTitles = [];
-  for (let page = 1; page <= 5; page++) {
+  for (let page = 1; page <= 8; page++) {
     let t, j;
     try { const r = await fetchWithTimeout(ANN_URL(code, page), { headers: UA }, 20000); t = await r.text(); j = JSON.parse(t); }
     catch (e) { if (page === 1) throw new Error("公告列表非 JSON:" + String(t || e.message).slice(0, 100)); break; }
