@@ -58,7 +58,7 @@
   /* 行业信息速递:标题独占一行,日期/更新/刷新 靠右放第二行 */
   #sec-news .head{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:8px;margin-bottom:14px}
   #sec-news .head h2{flex:1 1 100%}
-  #sec-news .head .note{margin:0 0 0 auto;font-family:var(--mono)}
+  #sec-news .head .note{margin:0}
   #sec-news .head .refresh-btn{margin:0}
   .note .clk{width:12px;height:12px;flex:none;opacity:.5;vertical-align:-1px}
 
@@ -237,7 +237,7 @@
   .tcat{flex:none;align-self:flex-start;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2)}
   .tcat.rp{background:rgba(27,47,102,.1);color:var(--brand)}.tcat.dt{background:rgba(181,113,14,.12);color:var(--signal)}
   .hlbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
-  .hlt{font-size:10.5px;font-family:var(--mono);color:var(--brand);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .hlt{font-size:12px;font-family:var(--sans);font-weight:700;color:var(--brand);margin-bottom:8px}
   .hl{display:flex;gap:10px;padding:7px 0;border-top:1px dashed var(--line)}.hl:first-of-type{border-top:0;padding-top:0}
   .hlc{flex:none;align-self:flex-start;font-size:11px;font-weight:700;padding:2px 0;border-radius:5px;background:rgba(46,91,216,.1);color:var(--brand-2);min-width:48px;text-align:center}
   .hlx{font-size:13px;color:var(--ink-2);line-height:1.6}
@@ -351,7 +351,7 @@
     </section>
 
     <section class="sec" id="sec-news">
-      <div class="topnews" id="topnews" hidden></div>
+      <div class="hlfeed" id="topnews" hidden></div>
       <div class="head">
         <div class="ref">SECTION 01 · DAILY BRIEF</div>
         <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h11v14H5a1 1 0 0 1-1-1V5z"/><path d="M15 8h4a1 1 0 0 1 1 1v9a1 1 0 0 1-2 0"/><path d="M7 8h5M7 12h5M7 16h3"/></svg>汽车行业信息速递</h2>
@@ -981,11 +981,14 @@ async function loadTopNews(){
   const box=document.getElementById("topnews");
   try{
     const r=await fetch("/api/news");if(!r.ok)return;const d=await r.json();
-    const items=((d&&d.items)||[]).slice(0,3);
-    const ov=d&&d.overview?`<div class="tnov">${esc(d.overview)}</div>`:"";
-    const lis=items.map(it=>`<div class="tni">${esc(it.title)}${it.url?`<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source||host(it.url))} \u2197</a>`:it.source?`<span style="color:var(--muted);font-size:11px;margin-left:4px">${esc(it.source)}</span>`:""}</div>`).join("");
-    if(!ov&&!lis)return;
-    box.innerHTML=`<div class="tnh"><span class="tnt">\uD83D\uDCF0 今日要闻</span><span class="tnd">${esc(d.date||"")}</span></div>${ov}${lis}<span class="tnmore" onclick="openNewsTab()">展开完整日报 \u2192</span>`;
+    const items=((d&&d.items)||[]).slice(0,5);
+    if(!items.length)return;
+    const lis=items.map((it,i)=>`<li class="nostatic"><span class="no">${String(i+1).padStart(2,"0")}</span>
+      <div class="ct"><div class="ti">${esc(it.title)}</div>${it.summary?`<div class="sm">${esc(it.summary)}</div>`:""}
+        <div class="meta">${esc(it.source||host(it.url))}<span>·</span>${esc(it.time||"")}
+        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener">查看原文 ↗</a>`:""}</div>
+      </div></li>`).join("");
+    box.innerHTML=`<div class="hlcard"><div class="hlhead"><span class="hltt">今日要闻 · 行业</span><span class="hlsub">${esc(d.date||"")}</span><button class="hlref" onclick="openNewsTab()">展开完整日报 ↗</button></div><ul class="news hlnews">${lis}</ul></div>`;
     box.hidden=false;
   }catch(_){/* 顶部框失败不影响页面其余部分 */}
 }
