@@ -10,17 +10,29 @@ import { pickAShare } from "./fin_em.js";
 import { chatJSON } from "./llm.js";
 
 const UA = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept": "application/json,text/plain,*/*", "Referer": "https://data.eastmoney.com/" };
-const ANN_URL = (code) => `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=40&page_index=1&ann_type=A&client_source=web&f_node=0&stock_list=${code}`;
+const ANN_URL = (code, page = 1) => `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=${page}&ann_type=A&client_source=web&f_node=0&stock_list=${code}`;
 const CONTENT_URL = (ac) => `https://np-cnotice-stock.eastmoney.com/api/content/ann?art_code=${ac}&client_source=web&page_index=1`;
 
-async function listChanxiao(code) {
-  const r = await fetchWithTimeout(ANN_URL(code), { headers: UA }, 20000);
-  const t = await r.text();
-  let j; try { j = JSON.parse(t); } catch { throw new Error("公告列表非 JSON:" + t.slice(0, 100)); }
-  const list = (j && j.data && j.data.list) || j.list || [];
-  return list
-    .filter((a) => /产销/.test(a.notice_title || a.title || ""))
-    .map((a) => ({ title: a.notice_title || a.title, date: String(a.notice_date || a.eiTime || "").slice(0, 10), art_code: a.art_code || a.artCode }));
+// 分页找产销快报:长安这类高频公告户,快报会被挤到前几十条之外 → 逐页翻,找够就停(最多 5 页=250 条)。
+async function listChanxiao(code, need = 6) {
+  const titleOf = (a) => a.notice_title || a.title || "";
+  const cx = []; const seen = new Set(); let sampleTitles = [];
+  for (let page = 1; page <= 5; page++) {
+    let t, j;
+    try { const r = await fetchWithTimeout(ANN_URL(code, page), { headers: UA }, 20000); t = await r.text(); j = JSON.parse(t); }
+    catch (e) { if (page === 1) throw new Error("公告列表非 JSON:" + String(t || e.message).slice(0, 100)); break; }
+    const list = (j && j.data && j.data.list) || j.list || [];
+    if (page === 1) sampleTitles = list.slice(0, 8).map(titleOf);
+    for (const a of list) {
+      const ti = titleOf(a), ac = a.art_code || a.artCode;
+      if (/产销|销量快报|产销数据/.test(ti) && !/业绩/.test(ti) && ac && !seen.has(ac)) {
+        seen.add(ac);
+        cx.push({ title: ti, date: String(a.notice_date || a.eiTime || "").slice(0, 10), art_code: ac });
+      }
+    }
+    if (cx.length >= need || list.length < 50) break; // 够了、或已到最后一页
+  }
+  return { cx, sampleTitles };
 }
 
 async function fetchContent(ac) {
@@ -57,8 +69,10 @@ export async function fetchSales(nameOrId, { months = 6, apply = true } = {}) {
   const code = ashare.replace(/^(SH|SZ)/i, "");
   const out = { company: c.name, code, saved: 0, months: [], errors: [] };
   let anns;
-  try { anns = await listChanxiao(code); } catch (e) { out.error = "取公告列表失败:" + e.message; return out; }
-  if (!anns.length) { out.error = "没找到产销快报公告"; return out; }
+  try { const lc = await listChanxiao(code, months); anns = lc.cx; out.sampleTitles = lc.sampleTitles; }
+  catch (e) { out.error = "取公告列表失败:" + e.message; return out; }
+  if (!anns.length) { out.error = "没找到产销快报公告(见 sampleTitles 核对该公司公告实际标题)"; return out; }
+  delete out.sampleTitles;
   for (const a of anns.slice(0, months)) {
     const ym = ymFromTitle(a.title);
     if (!ym) { out.errors.push({ title: a.title, err: "标题无年月" }); continue; }
