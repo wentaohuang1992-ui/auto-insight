@@ -21,18 +21,26 @@ export async function probeSales(nameOrId) {
   const code = ashare.replace(/^(SH|SZ)/i, ""); // SZ002594 → 002594
   const out = { company: c.name, code };
 
-  // 1) 公告列表 → 筛产销快报
+  // 1) 公告列表(翻页最多 8 页=400 条,长安这类高频户产销快报在很后面) → 筛产销快报
   try {
-    const listUrl = `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=1&ann_type=A&client_source=web&f_node=0&s_node=0&stock_list=${code}`;
-    out.listUrl = listUrl;
-    const r = await fetchWithTimeout(listUrl, { headers: UA }, 20000);
-    const t = await r.text();
-    let j; try { j = JSON.parse(t); } catch { out.listError = "列表非 JSON(疑似拦截/端点变了),前150字:" + t.slice(0, 150); return out; }
-    const list = (j && j.data && j.data.list) || j.list || [];
-    out.totalAnnFetched = list.length;
-    const cx = list.filter((a) => /产销|销量快报/.test(a.notice_title || a.title || ""));
+    const ANN = (p) => `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=${p}&ann_type=A&client_source=web&f_node=0&s_node=0&stock_list=${code}`;
+    out.listUrl = ANN(1);
+    let cx = [], total = 0, page1Titles = [], foundPage = 0;
+    for (let p = 1; p <= 8; p++) {
+      const r = await fetchWithTimeout(ANN(p), { headers: UA }, 20000);
+      const t = await r.text();
+      let j; try { j = JSON.parse(t); } catch { if (p === 1) { out.listError = "列表非 JSON(疑似拦截/端点变了),前150字:" + t.slice(0, 150); return out; } break; }
+      const list = (j && j.data && j.data.list) || j.list || [];
+      total += list.length;
+      if (p === 1) page1Titles = list.slice(0, 6).map((a) => a.notice_title || a.title);
+      const hit = list.filter((a) => /产销|销量快报|产销数据/.test(a.notice_title || a.title || "") && !/业绩/.test(a.notice_title || a.title || ""));
+      if (hit.length) { cx = hit; foundPage = p; break; }
+      if (list.length < 50) break;
+    }
+    out.totalAnnFetched = total;
+    out.foundOnPage = foundPage || null;
     out.chanxiao = cx.slice(0, 6).map((a) => ({ title: a.notice_title || a.title, date: String(a.notice_date || a.eiTime || "").slice(0, 10), art_code: a.art_code || a.artCode }));
-    if (!cx.length) { out.note = "列表里没匹配到「产销」快报——可能该公司不发、或列表字段名不同。sampleTitles 供核对。"; out.sampleTitles = list.slice(0, 6).map((a) => a.notice_title || a.title); return out; }
+    if (!cx.length) { out.note = "翻了 8 页(约 400 条)仍没匹配到「产销」快报——该公司可能不在交易所发月度产销快报。sampleTitles 供核对。"; out.sampleTitles = page1Titles; return out; }
 
     // 2) 取一条产销快报正文,看是否可解析
     const one = cx[0], ac = one.art_code || one.artCode;
