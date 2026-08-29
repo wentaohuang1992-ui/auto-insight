@@ -7,7 +7,8 @@
     const s = document.createElement("style"); s.id = "fin-style";
     s.textContent = `
     #out-fin{font-variant-numeric:tabular-nums}
-    .ftop{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+    .ftop{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;align-items:center;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
+    .ftop button{flex:none}
     .ftop button{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border:1px solid var(--line-2,#D3DAE4);background:#fff;color:var(--ink-2,#3A434F);border-radius:6px;cursor:pointer}
     .ftop button.on{background:var(--brand,#16264F);color:#fff;border-color:var(--brand,#16264F)}
     .ftool{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:11px}
@@ -412,6 +413,21 @@
     }).join("");
     return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
   }
+  // 财报原文 PDF:向后端要巨潮/披露易的真实公告链接
+  async function loadReports(name) {
+    const box = document.getElementById("freports");
+    if (!box) return;
+    try {
+      const r = await fetch("/api/fin/reports?company=" + encodeURIComponent(name));
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+      const ls = (d.links || []).slice(0, 6);
+      if (!ls.length) { box.innerHTML = `<span class="fhint">未检索到年报/半年报原文${(d.warns || []).length ? "(" + ESC(d.warns.join(";")) + ")" : ""}。</span>`; return; }
+      box.innerHTML = `<div class="fhint" style="margin-bottom:5px">年报 / 半年报原文</div>`
+        + ls.map(l => `<a class="fminib" href="${ESC(l.url)}" target="_blank" rel="noopener" style="text-decoration:none;margin:0 6px 6px 0;display:inline-block">${ESC(l.title || l.kind || "公告")}${l.date ? " · " + ESC(l.date) : ""} ↗</a>`).join("");
+    } catch (e) { box.innerHTML = `<span class="fhint">财报原文获取失败:${ESC(e.message || "网络异常")}</span>`; }
+  }
+
   function buildCompany() {
     const cs = allCompanies();
     if (!C_SEL || !BYID[C_SEL]) C_SEL = cs[0].id;
@@ -445,8 +461,8 @@
       if (seq.length > cap) seq = seq.slice(seq.length - cap);
       const maxS = Math.max(...seq.map(m => m.sales || 0), 1);
       // —— SVG(数据标签 + 环比 + 年份虚线分隔 + X轴线) ——
-      const W = 560, H = 150, padL = 6, padR = 6, padB = 30, padT = 26, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
-      const step = plotW / seq.length, bw = Math.min(26, step * 0.56);
+      const W = 1040, H = 170, padL = 8, padR = 8, padB = 34, padT = 30, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
+      const step = plotW / seq.length, bw = Math.min(46, step * 0.6);
       // 只圆顶部的柱(path):总量做圆角顶,新能源方角铺底 —— 避免灰色圆角与蓝柱之间的缝隙
       const rtop = (x, y, w, h, r, fill) => { r = Math.max(0, Math.min(r, w / 2, h)); return `<path d="M${x.toFixed(1)},${(y + h).toFixed(1)} L${x.toFixed(1)},${(y + r).toFixed(1)} Q${x.toFixed(1)},${y.toFixed(1)} ${(x + r).toFixed(1)},${y.toFixed(1)} L${(x + w - r).toFixed(1)},${y.toFixed(1)} Q${(x + w).toFixed(1)},${y.toFixed(1)} ${(x + w).toFixed(1)},${(y + r).toFixed(1)} L${(x + w).toFixed(1)},${(y + h).toFixed(1)} Z" fill="${fill}"/>`; };
       let bars = "", vlab = "", mlab = "", xlab = "", ylab = "", ylines = "", ovsPts = [];
@@ -472,7 +488,7 @@
       ovsPts.forEach(p => { if (p) cu.push(p); else { if (cu.length) segs.push(cu); cu = []; } }); if (cu.length) segs.push(cu);
       segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#E0A22B" stroke-width="1.6"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2" fill="#E0A22B"/>`); });
       const axis = `<line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W - padR}" y2="${baseY.toFixed(1)}" stroke="#C7CDD6" stroke-width="1"/>`;
-      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:560px" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外,标注环比">${ylines}${bars}${vlab}${mlab}${ovsLine}${axis}${xlab}${ylab}</svg>`;
+      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="销量结构:柱分新能源与燃油,折线为海外,标注环比">${ylines}${bars}${vlab}${mlab}${ovsLine}${axis}${xlab}${ylab}</svg>`;
       // —— 标签卡:当月销量(同比/环比) + 本年累计(同比/环比) ——
       const lastMo = Ms[Ms.length - 1], prevMo = Ms[Ms.length - 2], lyMo = Ms.find(x => x.year === lastMo.year - 1 && x.month === lastMo.month);
       const prevYtdSameYear = Ms.filter(x => x.year === lastMo.year && x.month < lastMo.month).sort((a, b) => b.month - a.month)[0];
@@ -499,9 +515,11 @@
       dls.push(["新浪财经 · 公司公告", `https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/${mk}${cd}.phtml`]);
     }
     if (mH) { const cd = mH[1].padStart(5, "0"); dls.push(["东方财富 · 港股行情", `https://quote.eastmoney.com/hk/${cd}.html`]); }
-    const dlBlock = dls.length
-      ? dls.map(([t, u]) => `<a class="fminib" href="${u}" target="_blank" rel="noopener" style="text-decoration:none">${t} ↗</a>`).join(" ") + `<span class="fhint" style="display:block;margin-top:6px">确切年报/半年报 PDF 链接将在财报抓取接入后补齐。</span>`
-      : `<span class="fhint">该公司暂无可识别的 A股/港股代码,补上代码后这里会出现官方财报入口。</span>`;
+    const dlBlock = (dls.length
+      ? dls.map(([t, u]) => `<a class="fminib" href="${u}" target="_blank" rel="noopener" style="text-decoration:none">${t} ↗</a>`).join(" ")
+      : `<span class="fhint">该公司暂无可识别的 A股/港股代码,补上代码后这里会出现官方财报入口。</span>`)
+      + `<div id="freports" style="margin-top:9px"><span class="fhint">正在获取年报/半年报原文…</span></div>`;
+    setTimeout(() => loadReports(c.name), 0);
     // 财报解读（自动抓数 → 规则算信号 → LLM 只叙述，数字过校验）
     const revs = ((RAW && RAW.reviews) || []).filter(r => r.company === c.id)
       .sort((a, b) => b.year - a.year || b.q - a.q);

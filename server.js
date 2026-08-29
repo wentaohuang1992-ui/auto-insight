@@ -6,6 +6,7 @@ import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
 import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines } from "./src/db.js";
 import { genHeadlines, headlineChannels } from "./src/headlines.js";
+import { fetchReportLinks } from "./src/fin_reports.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -102,6 +103,20 @@ app.get("/api/news", (req, res) => {
     .then((d) => res.json(d)).catch(fail(res));
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
+// 财报原文 PDF:巨潮(A股)/披露易(港股)真实公告链接
+app.get("/api/fin/reports", (req, res) => {
+  const name = String(req.query.company || "").trim();
+  if (!name) return res.status(400).json({ error: "缺少 company" });
+  const c = ((findb.getAll() || {}).companies || []).find((x) => x.name === name || x.id === name);
+  if (!c) return res.status(404).json({ error: "未知车企:" + name });
+  const t = String(c.ticker || "").toUpperCase();
+  const mA = t.match(/(\d{6})\.(SH|SZ)/), mH = t.match(/(\d{4,5})\.HK/);
+  const entity = { id: c.id, name: c.name };
+  if (mA) entity.aShare = `${mA[1]}.${mA[2]}`;
+  if (mH) entity.hk = `${mH[1].padStart(5, "0")}.HK`;
+  if (!entity.aShare && !entity.hk) return res.json({ name: c.name, links: [], warns: ["无可识别的 A股/港股代码"] });
+  fetchReportLinks(entity).then((d) => res.json(d)).catch(fail(res));
+});
 // 今日要闻(频道:launch 新车·销量 / fin 财务·融资)。GET 读最新;没有则同步生成一次。
 app.get("/api/headlines", (req, res) => {
   const ch = String(req.query.channel || "").trim();
