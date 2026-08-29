@@ -121,7 +121,10 @@ JSON:{"date":"${cn}","overview":"一段话综述","highlights":[{"cat":"新车",
 ${ctx || "(暂无搜索结果)"}`;
 
   const data = await chatJSON(prompt, 7000);
-  data.items = stampDates(dedupeNews(data.items, recent), gnews, backfill);
+  const deduped = dedupeNews(data.items, recent);
+  // 去重(剔除最近几天已报道过的)后如果只剩零星几条,宁可略有重复也别只给两条 —— 回退到原始列表
+  const kept = deduped.length >= 6 ? deduped : (data.items || []);
+  data.items = stampDates(kept, gnews, backfill);
   data.date = data.date || cn;
   return data;
 }

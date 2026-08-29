@@ -377,6 +377,35 @@
     }
     return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>`;
   }
+  // 关键指标:与三表同源(as-reported 报表),共用期间类型筛选(D_RPT)、升序。跨市场取科目(A股列名/港股中文名兜底)。
+  function indicatorTable(c) {
+    let S = (SByC[c.id] || []).slice().sort((a, b) => (a.period || "").localeCompare(b.period || ""));
+    if (D_RPT === "quarter") S = S.filter(s => s.q === 1 || s.q === 3);
+    else if (D_RPT === "half") S = S.filter(s => s.q === 2);
+    else if (D_RPT === "year") S = S.filter(s => s.q === 4);
+    S = S.slice(-12);
+    if (!S.length) return `<div class="fhint">该期间类型下暂无报告期。抓取后自动计算,或换上方筛选。</div>`;
+    const g = (s, grp, keys) => { const o = s[grp] || {}; for (const k of keys) if (o[k] != null) return o[k]; return null; };
+    const rev = s => g(s, "income", ["OPERATE_INCOME", "TOTAL_OPERATE_INCOME", "营业额", "营业收入", "收益"]);
+    const cost = s => g(s, "income", ["OPERATE_COST", "营业成本", "销售成本"]);
+    const np = s => g(s, "income", ["PARENT_NETPROFIT", "归属母公司股东净利润", "本公司拥有人应占溢利", "股东应占溢利"]);
+    const rd = s => g(s, "income", ["RESEARCH_EXPENSE", "研发费用", "研发开支"]);
+    const ta = s => g(s, "balance", ["TOTAL_ASSETS", "资产总计", "资产总额", "总资产"]);
+    const tl = s => g(s, "balance", ["TOTAL_LIABILITIES", "负债合计", "负债总额", "总负债"]);
+    const rows = [
+      ["毛利率(%)", s => { const r = rev(s), co = cost(s); return (r && co != null) ? (r - co) / r * 100 : null; }],
+      ["净利率(%)", s => { const r = rev(s), n = np(s); return (r && n != null) ? n / r * 100 : null; }],
+      ["研发占比(%)", s => { const r = rev(s), d = rd(s); return (r && d != null) ? d / r * 100 : null; }],
+      ["资产负债率(%)", s => { const a = ta(s), l = tl(s); return (a && l != null) ? l / a * 100 : null; }],
+    ];
+    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">指标 \\ 报告期</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
+    const body = rows.map(([label, fn]) => {
+      const vals = S.map(fn);
+      if (vals.every(v => v == null)) return "";
+      return `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td class="calc" style="white-space:nowrap;text-align:right">${v == null ? '<span style="color:var(--muted)">—</span>' : v.toFixed(1)}</td>`).join("")}</tr>`;
+    }).join("");
+    return `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
+  }
   function buildCompany() {
     const cs = allCompanies();
     if (!C_SEL || !BYID[C_SEL]) C_SEL = cs[0].id;
@@ -406,32 +435,8 @@
       monthBlock = `<div style="display:flex;gap:22px;margin-bottom:12px;align-items:baseline;flex-wrap:wrap"><div><div style="font-size:21px;font-weight:700">${(+last.sales).toLocaleString("zh-CN")}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div>${miss ? `<div style="font-size:11px;color:#B8860B">近 14 个月缺 ${miss} 个月(淡色柱),待产销快报接入补齐</div>` : ""}</div><div class="fbars">${bars}</div><div class="fxax">${xax}</div>`;
     }
     // 三表 + 关键指标 + 财报原文入口
-    const recentQ = Q.slice(-8);
-    const stmtBlock = stmtTable(c);   // 完整三表:全部报告期 × 标准科目(来自 statements 集合)
-    let idxBlock = "";
-    if (recentQ.length) {
-      const qh = `<tr><th>科目 \\ 报告期</th>${recentQ.map(x => `<th>${String(x.year).slice(2)}Q${x.q} <span class="fminib" style="padding:1px 5px" onclick="FINBOARD.editQ('${x.id}')">✎</span></th>`).join("")}</tr>`;
-      const yq = (x, k) => { const py = qFind(c.id, x.year - 1, x.q); return py ? yoy(x[k], py[k]) : null; };
-      const row = (label, fn, o = {}) => `<tr><td>${label}</td>${recentQ.map(x => {
-        const v = fn(x);
-        const yh = o.yoyKey ? (() => { const yv = yq(x, o.yoyKey); return yv != null ? `<span class="syoy ${yv >= 0 ? "up" : "dn"}">${yv >= 0 ? "▲" : "▼"}${Math.abs(yv).toFixed(1)}%</span>` : ""; })() : "";
-        return `<td${o.calc ? ' class="calc"' : ""}>${v == null ? "—" : (typeof v === "number" ? v.toFixed(o.dec ?? 1) : v)}${yh}</td>`;
-      }).join("")}</tr>`;
-      const gm = (x) => (x.revenue && x.operatingCost != null) ? (x.revenue - x.operatingCost) / x.revenue * 100 : null;
-      const tbl = (body) => `<div class="fscroll"><table class="ftbl"><thead>${qh}</thead><tbody>${body}</tbody></table></div>`;
-      const doi = (x) => x.operatingCost ? x.inventory / x.operatingCost * 91 : null, dpo = (x) => x.operatingCost ? x.ap / x.operatingCost * 91 : null;
-      idxBlock = tbl(
-        row("毛利率(%)", gm, { calc: true })
-        + row("净利率(%)", x => x.revenue ? x.netProfit / x.revenue * 100 : null, { calc: true })
-        + row("单车ASP(万)", x => x.sales ? x.revenue / x.sales : null, { calc: true, dec: 2 })
-        + row("单车净利(元)", x => x.sales ? x.netProfit / x.sales * 1e4 : null, { calc: true, dec: 0 })
-        + row("研发占比(%)", x => x.revenue ? x.rdSpend / x.revenue * 100 : null, { calc: true })
-        + row("资产负债率(%)", x => x.totalAssets ? x.totalLiab / x.totalAssets * 100 : null, { calc: true })
-        + row("DOI 存货周转(天)", doi, { calc: true, dec: 0 })
-        + row("DPO 应付周转(天)", dpo, { calc: true, dec: 0 })
-        + row("净现比", x => x.netProfit ? x.ocf / x.netProfit : null, { calc: true, dec: 2 })
-      );
-    }
+    const stmtBlock = stmtTable(c);        // 完整三表:全部报告期 × 标准科目(来自 statements)
+    const idxBlock = indicatorTable(c);    // 关键指标:同源(报表口径),随三表的期间筛选联动
     // 财报原文入口:先给官方个股页(零后端、必开);确切年报/半年报 PDF 链接待 fin_reports 接入后补
     const tkr = (c.ticker || "").toUpperCase();
     const mA = tkr.match(/(\d{6})\.(SH|SZ)/), mH = tkr.match(/(\d{4,5})\.HK/);
@@ -478,7 +483,7 @@
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button>${c.note ? `<span class="note">${ESC(c.note)}</span>` : ""}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 近 8 季(单季口径,蓝底=自动计算)</h3>${idxBlock || '<div class="fhint">暂无季度数据,抓取后自动计算。</div>'}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 报表口径(随下方三表的期间/筛选联动)</h3>${idxBlock || '<div class="fhint">暂无数据,抓取后自动计算。</div>'}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 东方财富 F10 全字段(累计口径)</h3>${stmtBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 10px;font-size:14px">财报原文</h3>${dlBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px">自研智驾部件追踪 <button class="fminib" onclick="FINBOARD.addPart('${c.id}')">＋ 新增部件</button></h3>
