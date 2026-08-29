@@ -675,10 +675,25 @@
       overseasPct: cur.overseasPct ?? null,
     };
   }
+  // 季度库 sales 常为空 → 用月度数据(salesMonthly,单位辆)按季/年求和补上(季度 sales 单位万辆,故 /1e4)
+  const qMonths = (q) => [(q - 1) * 3 + 1, (q - 1) * 3 + 2, (q - 1) * 3 + 3];
+  const YMON = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  function monSum(id, y, mArr, key) {
+    const a = (MByC[id] || []).filter(m => m.year === y && mArr.includes(m.month));
+    let has = false, s = 0; a.forEach(m => { if (m[key] != null) { has = true; s += m[key]; } });
+    return has ? s : null;
+  }
+  function patchFromMonthly(rec, id, y, mArr) {
+    if (!rec) return rec;
+    const r = { ...rec };
+    if (r.sales == null) { const ms = monSum(id, y, mArr, "sales"); if (ms != null) r.sales = ms / 1e4; }
+    if (r.overseasPct == null) { const os = monSum(id, y, mArr, "overseas"), ss = monSum(id, y, mArr, "sales"); if (os != null && ss) r.overseasPct = os / ss * 100; }
+    return r;
+  }
   function dashAgg(id, p) {
     if (p.type === "q") {
       const cur = qFind(id, p.y, p.q); if (!cur) return null;
-      return metricsFrom(cur, qFind(id, p.y - 1, p.q));
+      return metricsFrom(patchFromMonthly(cur, id, p.y, qMonths(p.q)), patchFromMonthly(qFind(id, p.y - 1, p.q), id, p.y - 1, qMonths(p.q)));
     }
     const qs = (QByC[id] || []).filter(x => x.year === p.y); if (!qs.length) return null;
     const pqs = (QByC[id] || []).filter(x => x.year === p.y - 1);
@@ -686,10 +701,12 @@
     const lastOf = (arr, k) => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i][k] != null) return arr[i][k]; return null; };
     const agg = (arr) => ({
       revenue: sum(arr, "revenue"), netProfit: sum(arr, "netProfit"), operatingCost: sum(arr, "operatingCost"),
-      rdSpend: sum(arr, "rdSpend"), ocf: sum(arr, "ocf"), sales: sum(arr, "sales"),
+      rdSpend: sum(arr, "rdSpend"), ocf: sum(arr, "ocf"), sales: sum(arr, "sales") || null,
       netProfitEx: sum(arr, "netProfitEx"), overseasPct: lastOf(arr, "overseasPct"),
     });
-    return metricsFrom(agg(qs), pqs.length ? agg(pqs) : null);
+    const cur = patchFromMonthly(agg(qs), id, p.y, YMON);
+    const prev = pqs.length ? patchFromMonthly(agg(pqs), id, p.y - 1, YMON) : null;
+    return metricsFrom(cur, prev);
   }
   function dashData() {
     const p = PERIODS[D_PI] || PERIODS[0];
