@@ -15,6 +15,7 @@ import { seedAllFin, seedOneCompanyFin } from "./src/fin_seed.js";
 import { seedCompanyEM, seedAllEM, pickAShare } from "./src/fin_em.js";
 import { seedCompanyHK, seedAllHK, pickHK } from "./src/fin_hk.js";
 import { runWatch, watchStatus } from "./src/fin_watch.js";
+import { probeSales } from "./src/sales_probe.js";
 import { importSeed, coverage as finCoverage } from "./src/fin_import.js";
 import { generateReview, generateAllReviews } from "./src/fin_review.js";
 import * as flash from "./src/fin_flash.js";
@@ -262,6 +263,10 @@ app.post("/api/fin/watch/run", (req, res) => {
     .then((r) => { jobs[key] = { status: "done", finishedAt: Date.now(), result: r }; })
     .catch((e) => { console.error("[fin-watch]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
   res.status(202).json({ status: "started", key });
+});
+// —— 产销快报探路:探官方公告正文能不能解析出销量数字(决定月度销量怎么抓) ——
+app.get("/api/fin/sales-probe", (req, res) => {
+  probeSales(cleanName(req.query.company, 20) || "比亚迪").then((d) => res.json(d)).catch(fail(res));
 });
 // 名单与报告期维护
 app.post("/api/fin/flash/entities", (req, res) => { const r = flash.addEntity(req.body || {}); if (!r) return res.status(409).json({ error: "已存在或缺名称" }); res.json({ ok: true, entity: r }); });
