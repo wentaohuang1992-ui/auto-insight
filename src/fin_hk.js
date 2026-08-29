@@ -70,6 +70,37 @@ async function emHK(reportName, secucode, pageSize = 400) {
   return Array.isArray(j.result?.data) ? j.result.data : [];
 }
 
+// 港股现金流(及 _PC 三表)必须两步:先查汇总表拿报告期列表,再带 REPORT_DATE in (...) 过滤查明细。
+// 依据 AKShare stock_finance_hk_em.py 实测写法。返回长表行(STD_ITEM_NAME/AMOUNT/REPORT_DATE)。
+async function emHKReportDates(secucode) {
+  const q = new URLSearchParams({
+    reportName: "RPT_CUSTOM_HKSK_APPFN_CASHFLOW_SUMMARY",
+    columns: "SECUCODE,SECURITY_CODE,SECURITY_NAME_ABBR,START_DATE,REPORT_DATE,FISCAL_YEAR,CURRENCY,ACCOUNT_STANDARD,REPORT_TYPE",
+    filter: `(SECUCODE="${secucode}")`, source: "F10", client: "PC",
+  });
+  const r = await fetchWithTimeout(`${API}?${q}`, { headers: HEADERS });
+  if (!r.ok) throw new Error(`现金流汇总 HTTP ${r.status}`);
+  const j = await r.json();
+  const list = (j && j.result && j.result.data && j.result.data[0] && j.result.data[0].REPORT_LIST) || [];
+  return [...new Set(list.map((x) => String(x.REPORT_DATE || "").split(" ")[0]).filter(Boolean))];
+}
+async function emHKCashflow(secucode) {
+  const dates = await emHKReportDates(secucode);
+  if (!dates.length) return [];
+  const q = new URLSearchParams({
+    reportName: CASHFLOW_REPORT,
+    columns: "SECUCODE,SECURITY_CODE,SECURITY_NAME_ABBR,ORG_CODE,REPORT_DATE,DATE_TYPE_CODE,FISCAL_YEAR,START_DATE,STD_ITEM_CODE,STD_ITEM_NAME,AMOUNT",
+    filter: `(SECUCODE="${secucode}")(REPORT_DATE in ('${dates.join("','")}'))`,
+    pageNumber: "1", pageSize: "", sortTypes: "-1,1", sortColumns: "REPORT_DATE,STD_ITEM_CODE",
+    source: "F10", client: "PC",
+  });
+  const r = await fetchWithTimeout(`${API}?${q}`, { headers: HEADERS });
+  if (!r.ok) throw new Error(`现金流量表 HTTP ${r.status}`);
+  const j = await r.json();
+  if (!j || j.success === false) throw new Error(`现金流量表:${(j && j.message) || "接口返回失败"}`);
+  return Array.isArray(j.result?.data) ? j.result.data : [];
+}
+
 /** 长表 → { [year]: { [q]: {字段: 值} } };同时收集没认出来的科目名 */
 function fold(rows, map) {
   const cum = {}, unmapped = new Set(), meta = {};
@@ -101,7 +132,7 @@ export async function buildQuartersHK(company, { halfYear = false } = {}) {
     emHK("RPT_HKF10_FN_BALANCE", code),
   ]);
   let cfRows = [];
-  if (CASHFLOW_REPORT) { try { cfRows = await emHK(CASHFLOW_REPORT, code); } catch (e) { console.error("[fin_hk] 现金流量表", e.message); } }
+  try { cfRows = await emHKCashflow(code); } catch (e) { console.error("[fin_hk] 现金流量表(两步法)", e.message); }
 
   const inc = fold(incRows, INCOME_MAP);
   const bal = fold(balRows, BALANCE_MAP);
