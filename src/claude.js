@@ -36,6 +36,25 @@ function dedupeNews(items, recent) {
   return out;
 }
 
+// 用真实来源发布日期(Google News pubDate)覆盖模型自填的 time,并滤掉明显过旧的条目。
+// 模型没找到日期时常错用当天,导致旧闻显示成今天;这里按 URL 回填真日期、超 14 天的丢弃。
+function stampDates(items, gnews, backfill) {
+  const byUrl = new Map();
+  for (const g of (gnews || [])) if (g.url && g.dateISO) byUrl.set(normUrl(g.url), g.dateISO);
+  const fmtCn = (iso) => { const m = String(iso || "").match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? `${+m[1]}月${+m[2]}日` : ""; };
+  const now = Date.now();
+  const out = [];
+  for (const it of (items || [])) {
+    const iso = byUrl.get(normUrl(it.url));
+    if (iso) {
+      const cn = fmtCn(iso); if (cn) it.time = cn;
+      if (!backfill) { const ageDays = (now - new Date(iso).getTime()) / 864e5; if (ageDays > 14) continue; } // 明显旧闻丢弃
+    }
+    out.push(it);
+  }
+  return out;
+}
+
 async function bochaFresh(q, backfill = false) {
   // 补漏时目标日期已过去若干天,"近一天"必定搜不到,直接用更宽的窗口。
   if (backfill) {
@@ -102,7 +121,7 @@ JSON:{"date":"${cn}","overview":"一段话综述","highlights":[{"cat":"新车",
 ${ctx || "(暂无搜索结果)"}`;
 
   const data = await chatJSON(prompt, 7000);
-  data.items = dedupeNews(data.items, recent);
+  data.items = stampDates(dedupeNews(data.items, recent), gnews, backfill);
   data.date = data.date || cn;
   return data;
 }
