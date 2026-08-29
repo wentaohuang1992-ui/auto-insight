@@ -8,8 +8,8 @@
     s.textContent = `
     #out-fin{font-variant-numeric:tabular-nums}
     .ftop{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-    .ftop button{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border:1px solid var(--line);background:#fff;color:var(--ink-2,#3A434F);border-radius:9px;cursor:pointer}
-    .ftop button.on{background:var(--brand,#15307A);color:#fff;border-color:var(--brand,#15307A)}
+    .ftop button{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border:1px solid var(--line-2,#D3DAE4);background:#fff;color:var(--ink-2,#3A434F);border-radius:6px;cursor:pointer}
+    .ftop button.on{background:var(--brand,#16264F);color:#fff;border-color:var(--brand,#16264F)}
     .ftool{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:11px}
     .ftool .lab{font-size:12px;font-weight:700;color:var(--ink-2,#3A434F)}
     .ftool select{font:inherit;font-size:13px;font-weight:600;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--brand,#15307A)}
@@ -49,8 +49,8 @@
     .fbase .nm{font-size:17px;font-weight:700}.fbase .kv{font-size:12px;color:var(--ink-2,#3A434F)}.fbase .kv b{color:var(--ink,#1B2230)}
     .fbase .note{font-size:11.5px;color:var(--muted)}
     .fpills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
-    .fpill{font:inherit;font-size:13px;padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;color:var(--ink-2,#3A434F)}
-    .fpill.on{background:#2E5BD8;color:#fff;border-color:#2E5BD8}
+    .fpill{font:inherit;font-size:13px;padding:6px 13px;border:1px solid var(--line-2,#D3DAE4);background:#fff;border-radius:7px;cursor:pointer;color:var(--ink-2,#3A434F)}
+    .fpill.on{background:var(--brand,#16264F);color:#fff;border-color:var(--brand,#16264F)}
     .fbars{display:flex;align-items:flex-end;gap:5px;height:130px;padding-top:8px;border-bottom:1px solid var(--line)}
     .fbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
     .fbar .b{width:74%;max-width:28px;background:linear-gradient(180deg,#3E6BE0,#2E5BD8);border-radius:4px 4px 0 0;min-height:3px}
@@ -417,7 +417,7 @@
     if (!C_SEL || !BYID[C_SEL]) C_SEL = cs[0].id;
     const c = BYID[C_SEL];
     const core = cs.filter(x => x.type === "core"), comp = cs.filter(x => x.type === "competitor");
-    const pill = (x) => `<button class="fpill ${x.id === C_SEL ? "on" : ""}" onclick="FINBOARD.pick('${x.id}')"><span class="fdot" style="background:${x.type === "core" ? "#15307A" : "#B5710E"}"></span>${ESC(x.name)}</button>`;
+    const pill = (x) => `<button class="fpill ${x.id === C_SEL ? "on" : ""}" onclick="FINBOARD.pick('${x.id}')">${ESC(x.name)}</button>`;
     const pills = `<div class="fpills">${core.map(pill).join("")}<span style="width:1px;height:22px;background:var(--line);margin:0 3px"></span>${comp.map(pill).join("")}</div>`;
     const Q = QByC[c.id] || [], M = MByC[c.id] || [];
     // 月销
