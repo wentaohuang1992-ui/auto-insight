@@ -55,6 +55,11 @@
   .note{margin-top:6px;font-size:12px;color:var(--muted);letter-spacing:.2px}
   .note:empty{display:none;margin:0}
   .note b{color:var(--ink-2);font-weight:600}
+  /* 行业信息速递:标题独占一行,日期/更新/刷新 靠右放第二行 */
+  #sec-news .head{display:flex;align-items:center;flex-wrap:wrap;column-gap:12px;row-gap:8px;margin-bottom:14px}
+  #sec-news .head h2{flex:1 1 100%}
+  #sec-news .head .note{margin:0 0 0 auto;font-family:var(--mono)}
+  #sec-news .head .refresh-btn{margin:0}
   .note .clk{width:12px;height:12px;flex:none;opacity:.5;vertical-align:-1px}
 
   /* Cards */
@@ -467,9 +472,9 @@ function renderFin(d){const items=(d&&d.items)||[];if(!items.length)return `<div
     </div>${srcRail(it.sources)}</div>`).join("")+`</div>`;}
 
 function renderNews(d){const items=(d&&d.items)||[];
-  if(d.updated_at&&!viewingDate)document.getElementById("note-news").innerHTML=`${esc(d.date||"")}`;
-  let h=`<div class="daily-head"><span class="badge2">日报</span><span class="vd">${esc(d.date||"")}</span></div>`;
-  // 今日综述已移除(与今日要闻重复)
+  if(!viewingDate)document.getElementById("note-news").innerHTML=`日报 · ${esc(d.date||"")} · 每日 08:30 更新`;
+  let h=``;
+  // 今日综述已移除(与今日要闻重复);"日报 日期"并入头部灰字,不再单占一行
   const hl=(d.highlights||[]).filter(x=>x&&x.text);
   if(hl.length)h+=`<div class="hlbox"><div class="hlt">分类要点</div>`+hl.map(x=>`<div class="hl"><span class="hlc">${esc(x.cat||"")}</span><span class="hlx">${esc(x.text)}</span></div>`).join("")+`</div>`;
   if(!items.length)return h+`<div class="empty">暂无日报内容。</div>`;
