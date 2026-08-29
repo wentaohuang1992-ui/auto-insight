@@ -94,7 +94,7 @@
   let MByC = {};             // company id -> sorted monthly asc
   let PByC = {};             // company id -> parts[]
   let SByC = {};             // company id -> statements[](完整三表,按报告期)
-  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all", D_IRPT = "all";  // 三表:当前表/单位/期间;D_IRPT=关键指标独立期间筛选
+  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all", D_IRPT = "all", D_SALESMODE = "abs";  // 三表/单位/期间;D_IRPT=指标独立期间;D_SALESMODE=月度销量图 绝对量/占比
   let PERIODS = [];          // [{type:'q'|'y', y, q?, label}]
   let FTOP = "company";     // company|flash|dash
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
@@ -426,19 +426,43 @@
       const M2 = M.slice().sort((a, b) => a.year - b.year || a.month - b.month);
       const byYM = {}; M2.forEach(m => { byYM[m.year + "-" + m.month] = m; });
       const lastM = M2[M2.length - 1];
-      // 补齐缺失月份 → 连续 14 个月;缺的月柱子淡显,让缺口一眼可见(数据补齐靠产销快报)
       const seq = []; let yy = lastM.year, mm = lastM.month;
-      for (let i = 0; i < 14; i++) { seq.unshift({ year: yy, month: mm, sales: (byYM[yy + "-" + mm] || {}).sales ?? null }); mm--; if (mm < 1) { mm = 12; yy--; } }
+      for (let i = 0; i < 14; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ year: yy, month: mm, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null }); mm--; if (mm < 1) { mm = 12; yy--; } }
+      const pct = D_SALESMODE === "pct";
       const maxS = Math.max(...seq.map(m => m.sales || 0), 1);
-      const wan = (s) => s == null ? "" : (s >= 10000 ? (s / 10000).toFixed(1) + "万" : String(s));
-      const bars = seq.map((m, i) => {
-        const s = m.sales, h = s != null ? Math.round(s / maxS * 90) : 0, isLast = i === seq.length - 1;
-        return `<div class="fbar ${isLast ? "last" : ""}"><div style="font-size:8.5px;color:var(--muted);margin-bottom:2px;white-space:nowrap">${wan(s)}</div><div class="b" style="height:${h}%${s == null ? ";opacity:.12" : ""}"></div></div>`;
-      }).join("");
-      const xax = seq.map((m, i) => `<span>${m.month}月${i === 0 || m.month === 1 ? `<br><b style="color:#15307A">${m.year}</b>` : ""}</span>`).join("");
+      const W = 700, H = 212, padL = 8, padR = 8, padB = 34, padT = 14, plotW = W - padL - padR, barH = H - padT - padB, baseY = padT + barH;
+      const step = plotW / seq.length, bw = Math.min(34, step * 0.6);
+      let barsSvg = "", xlab = "", ovsPts = [];
+      seq.forEach((m, i) => {
+        const cx = padL + i * step + step / 2, x = cx - bw / 2;
+        if (m.sales != null) {
+          const ht = pct ? barH : (m.sales / maxS * barH), topY = baseY - ht;
+          if (m.nev != null && m.sales) {
+            const nevH = pct ? (m.nev / m.sales * barH) : (m.nev / maxS * barH), fuelH = Math.max(0, ht - nevH);
+            barsSvg += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${fuelH.toFixed(1)}" rx="3" fill="#C7CDD6"/>`;
+            barsSvg += `<rect x="${x.toFixed(1)}" y="${(baseY - nevH).toFixed(1)}" width="${bw.toFixed(1)}" height="${nevH.toFixed(1)}" fill="#2E5BD8"/>`;
+          } else {
+            barsSvg += `<rect x="${x.toFixed(1)}" y="${topY.toFixed(1)}" width="${bw.toFixed(1)}" height="${ht.toFixed(1)}" rx="3" fill="#8FA6C9"/>`;
+          }
+        } else {
+          barsSvg += `<rect x="${x.toFixed(1)}" y="${(baseY - 7).toFixed(1)}" width="${bw.toFixed(1)}" height="7" rx="2" fill="#2E5BD8" opacity=".12"/>`;
+        }
+        if (m.overseas != null && m.sales) {
+          const denom = pct ? m.sales : maxS, oy = baseY - Math.max(0, Math.min(1, m.overseas / denom)) * barH;
+          ovsPts.push([cx, oy]);
+        } else ovsPts.push(null);
+        xlab += `<text x="${cx.toFixed(1)}" y="${H - 14}" text-anchor="middle" font-size="10" fill="#8791A0">${m.month}月</text>` + ((i === 0 || m.month === 1) ? `<text x="${cx.toFixed(1)}" y="${H - 3}" text-anchor="middle" font-size="9" font-weight="700" fill="#15307A">${m.year}</text>` : "");
+      });
+      let ovsLine = ""; const segs = []; let cur = [];
+      ovsPts.forEach(p => { if (p) cur.push(p); else { if (cur.length) segs.push(cur); cur = []; } });
+      if (cur.length) segs.push(cur);
+      segs.forEach(s => { if (s.length > 1) ovsLine += `<polyline points="${s.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="#D9822B" stroke-width="2"/>`; s.forEach(p => ovsLine += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#D9822B"/>`); });
+      const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="月度销量结构:柱分新能源与燃油,折线为海外销量">${barsSvg}${ovsLine}${xlab}</svg>`;
       const last = lastM, prev = M.find(x => x.year === last.year - 1 && x.month === last.month);
       const miss = seq.filter(m => m.sales == null).length;
-      monthBlock = `<div style="display:flex;gap:22px;margin-bottom:12px;align-items:baseline;flex-wrap:wrap"><div><div style="font-size:21px;font-weight:700">${(+last.sales).toLocaleString("zh-CN")}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div>${miss ? `<div style="font-size:11px;color:#B8860B">近 14 个月缺 ${miss} 个月(淡色柱),待产销快报接入补齐</div>` : ""}</div><div class="fbars">${bars}</div><div class="fxax">${xax}</div>`;
+      const modeBtns = [["abs", "绝对量"], ["pct", "占比"]].map(([k, t]) => `<button class="sst" aria-selected="${D_SALESMODE === k}" onclick="FINBOARD.salesMode('${k}')">${t}</button>`).join("");
+      const legend = `<div style="display:flex;gap:14px;font-size:11px;color:var(--ink-2);flex-wrap:wrap;align-items:center"><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#2E5BD8"></span>新能源</span><span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#C7CDD6"></span>燃油及其他</span><span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;background:#D9822B"></span>海外</span></div>`;
+      monthBlock = `<div style="display:flex;gap:16px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap"><div><div style="font-size:21px;font-weight:700">${(+last.sales).toLocaleString("zh-CN")}</div><div style="font-size:11px;color:var(--muted)">${last.year}年${last.month}月销量(辆) ${yoyHtml(yoy(last.sales, prev && prev.sales))}</div></div><div class="subsubtabs" style="margin:0 0 0 auto">${modeBtns}</div></div>${legend}<div style="margin-top:8px">${svg}</div>${miss ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">近 14 个月缺 ${miss} 个月,抓产销快报补齐</div>` : ""}`;
     }
     // 三表 + 关键指标 + 财报原文入口
     const stmtBlock = stmtTable(c);        // 完整三表:全部报告期 × 标准科目(来自 statements)
@@ -731,6 +755,7 @@
     stmtUnit(v) { D_UNIT = +v; rerender(); },
     stmtRpt(k) { D_RPT = k; rerender(); },
     idxRpt(k) { D_IRPT = k; rerender(); },
+    salesMode(k) { D_SALESMODE = k; rerender(); },
     dashApply() { const p = document.getElementById("fd-p"), m = document.getElementById("fd-mode"), k = document.getElementById("fd-kind"); if (p) D_PI = +p.value; if (m) D_MODE = m.value; if (k) D_KIND = k.value; rerender(); },
     dashSort(k) { if (D_SORT === k) { D_DIR = -D_DIR; } else { D_SORT = k; D_DIR = -1; } rerender(); },
     dashCopy(btn) {

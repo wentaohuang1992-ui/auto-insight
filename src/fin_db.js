@@ -197,7 +197,7 @@ export function upsertSales(rec, { manual = false } = {}) {
   const db = ensureSeeded();
   const id = mid(rec.company, rec.year, rec.month);
   const i = db.salesMonthly.findIndex((x) => x.id === id);
-  const val = { company: rec.company, year: +rec.year, month: +rec.month, sales: Math.round(NUM(rec.sales) || 0), sources: Array.isArray(rec.sources) ? rec.sources : [], note: rec.note || "" };
+  const val = { company: rec.company, year: +rec.year, month: +rec.month, sales: Math.round(NUM(rec.sales) || 0), ytd: NUM(rec.ytd), nev: NUM(rec.nev), nevYtd: NUM(rec.nevYtd), overseas: NUM(rec.overseas), overseasYtd: NUM(rec.overseasYtd), sources: Array.isArray(rec.sources) ? rec.sources : [], note: rec.note || "" };
   if (i >= 0) {
     if (db.salesMonthly[i].manual && !manual) return { skipped: "manual", id };
     db.salesMonthly[i] = { ...db.salesMonthly[i], ...val, id, manual, updatedAt: now() };

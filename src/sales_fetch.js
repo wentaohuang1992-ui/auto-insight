@@ -47,18 +47,23 @@ function ymFromTitle(t) {
   return m ? { year: +m[1], month: +m[2] } : null;
 }
 
-// 让 DeepSeek 从确定正文里抽两个数(区分销量/产量、处理无总计行需求和)
+// 让 DeepSeek 从确定正文里抽 6 个数(总/新能源/海外 各当月+累计),区分销量/产量、无总计行则求和
 async function extractSales(company, ym, content) {
-  const prompt = `下面是「${company}」${ym.year}年${ym.month}月产销快报的公告正文。请只从这段文本里抽取两个数字:
-1) 当月「销量」总计:所有品牌/子公司/产品类别的销量合计。若正文有"新能源汽车"总行或"合计/总计"行就用它;若没有总计行,就把各明细行的当月销量相加。
-2) 「本年累计销量」总计:同样口径,取累计销量。
-务必区分"销量"与"产量"两列(有的公司产量列在前、有的销量列在前),只要销量。
-只输出 JSON,不要任何解释或单位:{"month_sales":整数,"ytd_sales":整数}。数字去掉千分位逗号;抽不到填 null。
+  const prompt = `下面是「${company}」${ym.year}年${ym.month}月产销快报的公告正文。请只抽取以下数字(单位:辆):
+1) month_sales:当月「销量」总计(所有品牌/子公司/产品类别合计;有"总计/合计/汽车总计"或"新能源汽车"总行就用,没有就把各明细行当月销量相加)。
+2) ytd_sales:本年累计销量总计(同口径)。
+3) nev_month:当月「新能源」销量(正文里"新能源汽车/新能源"那行的销量;比亚迪全是新能源则等于 month_sales)。
+4) nev_ytd:本年累计新能源销量。
+5) overseas_month:当月「海外/出口」销量(正文里"海外/出口"字样的销量)。
+6) overseas_ytd:本年累计海外/出口销量。
+务必区分"销量"与"产量"两列(有的公司产量列在前),只要销量。某项正文里没有就填 null。
+只输出 JSON,不要解释或单位,数字去千分位逗号:{"month_sales":整数,"ytd_sales":整数,"nev_month":整数,"nev_ytd":整数,"overseas_month":整数,"overseas_ytd":整数}。
 
 正文:
-${String(content).slice(0, 3500)}`;
-  return chatJSON(prompt, 200);
+${String(content).slice(0, 3800)}`;
+  return chatJSON(prompt, 300);
 }
+const INT = (v) => (v != null && !isNaN(+v) ? Math.round(+v) : null);
 
 /** 取某公司近 N 个月的月度销量并入库。apply=false 只返回不写库。 */
 export async function fetchSales(nameOrId, { months = 6, apply = true } = {}) {
@@ -80,16 +85,18 @@ export async function fetchSales(nameOrId, { months = 6, apply = true } = {}) {
       const content = await fetchContent(a.art_code);
       if (!content || content.length < 120) { out.errors.push({ title: a.title, err: "正文空/太短" }); continue; }
       const ex = await extractSales(c.name, ym, content);
-      const ms = ex && ex.month_sales != null && !isNaN(+ex.month_sales) ? Math.round(+ex.month_sales) : null;
-      const ys = ex && ex.ytd_sales != null && !isNaN(+ex.ytd_sales) ? Math.round(+ex.ytd_sales) : null;
+      const ms = INT(ex && ex.month_sales), ys = INT(ex && ex.ytd_sales);
+      const nev = INT(ex && ex.nev_month), nevYtd = INT(ex && ex.nev_ytd);
+      const ovs = INT(ex && ex.overseas_month), ovsYtd = INT(ex && ex.overseas_ytd);
       if (ms == null) { out.errors.push({ title: a.title, err: "未抽到当月销量" }); continue; }
       const rec = {
-        company: c.id, year: ym.year, month: ym.month, sales: ms,
+        company: c.id, year: ym.year, month: ym.month, sales: ms, ytd: ys,
+        nev, nevYtd, overseas: ovs, overseasYtd: ovsYtd,
         sources: [{ title: a.title, url: CONTENT_URL(a.art_code) }],
-        note: `产销快报·本年累计销量 ${ys != null ? ys.toLocaleString() : "—"}`,
+        note: `产销快报·累计${ys != null ? ys.toLocaleString() : "—"}·新能源${nev != null ? nev.toLocaleString() : "—"}·海外${ovs != null ? ovs.toLocaleString() : "—"}`,
       };
       if (apply) { const u = upsertSales(rec, { manual: false }); if (u && u.ok !== false) out.saved++; }
-      out.months.push({ year: ym.year, month: ym.month, sales: ms, ytd: ys, saved: apply });
+      out.months.push({ year: ym.year, month: ym.month, sales: ms, ytd: ys, nev, overseas: ovs, saved: apply });
     } catch (e) { out.errors.push({ title: a.title, err: e.message }); }
   }
   return out;
