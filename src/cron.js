@@ -2,10 +2,11 @@ import cron from "node-cron";
 import { getSection } from "./claude.js";
 import { generateCadence } from "./cadence.js";
 import { getStorage } from "./storage.js";
+import { genHeadlines, headlineChannels } from "./headlines.js";
 import { today, isoToCn, isosBefore } from "./dates.js";
 import {
   saveSnapshot, saveDigest, getDigest, listSubscribers,
-  digestIsoSet, recordDigestFailure,
+  digestIsoSet, recordDigestFailure, saveHeadlines,
 } from "./db.js";
 import { buildDigestEmail } from "./digest.js";
 import { runWatch } from "./fin_watch.js";
@@ -198,6 +199,11 @@ export async function generateDaily() {
     console.log(`[cron] 日报已生成 ${cn},共 ${news.items?.length || 0} 条`);
     try { const r = await updateFromNews(news); if (r.applied) console.log(`[cron] 车型库增量:更新 ${r.applied} 款`); }
     catch (e) { console.error("[cron] 增量更新", e.message); }
+    // 今日要闻两频道(新车·销量 / 财务·融资),失败不影响主日报
+    for (const ch of headlineChannels()) {
+      try { const h = await genHeadlines(ch); saveHeadlines(ch, h); console.log(`[cron] 今日要闻·${ch} 已生成,共 ${h.items.length} 条`); }
+      catch (e) { console.error(`[cron] 今日要闻·${ch}`, e.message); }
+    }
     return news;
   });
 }

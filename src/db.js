@@ -10,7 +10,7 @@ const FAILURE_KEEP = Math.max(10, Number(process.env.DIGEST_FAILURE_KEEP || 50))
 
 // 注意 digestFailures 是后加的键:老的 data.json 里没有它。下面 `{ ...blank(), ...readStore() }`
 // 的展开顺序保证了缺失的顶层键会被空结构补上,所以老文件可以直接读,不需要迁移。
-const blank = () => ({ subscribers: {}, digests: {}, snapshots: {}, digestFailures: [] });
+const blank = () => ({ subscribers: {}, digests: {}, snapshots: {}, digestFailures: [], headlines: {} });
 let store = { ...blank(), ...readStore(FILE, blank) };
 
 function persist() {
@@ -33,6 +33,17 @@ export function saveSnapshot(kind, payload) {
   persist();
 }
 export function getSnapshot(kind) { return store.snapshots[kind] || null; }
+
+// 今日要闻(多频道:launch/fin),只存最新一份
+export function saveHeadlines(channel, payload) {
+  store.headlines = store.headlines || {};
+  store.headlines[channel] = { payload, updated_at: new Date().toISOString() };
+  persist();
+}
+export function getHeadlines(channel) {
+  const r = store.headlines && store.headlines[channel];
+  return r ? { ...r.payload, updated_at: r.updated_at } : null;
+}
 
 // 日报(按 iso 日期归档)
 function pruneDigests() {

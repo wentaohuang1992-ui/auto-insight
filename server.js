@@ -4,7 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
-import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures } from "./src/db.js";
+import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines } from "./src/db.js";
+import { genHeadlines, headlineChannels } from "./src/headlines.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -101,6 +102,25 @@ app.get("/api/news", (req, res) => {
     .then((d) => res.json(d)).catch(fail(res));
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
+// 今日要闻(频道:launch 新车·销量 / fin 财务·融资)。GET 读最新;没有则同步生成一次。
+app.get("/api/headlines", (req, res) => {
+  const ch = String(req.query.channel || "").trim();
+  if (!headlineChannels().includes(ch)) return res.status(400).json({ error: "channel 必须是 launch 或 fin" });
+  (async () => { let d = getHeadlines(ch); if (!d) { d = await genHeadlines(ch); saveHeadlines(ch, d); } return d; })()
+    .then((d) => res.json(d)).catch(fail(res));
+});
+// 手动刷新某频道要闻(写操作,需要 ADMIN_TOKEN)
+app.post("/api/headlines/refresh", apiGuard, (req, res) => {
+  const ch = String((req.body && req.body.channel) || "").trim();
+  if (!headlineChannels().includes(ch)) return res.status(400).json({ error: "channel 必须是 launch 或 fin" });
+  const key = "headlines-" + ch;
+  if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(key); if (wait) return res.status(429).json({ error: `刚触发过,请 ${wait} 秒后再试` });
+  jobs[key] = { status: "running", startedAt: Date.now() };
+  genHeadlines(ch).then((d) => { saveHeadlines(ch, d); jobs[key] = { status: "done", finishedAt: Date.now(), count: d.items.length }; })
+    .catch((e) => { console.error("[headlines]", e.message); jobs[key] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
+});
 // 手动触发补漏(需要 ADMIN_TOKEN,走 apiGuard)。平时不用调:启动时和每天日报任务后
 // 会自动跑。这个口子是给"刚修好上游、不想等到明早"的场合用的。
 // 预算与单轮上限由 backfillDigests 内部把关,这里不额外放行。
