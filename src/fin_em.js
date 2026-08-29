@@ -86,8 +86,8 @@ export async function buildQuartersEM(company) {
   // 不做累计→单季差分:财报三表本就按报告期(一季报/中报/三季报/年报)阅读,累计口径最faithful。
   const rowRaw = (r) => {
     const o = { REPORT_DATE: r.REPORT_DATE };
-    // 存基础科目即可;每列都带的 _YOY 同比列不展示、只占体积 → 跳过(存储砍半)
-    for (const k in r) { const v = r[k]; if (k !== "REPORT_DATE" && !k.endsWith("_YOY") && v != null && v !== "" && typeof v !== "boolean" && !isNaN(+v)) o[k] = +v; }
+    // 存基础科目即可;跳过 _YOY 同比列、以及 SECURITY_CODE 等 *_CODE 数字型代码/元字段(它们能被 +v 解析成数,会污染科目)
+    for (const k in r) { const v = r[k]; if (k !== "REPORT_DATE" && !k.endsWith("_YOY") && !/_CODE$/.test(k) && k !== "SECUCODE" && v != null && v !== "" && typeof v !== "boolean" && !isNaN(+v)) o[k] = +v; }
     return o;
   };
   const RT = { 1: "一季报", 2: "中报", 3: "三季报", 4: "年报" };

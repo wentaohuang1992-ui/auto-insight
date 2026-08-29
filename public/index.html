@@ -9,12 +9,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#F1F4F8;--card:#FFFFFF;--ink:#0E1726;--ink-2:#3D4759;--muted:#79859A;
-    --line:#E5E9F0;--line-2:#CCD5E1;--brand:#1B2F66;--brand-2:#2E5BD8;
+    --paper:#F4F6F9;--card:#FFFFFF;--ink:#0E1726;--ink-2:#3D4759;--muted:#8791A0;
+    --line:#E7EBF1;--line-2:#D3DAE4;--brand:#16264F;--brand-2:#2E5BD8;
     --up:#D11F35;--down:#0E8A5F;--signal:#B5710E;
-    --mono:var(--sans);
     --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
-    --shadow:0 1px 2px rgba(14,23,38,.04),0 8px 24px -16px rgba(14,23,38,.18);
+    --mono:ui-monospace,"SFMono-Regular","JetBrains Mono",Menlo,Consolas,monospace;
+    --shadow:0 1px 2px rgba(16,38,79,.05);
   }
   *{box-sizing:border-box}
   body{margin:0}
@@ -44,17 +44,19 @@
 
   /* Section header */
   .sec{padding:16px 0 70px}
-  .head{margin-bottom:22px}
-  .head .ref{font-family:var(--mono);font-size:11px;color:var(--brand-2);letter-spacing:1.5px;text-transform:uppercase;font-weight:500}
-  .head h2{margin:6px 0 0;font-size:22px;font-weight:800;letter-spacing:-.3px}
-  .note{margin-top:9px;display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 13px}
+  .head{margin-bottom:16px}
+  /* tab 已是导航并点明板块,板块内的英文眉标与大标题属重复 —— 隐藏,只留一行说明当轻量标识 */
+  .head .ref,.head h2{display:none}
+  .head .note:first-child{margin-top:0}
+  .note{margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:.2px}
+  .note:empty{display:none;margin:0}
   .note b{color:var(--ink-2);font-weight:600}
-  .note .clk{width:13px;height:13px;flex:none;opacity:.6}
+  .note .clk{width:12px;height:12px;flex:none;opacity:.5;vertical-align:-1px}
 
   /* Cards */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s}
-  .card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(14,23,38,.05),0 16px 36px -18px rgba(14,23,38,.28)}
+  .card:hover{border-color:var(--line-2);box-shadow:0 2px 6px rgba(16,38,79,.07)}
   .card-body{padding:20px 20px 16px;flex:1;cursor:pointer}
   .card .co{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
   .card .co .name{font-size:18px;font-weight:800;letter-spacing:-.2px}
@@ -294,7 +296,7 @@
           <div class="logo">车</div>
           <div>
             <h1>车企洞察终端</h1>
-            <div class="sub">中国汽车 · 财报 / 行业 / 上市 情报,每条均可溯源</div>
+            <div class="sub">财报 · 行业动态 · 新车上市 · 每条可溯源</div>
           </div>
         </div>
         <div class="status">
@@ -318,8 +320,8 @@
     <section class="sec" id="sec-fin" hidden>
       <div class="head">
         <div class="ref">SECTION 03 · FINANCIALS</div>
-        <h2>车企财务数据 · 财务三表 + 关键指标 + 财报速递</h2>
-        <div class="note" id="note-fin">车企视图 / 财报速递 / 财务指标一览 · 数据以财报为准,东方财富 F10 全字段 + 人工核对</div>
+        <h2>车企财务数据</h2>
+        <div class="note" id="note-fin"></div>
       </div>
       <div id="out-fin"></div>
     </section>
@@ -329,7 +331,7 @@
       <div class="head">
         <div class="ref">SECTION 01 · DAILY BRIEF</div>
         <h2>汽车行业信息速递</h2>
-        <div class="note" id="note-news">每天早上 08:30 自动更新当日日报</div>
+        <div class="note" id="note-news">每日 08:30 自动更新</div>
         <button class="refresh-btn" onclick="doRefresh('news',this)">↻ 立即用 DeepSeek 刷新</button>
       </div>
       <div class="viewing" id="viewing"><span id="viewing-txt"></span><button id="back-today">回到今日</button></div>
@@ -351,7 +353,7 @@
       <div class="head">
         <div class="ref">SECTION 02 · LAUNCHES</div>
         <h2>新车及改款车上市及市场表现</h2>
-        <div class="note" id="note-cad">每月 1 号自动更新 2026 全年上市节奏</div>
+        <div class="note" id="note-cad">每月 1 号更新 2026 全年上市节奏</div>
         <button class="refresh-btn" onclick="doRefresh('models',this)">↻ 用 DeepSeek 刷新车型库</button>
         <button class="refresh-btn alt" onclick="openModelsAdmin()">▦ 管理车型库</button>
       </div>
@@ -374,7 +376,7 @@
       <div class="head">
         <div class="ref">SECTION 04 · STORAGE</div>
         <h2>存储洞察 · 价格趋势</h2>
-        <div class="note" id="note-storage">按产品类别(LPDDR4X/5X·可细分容量)追踪合约价/现货价折线 · 来源 TrendForce·ChinaFlashMarket · AI 抓情报 + 你核对</div>
+        <div class="note" id="note-storage">存储合约价 / 现货价走势,来源 TrendForce、ChinaFlashMarket</div>
       </div>
       <div id="out-storage"></div>
     </section>
@@ -383,7 +385,7 @@
       <div class="head">
         <div class="ref">SECTION 05 · ADAS DOWN-MARKET</div>
         <h2>中低端智驾市场洞察</h2>
-        <div class="note">渗透矩阵 / 降本边界·ROI / 动向情报流 · 降维下沉的产品线 ROI 与降本边界 · AI 起草 + 你核对</div>
+        <div class="note">中低端智能驾驶市场:渗透、成本与动向</div>
       </div>
       <div id="out-downshift"></div>
     </section>
@@ -392,7 +394,7 @@
       <div class="head">
         <div class="ref">SECTION 06 · CLOUD COMPUTE COST</div>
         <h2>云算力成本洞察</h2>
-        <div class="note">业界算力行情 / 研发数据云成本·Core-Hour / E2E投产比·预算滚动 · AI 抓行情 + 你核对内部成本</div>
+        <div class="note">智驾研发云算力成本与投产比</div>
       </div>
       <div id="out-cloud"></div>
     </section>
@@ -435,7 +437,7 @@ function srcRail(sources){
 }
 
 function renderFin(d){const items=(d&&d.items)||[];if(!items.length)return `<div class="empty">暂无财报数据。</div>`;
-  if(d.updated_at)document.getElementById("note-fin").innerHTML=`每月 1 号自动更新最新一期财报 · <b>上次更新 ${esc(fmtTime(d.updated_at))}</b>`;
+  if(d.updated_at)document.getElementById("note-fin").innerHTML=`最新一期财报 · <b>更新于 ${esc(fmtTime(d.updated_at))}</b>`;
   return `<div class="grid">`+items.map((it,i)=>`<div class="card">
     <div class="card-body" onclick='openDetail("fin",${i})'>
       <div class="co"><span class="name">${esc(it.company)}</span><span class="period">${esc(it.period)}</span></div>
@@ -447,7 +449,7 @@ function renderFin(d){const items=(d&&d.items)||[];if(!items.length)return `<div
     </div>${srcRail(it.sources)}</div>`).join("")+`</div>`;}
 
 function renderNews(d){const items=(d&&d.items)||[];
-  if(d.updated_at&&!viewingDate)document.getElementById("note-news").innerHTML=`每天早上 08:30 自动更新 · <b>${esc(d.date||"")}</b>`;
+  if(d.updated_at&&!viewingDate)document.getElementById("note-news").innerHTML=`${esc(d.date||"")}`;
   let h=`<div class="daily-head"><span class="badge2">日报</span><span class="vd">${esc(d.date||"")}</span></div>`;
   if(d.overview)h+=`<div class="ov"><div class="t">今日综述</div>${esc(d.overview)}</div>`;
   const hl=(d.highlights||[]).filter(x=>x&&x.text);
@@ -857,7 +859,7 @@ async function doRefresh(what,btn){
 // ===== 板块04:存储洞察 =====
 function typeClass(t){return t==="研报"?"rp":t==="数据"?"dt":"";}
 function renderStorage(d){
-  if(d.updated_at)document.getElementById("note-storage").innerHTML=`每周一自动更新 · <b>上次更新 ${esc(fmtTime(d.updated_at))}</b>`;
+  if(d.updated_at)document.getElementById("note-storage").innerHTML=`更新于 <b>${esc(fmtTime(d.updated_at))}</b>`;
   const prices=(d.prices||[]),items=(d.items||[]);
   let h="";
   if(d.overview)h+=`<div class="ov"><div class="t">涨价态势 · 对汽车影响</div>${esc(d.overview)}</div>`;

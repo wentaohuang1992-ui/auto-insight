@@ -19,7 +19,7 @@ import { pickAShare } from "./fin_em.js";
 
 const API = "https://datacenter.eastmoney.com/securities/api/data/v1/get";
 const HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://emweb.securities.eastmoney.com/" };
-const CASHFLOW_REPORT = process.env.HK_CASHFLOW_REPORT || null;
+const CASHFLOW_REPORT = process.env.HK_CASHFLOW_REPORT || "RPT_HKF10_FN_CASHFLOW_PC";
 
 /** "02015.HK / LI" / "600733.SH / 1958.HK" → "02015.HK";无港股代码返回 null。代码补足 5 位。 */
 export function pickHK(ticker) {
@@ -79,7 +79,7 @@ function fold(rows, map) {
     meta.currency = meta.currency || r.CURRENCY;
     meta.standard = meta.standard || r.ACCOUNT_STANDARD;
     meta.name = meta.name || r.SECURITY_NAME_ABBR;
-    const name = String(r.ITEM_NAME || "").trim();
+    const name = String(r.STD_ITEM_NAME || r.ITEM_NAME || "").trim();
     const hit = map.find(([, re]) => re.test(name));
     if (!hit) { if (name) unmapped.add(name); continue; }
     const [field, , opt] = hit;
@@ -183,7 +183,7 @@ export async function buildQuartersHK(company, { halfYear = false } = {}) {
   const rawByDate = (rows) => {
     const d = {};
     for (const r of rows) {
-      const rd = r.REPORT_DATE, name = String(r.ITEM_NAME || "").trim(), v = NUM(r.AMOUNT);
+      const rd = r.REPORT_DATE, name = String(r.STD_ITEM_NAME || r.ITEM_NAME || "").trim(), v = NUM(r.AMOUNT);
       if (!rd || !name || v == null) continue;
       (d[rd] = d[rd] || {})[name] = v; // 港股 AMOUNT 同为元(YI=v/1e8),前端换算与 A 股一致
     }

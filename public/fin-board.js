@@ -19,10 +19,10 @@
     .fsort{font-size:11.5px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--ink-2,#3A434F)}
     .fsort.on{background:var(--brand,#15307A);color:#fff;border-color:var(--brand,#15307A)}
     .fcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:0;overflow:hidden;margin-bottom:16px}
-    .ftbl{width:100%;border-collapse:collapse;font-size:12.5px}
-    .ftbl th,.ftbl td{padding:8px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid #EEF1F5}
+    .ftbl{width:100%;border-collapse:collapse;font-size:12.5px;font-family:var(--sans,"Noto Sans SC",system-ui,sans-serif)}
+    .ftbl th,.ftbl td{padding:8px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid #EEF1F5;font-family:inherit}
     .ftbl th:first-child,.ftbl td:first-child,.ftbl th:nth-child(2),.ftbl td:nth-child(2){text-align:left}
-    .ftbl thead th{background:#F1F4F8;color:var(--ink-2,#3A434F);font-weight:700;position:sticky;top:0}
+    .ftbl thead th{background:#F1F4F8;color:var(--ink-2,#3A434F);font-weight:600;position:sticky;top:0}
     .ftbl tbody tr:hover td{background:#F7F9FC}
     .ftbl td.calc{background:rgba(46,91,216,.06);color:#2E5BD8;font-weight:600}
     .ftbl td.bad{color:#D14343;font-weight:700}
@@ -94,7 +94,7 @@
   let MByC = {};             // company id -> sorted monthly asc
   let PByC = {};             // company id -> parts[]
   let SByC = {};             // company id -> statements[](完整三表,按报告期)
-  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all";  // 三表:当前表/单位除数/期间类型筛选
+  let D_STMT = "income", D_UNIT = 1e8, D_RPT = "all", D_IRPT = "all";  // 三表:当前表/单位/期间;D_IRPT=关键指标独立期间筛选
   let PERIODS = [];          // [{type:'q'|'y', y, q?, label}]
   let FTOP = "company";     // company|flash|dash
   let A_PI = 0, A_MODE = "", A_KIND = "", A_SORT = "";   // 管理总表
@@ -362,14 +362,17 @@
       const frac = D_UNIT >= 1e8 ? 2 : 0;
       return (v / D_UNIT).toLocaleString("zh-CN", { minimumFractionDigits: frac, maximumFractionDigits: frac });
     };
-    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">科目(${unitTxt})</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
+    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2;min-width:150px">科目(${unitTxt})</th>${S.map(s => `<th style="white-space:nowrap;min-width:104px;text-align:right">${ESC(s.label)}</th>`).join("")}</tr>`;
     const rowHtml = (label, vals, unit) => vals.every(v => v == null) ? "" :
       `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td style="white-space:nowrap;text-align:right">${fmtN(v, unit)}</td>`).join("")}</tr>`;
     let rows;
-    if (/\.HK/i.test(c.ticker || "")) {
-      // 港股:中文科目名即标签,按各期出现过的科目顺序直接遍历(每股类不缩放)
+    // 按数据判断口径:利润表含 datacenter 英文列名 → A 股走标准科目表(双重上市也走这条);否则港股中文科目遍历
+    const looksAShare = S.some(s => s.income && (s.income.TOTAL_OPERATE_INCOME != null || s.income.OPERATE_INCOME != null));
+    if (!looksAShare) {
+      // 港股:中文科目名即标签;跳过 REPORT_DATE / *_CODE 等非科目元字段
+      const META = new Set(["REPORT_DATE", "SECURITY_CODE", "SECUCODE", "SECURITY_NAME_ABBR", "ORG_CODE", "FISCAL_YEAR", "START_DATE", "STD_REPORT_DATE", "DATE_TYPE_CODE"]);
       const keys = []; const seen = new Set();
-      for (const s of S) for (const key in (s[D_STMT] || {})) if (!seen.has(key)) { seen.add(key); keys.push(key); }
+      for (const s of S) for (const key in (s[D_STMT] || {})) if (!seen.has(key) && !META.has(key) && !/_CODE$|_DATE$/.test(key)) { seen.add(key); keys.push(key); }
       rows = keys.map(key => rowHtml(ESC(key), S.map(s => (s[D_STMT] || {})[key] ?? null), /每股/.test(key) ? "eps" : "")).join("");
     } else {
       // A 股:标准科目表(datacenter 列名 → 中文标签)
@@ -377,14 +380,17 @@
     }
     return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>`;
   }
-  // 关键指标:与三表同源(as-reported 报表),共用期间类型筛选(D_RPT)、升序。跨市场取科目(A股列名/港股中文名兜底)。
+  // 关键指标:与三表同源(as-reported 报表),但期间筛选独立(D_IRPT),升序。跨市场取科目(A股列名/港股中文名兜底)。
   function indicatorTable(c) {
     let S = (SByC[c.id] || []).slice().sort((a, b) => (a.period || "").localeCompare(b.period || ""));
-    if (D_RPT === "quarter") S = S.filter(s => s.q === 1 || s.q === 3);
-    else if (D_RPT === "half") S = S.filter(s => s.q === 2);
-    else if (D_RPT === "year") S = S.filter(s => s.q === 4);
+    if (D_IRPT === "quarter") S = S.filter(s => s.q === 1 || s.q === 3);
+    else if (D_IRPT === "half") S = S.filter(s => s.q === 2);
+    else if (D_IRPT === "year") S = S.filter(s => s.q === 4);
     S = S.slice(-12);
-    if (!S.length) return `<div class="fhint">该期间类型下暂无报告期。抓取后自动计算,或换上方筛选。</div>`;
+    const irptBtns = [["all", "全部"], ["quarter", "季度"], ["half", "半年度"], ["year", "年度"]]
+      .map(([k, t]) => `<button class="sst" aria-selected="${D_IRPT === k}" onclick="FINBOARD.idxRpt('${k}')">${t}</button>`).join("");
+    const toolbar = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><div class="subsubtabs" style="margin:0">${irptBtns}</div></div>`;
+    if (!S.length) return toolbar + `<div class="fhint">该期间类型下暂无报告期。抓取后自动计算,或换筛选。</div>`;
     const g = (s, grp, keys) => { const o = s[grp] || {}; for (const k of keys) if (o[k] != null) return o[k]; return null; };
     const rev = s => g(s, "income", ["OPERATE_INCOME", "TOTAL_OPERATE_INCOME", "营业额", "营业收入", "收益"]);
     const cost = s => g(s, "income", ["OPERATE_COST", "营业成本", "销售成本"]);
@@ -398,13 +404,13 @@
       ["研发占比(%)", s => { const r = rev(s), d = rd(s); return (r && d != null) ? d / r * 100 : null; }],
       ["资产负债率(%)", s => { const a = ta(s), l = tl(s); return (a && l != null) ? l / a * 100 : null; }],
     ];
-    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2">指标 \\ 报告期</th>${S.map(s => `<th style="white-space:nowrap">${ESC(s.label)}</th>`).join("")}</tr>`;
+    const hdr = `<tr><th style="text-align:left;position:sticky;left:0;background:#F1F4F8;z-index:2;min-width:132px">指标 \\ 报告期</th>${S.map(s => `<th style="white-space:nowrap;min-width:96px;text-align:right">${ESC(s.label)}</th>`).join("")}</tr>`;
     const body = rows.map(([label, fn]) => {
       const vals = S.map(fn);
       if (vals.every(v => v == null)) return "";
       return `<tr><td style="text-align:left;position:sticky;left:0;background:#fff;white-space:nowrap">${label}</td>${vals.map(v => `<td class="calc" style="white-space:nowrap;text-align:right">${v == null ? '<span style="color:var(--muted)">—</span>' : v.toFixed(1)}</td>`).join("")}</tr>`;
     }).join("");
-    return `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
+    return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
   }
   function buildCompany() {
     const cs = allCompanies();
@@ -483,7 +489,7 @@
       <div class="fbase"><span class="nm">${ESC(c.name)}</span><span class="ktag ${c.kind === "新势力" ? "xs" : "ct"}">${ESC(c.kind)}</span><span class="kv">代码 <b>${ESC(c.ticker)}</b></span><span class="kv">上市 <b>${ESC(c.listing)}</b></span><button class="fminib" onclick="FINBOARD.editCompany('${c.id}')">✎ 编辑基础</button>${/(\d{6})\.(SH|SZ)/i.test(c.ticker) ? `<button class="fminib" style="border-color:#15307A;color:#15307A;font-weight:700" onclick="FINBOARD.seedCompanyEM('${ESC(c.name)}',this)">↻ 东方财富抓取(A股)</button>` : (/(\d{4,5})\.HK/i.test(c.ticker) ? `<button class="fminib" style="border-color:#7A1530;color:#7A1530;font-weight:700" onclick="FINBOARD.seedCompanyHK('${ESC(c.name)}',this)">↻ 港股抓取</button>` : "")}<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">↻ AI抓取</button>${c.note ? `<span class="note">${ESC(c.note)}</span>` : ""}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财报解读</h3>${reviewBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">月度销量 · 近 13 个月</h3>${monthBlock}</div>
-      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 报表口径(随下方三表的期间/筛选联动)</h3>${idxBlock || '<div class="fhint">暂无数据,抓取后自动计算。</div>'}</div>
+      <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">关键财务指标 · 报表口径</h3>${idxBlock || '<div class="fhint">暂无数据,抓取后自动计算。</div>'}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px">财务三表 · 东方财富 F10 全字段(累计口径)</h3>${stmtBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 10px;font-size:14px">财报原文</h3>${dlBlock}</div>
       <div class="fcard" style="padding:16px"><h3 style="margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px">自研智驾部件追踪 <button class="fminib" onclick="FINBOARD.addPart('${c.id}')">＋ 新增部件</button></h3>
@@ -724,6 +730,7 @@
     stmtTab(k) { D_STMT = k; rerender(); },
     stmtUnit(v) { D_UNIT = +v; rerender(); },
     stmtRpt(k) { D_RPT = k; rerender(); },
+    idxRpt(k) { D_IRPT = k; rerender(); },
     dashApply() { const p = document.getElementById("fd-p"), m = document.getElementById("fd-mode"), k = document.getElementById("fd-kind"); if (p) D_PI = +p.value; if (m) D_MODE = m.value; if (k) D_KIND = k.value; rerender(); },
     dashSort(k) { if (D_SORT === k) { D_DIR = -D_DIR; } else { D_SORT = k; D_DIR = -1; } rerender(); },
     dashCopy(btn) {
