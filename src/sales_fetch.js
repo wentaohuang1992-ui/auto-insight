@@ -8,6 +8,7 @@ import { fetchWithTimeout } from "./http.js";
 import { listCompanies, upsertSales } from "./fin_db.js";
 import { pickAShare } from "./fin_em.js";
 import { chatJSON } from "./llm.js";
+import { fetchSalesHK } from "./sales_hk.js";
 
 const UA = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept": "application/json,text/plain,*/*", "Referer": "https://data.eastmoney.com/" };
 const ANN_URL = (code, page = 1) => `https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=50&page_index=${page}&ann_type=A&client_source=web&f_node=0&s_node=0&stock_list=${code}`;
@@ -61,7 +62,17 @@ async function extractSales(company, ym, content) {
 
 正文:
 ${String(content).slice(0, 5000)}`;
-  return chatJSON(prompt, 300);
+  return chatJSON(prompt, 500);
+}
+// DeepSeek 偶发空/半截响应 → 重试几次(退避)
+async function extractSalesRetry(company, ym, content, tries = 3) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { const r = await extractSales(company, ym, content); if (r && r.month_sales != null) return r; lastErr = new Error("返回无 month_sales"); }
+    catch (e) { lastErr = e; }
+    await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+  }
+  throw lastErr || new Error("抽取失败");
 }
 const INT = (v) => (v != null && !isNaN(+v) ? Math.round(+v) : null);
 
@@ -70,7 +81,7 @@ export async function fetchSales(nameOrId, { months = 6, apply = true } = {}) {
   const c = listCompanies().find((x) => x.id === nameOrId || x.name === nameOrId);
   if (!c) return { error: "未找到车企:" + nameOrId };
   const ashare = pickAShare(c.ticker);
-  if (!ashare) return { error: c.name + " 非 A 股(产销快报是 A 股公告)" };
+  if (!ashare) return fetchSalesHK(nameOrId, { months, apply }); // 港股/美股 → 原生搜索抓交付
   const code = ashare.replace(/^(SH|SZ)/i, "");
   const out = { company: c.name, code, saved: 0, months: [], errors: [] };
   let anns;
@@ -84,7 +95,7 @@ export async function fetchSales(nameOrId, { months = 6, apply = true } = {}) {
     try {
       const content = await fetchContent(a.art_code);
       if (!content || content.length < 120) { out.errors.push({ title: a.title, err: "正文空/太短" }); continue; }
-      const ex = await extractSales(c.name, ym, content);
+      const ex = await extractSalesRetry(c.name, ym, content);
       let ms = INT(ex && ex.month_sales), ys = INT(ex && ex.ytd_sales);
       let nev = INT(ex && ex.nev_month), nevYtd = INT(ex && ex.nev_ytd);
       let ovs = INT(ex && ex.overseas_month), ovsYtd = INT(ex && ex.overseas_ytd);
@@ -109,12 +120,13 @@ export async function fetchSales(nameOrId, { months = 6, apply = true } = {}) {
   return out;
 }
 
-/** 全量:所有 A 股车企各取近 N 个月。 */
+/** 全量:A 股走产销快报、港股/美股走搜索,各取近 N 个月。 */
 export async function fetchAllSales({ months = 6 } = {}) {
-  const cs = listCompanies().filter((c) => pickAShare(c.ticker));
+  const cs = listCompanies();
   const results = [];
   for (const c of cs) {
-    try { results.push(await fetchSales(c.name, { months })); }
+    const isA = !!pickAShare(c.ticker);
+    try { results.push(await (isA ? fetchSales(c.name, { months }) : fetchSalesHK(c.name, { months }))); }
     catch (e) { results.push({ company: c.name, error: e.message }); }
   }
   return { companies: cs.length, results, at: new Date().toISOString() };

@@ -31,6 +31,7 @@ export function parseJSON(text) {
   // 截断恢复:从第一个 { 起按括号配平补齐
   const from = t.indexOf("{");
   if (from >= 0) {
+    t = t.replace(/,\s*"[^"]*"?\s*:?\s*$/, ""); // 丢掉结尾没写完的键(如 ...,"overseas_ 或 ...,"key":)
     let depthC = 0, depthB = 0, inStr = false, esc = false, cut = -1;
     for (let i = from; i < t.length; i++) {
       const ch = t[i];

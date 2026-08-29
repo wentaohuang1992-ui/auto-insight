@@ -430,8 +430,12 @@
       let seq;
       if (gran === "month") {
         const byYM = {}; Ms.forEach(m => byYM[m.year + "-" + m.month] = m);
-        const lastM = Ms[Ms.length - 1]; seq = []; let yy = lastM.year, mm = lastM.month;
-        for (let i = 0; i < 14; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ label: mm + "月", year: yy, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null, yhead: mm === 1 }); mm--; if (mm < 1) { mm = 12; yy--; } }
+        const first = Ms[0], lastM = Ms[Ms.length - 1];
+        // 连续月份:从最早记录显示到最新(上限 24 个月),缺口淡显
+        const span = (lastM.year - first.year) * 12 + (lastM.month - first.month) + 1;
+        const n = Math.min(Math.max(span, 6), 24);
+        seq = []; let yy = lastM.year, mm = lastM.month;
+        for (let i = 0; i < n; i++) { const r = byYM[yy + "-" + mm] || {}; seq.unshift({ label: mm + "月", year: yy, sales: r.sales ?? null, nev: r.nev ?? null, overseas: r.overseas ?? null, yhead: mm === 1 }); mm--; if (mm < 1) { mm = 12; yy--; } }
       } else {
         const bk = (m) => gran === "quarter" ? `${m.year}-Q${Math.ceil(m.month / 3)}` : gran === "half" ? `${m.year}-H${m.month <= 6 ? 1 : 2}` : `${m.year}`;
         const bl = (m) => gran === "quarter" ? `Q${Math.ceil(m.month / 3)}` : gran === "half" ? (m.month <= 6 ? "H1" : "H2") : `${m.year}`;
