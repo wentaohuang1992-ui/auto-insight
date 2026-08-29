@@ -33,7 +33,7 @@ export async function probeSales(nameOrId) {
       const list = (j && j.data && j.data.list) || j.list || [];
       total += list.length;
       if (p === 1) page1Titles = list.slice(0, 6).map((a) => a.notice_title || a.title);
-      const hit = list.filter((a) => /产销|销量快报|产销数据/.test(a.notice_title || a.title || "") && !/业绩/.test(a.notice_title || a.title || ""));
+      const hit = list.filter((a) => /产[、,，\s]{0,2}销|销量快报|产销数据/.test(a.notice_title || a.title || "") && !/业绩/.test(a.notice_title || a.title || ""));
       if (hit.length) { cx = hit; foundPage = p; break; }
       if (list.length < 50) break;
     }

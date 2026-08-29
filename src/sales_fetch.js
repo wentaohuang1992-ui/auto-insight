@@ -25,7 +25,7 @@ async function listChanxiao(code, need = 6) {
     if (page === 1) sampleTitles = list.slice(0, 8).map(titleOf);
     for (const a of list) {
       const ti = titleOf(a), ac = a.art_code || a.artCode;
-      if (/产销|销量快报|产销数据/.test(ti) && !/业绩/.test(ti) && ac && !seen.has(ac)) {
+      if (/产[、,，\s]{0,2}销|销量快报|产销数据/.test(ti) && !/业绩/.test(ti) && ac && !seen.has(ac)) {
         seen.add(ac);
         cx.push({ title: ti, date: String(a.notice_date || a.eiTime || "").slice(0, 10), art_code: ac });
       }
