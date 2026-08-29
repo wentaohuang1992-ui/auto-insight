@@ -6,8 +6,8 @@
     const css = `
     ${S}{font-variant-numeric:tabular-nums}
     ${S} .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
-    ${S} .tab2{font:inherit;font-size:13.5px;font-weight:600;padding:8px 18px;border:1px solid var(--line,#E2E8F0);background:#fff;color:#3A434F;border-radius:9px;cursor:pointer}
-    ${S} .tab2.on{background:#15307A;color:#fff;border-color:#15307A}
+    ${S} .tab2{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border:1px solid var(--line-2,#D3DAE4);background:#fff;color:#3A434F;border-radius:6px;cursor:pointer}
+    ${S} .tab2.on{background:var(--brand,#16264F);color:#fff;border-color:var(--brand,#16264F)}
     ${S} .mini{font:inherit;font-size:11.5px;padding:5px 11px;border:1px solid var(--line,#E2E8F0);background:#fff;border-radius:7px;color:#2E5BD8;cursor:pointer}
     ${S} .op{background:#fff;border:1px solid #C9D8F5;border-left:4px solid #15307A;border-radius:12px;padding:13px 16px;margin-bottom:16px}
     ${S} .op .h{font-size:13px;font-weight:700;color:#15307A;margin-bottom:6px;display:flex;gap:8px;align-items:center}
