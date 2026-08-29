@@ -223,12 +223,15 @@
   .hlnews .ti{font-size:14.5px}
   .hlnews .sm{font-size:13px}
   .hlempty{padding:20px 16px;font-size:13px;color:var(--muted)}
-  .hlsum{padding:13px 16px}
-  .hlsum .hlsov{margin:0 0 10px;background:#F7F9FC;border:1px solid var(--line);border-left:3px solid var(--brand-2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--ink-2);line-height:1.65}
-  .hlsum .hlsli{font-size:13px;color:var(--ink-2);line-height:1.7;padding-left:15px;position:relative;margin-bottom:4px}
-  .hlsum .hlsli::before{content:"\203A";position:absolute;left:2px;color:var(--brand-2);font-weight:700}
-  .hlsum .hlsli a{color:var(--brand-2);text-decoration:none;font-size:11px;margin-left:5px}
-  .hlsum .hlsli .src{color:var(--muted);font-size:11px;margin-left:5px}
+  .hlsum{padding:12px 16px}
+  .hlsum .hlsov{margin:0 0 9px;background:#F7F9FC;border:1px solid var(--line);border-left:3px solid var(--brand-2);border-radius:8px;padding:9px 11px;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+  .hlsul{list-style:none;margin:0;padding:0}
+  .hlsul li{font-size:13px;color:var(--ink-2);line-height:1.45;padding:6px 0 6px 15px;position:relative;border-top:1px solid var(--line)}
+  .hlsul li:first-child{border-top:0}
+  .hlsul li::before{content:"\203A";position:absolute;left:2px;top:6px;color:var(--brand-2);font-weight:700}
+  .hlsul li a{color:var(--ink);text-decoration:none;font-weight:600}
+  .hlsul li a:hover{color:var(--brand-2)}
+  .hlsul li .s{color:var(--muted);font-size:11px;margin-left:6px}
   .refresh-btn:hover{background:rgba(46,91,216,.15)}
   .refresh-btn:disabled{cursor:default;opacity:.55}
   .pboard{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
@@ -989,9 +992,9 @@ async function loadTopNews(){
     const r=await fetch("/api/news");if(!r.ok)return;const d=await r.json();
     const items=((d&&d.items)||[]).slice(0,4);
     const ov=d&&d.overview?`<p class="hlsov">${esc(d.overview)}</p>`:"";
-    const lis=items.map(it=>`<div class="hlsli">${esc(it.title)}${it.url?`<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.source||host(it.url))} ↗</a>`:it.source?`<span class="src">${esc(it.source)}</span>`:""}</div>`).join("");
+    const lis=items.map(it=>`<li>${it.url?`<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a>`:esc(it.title)}${it.source?`<span class="s">${esc(it.source)}</span>`:""}</li>`).join("");
     if(!ov&&!lis)return;
-    box.innerHTML=`<div class="hlcard"><div class="hlhead"><span class="hltt">今日要闻 · 行业</span><span class="hlsub">${esc(d.date||"")}</span><button class="hlref" onclick="openNewsTab()">展开完整日报 ↗</button></div><div class="hlsum">${ov}${lis}</div></div>`;
+    box.innerHTML=`<div class="hlcard"><div class="hlhead"><span class="hltt">今日要闻 · 行业</span><span class="hlsub">${esc(d.date||"")}</span><button class="hlref" onclick="document.getElementById('out-news').scrollIntoView({behavior:'smooth',block:'start'})">展开完整日报 ↓</button></div><div class="hlsum">${ov}${lis?`<ul class="hlsul">${lis}</ul>`:""}</div></div>`;
     box.hidden=false;
   }catch(_){/* 顶部框失败不影响页面其余部分 */}
 }

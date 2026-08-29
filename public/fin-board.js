@@ -48,10 +48,9 @@
     .fbase{display:flex;flex-wrap:wrap;gap:16px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:14px}
     .fbase .nm{font-size:17px;font-weight:700}.fbase .kv{font-size:12px;color:var(--ink-2,#3A434F)}.fbase .kv b{color:var(--ink,#1B2230)}
     .fbase .note{font-size:11.5px;color:var(--muted)}
-    .fpills{display:flex;gap:7px;flex-wrap:wrap;align-items:center;background:#F7F9FC;border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:16px}
-    .fpills .fplab{font-size:11px;color:var(--muted);font-weight:700;margin-right:3px;letter-spacing:.3px}
-    .fpill{font:inherit;font-size:13px;padding:6px 13px;border:1px solid var(--line-2,#D3DAE4);background:#fff;border-radius:7px;cursor:pointer;color:var(--ink-2,#3A434F)}
-    .fpill.on{background:var(--brand,#16264F);color:#fff;border-color:var(--brand,#16264F)}
+    .fpills{display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;align-items:center;background:#F7F9FC;border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:16px}
+    .fpill{flex:none;font:inherit;font-size:13px;padding:6px 13px;border:1px solid var(--line-2,#D3DAE4);background:#fff;border-radius:7px;cursor:pointer;color:var(--ink-2,#3A434F);white-space:nowrap}
+    .fpill.on{background:var(--amber,#E0A22B);color:#16264F;border-color:var(--amber,#E0A22B);font-weight:700}
     .fbars{display:flex;align-items:flex-end;gap:5px;height:130px;padding-top:8px;border-bottom:1px solid var(--line)}
     .fbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
     .fbar .b{width:74%;max-width:28px;background:linear-gradient(180deg,#3E6BE0,#2E5BD8);border-radius:4px 4px 0 0;min-height:3px}
@@ -419,7 +418,7 @@
     const c = BYID[C_SEL];
     const core = cs.filter(x => x.type === "core"), comp = cs.filter(x => x.type === "competitor");
     const pill = (x) => `<button class="fpill ${x.id === C_SEL ? "on" : ""}" onclick="FINBOARD.pick('${x.id}')">${ESC(x.name)}</button>`;
-    const pills = `<div class="fpills"><span class="fplab">车企</span>${core.map(pill).join("")}<span style="width:1px;height:22px;background:var(--line-2);margin:0 3px"></span>${comp.map(pill).join("")}</div>`;
+    const pills = `<div class="fpills">${core.map(pill).join("")}<span style="width:1px;height:22px;background:var(--line-2);margin:0 3px;flex:none"></span>${comp.map(pill).join("")}</div>`;
     const Q = QByC[c.id] || [], M = MByC[c.id] || [];
     // 月销
     let monthBlock = `<div class="fhint">暂无月度销量。<button class="fminib" onclick="FINBOARD.seedCompany('${ESC(c.name)}',this)">抓取</button></div>`;
