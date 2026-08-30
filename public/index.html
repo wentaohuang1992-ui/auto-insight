@@ -107,6 +107,21 @@
   .archive .chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
   .archsel{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);background:#fff;border:1px solid var(--line-2);border-radius:7px;padding:7px 10px;cursor:pointer;max-width:170px}
   .archcnt{font-size:11.5px;color:var(--muted)}
+  /* 周报 / 月报 */
+  .rptbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .rpthead{padding:16px 20px 0}
+  .rptt{font-size:17px;font-weight:800;color:var(--ink);letter-spacing:-.2px}
+  .rptm{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .rptov{margin:12px 20px 4px;background:#F7F9FC;border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 14px;font-size:13.5px;line-height:1.75;color:var(--ink-2)}
+  .rptsec{padding:14px 20px;border-top:1px solid var(--line)}
+  .rptsec:first-of-type{border-top:0}
+  .rptst{font-size:14px;font-weight:800;color:var(--brand);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  .rptst::before{content:"";width:3px;height:13px;background:var(--brand-2);border-radius:1px;flex:none}
+  .rptb{font-size:13.5px;line-height:1.75;color:var(--ink-2);margin-bottom:7px}
+  .rptpts{margin:0;padding-left:18px}
+  .rptpts li{font-size:13px;line-height:1.7;color:var(--ink-2);margin-bottom:3px}
+  .rptwatch .rptst{color:var(--signal)}
+  .rptwatch .rptst::before{background:var(--amber)}
   .chips{display:flex;gap:9px;flex-wrap:wrap}
   .chip{appearance:none;cursor:pointer;font-family:var(--sans);font-size:12.5px;border:1px solid var(--line-2);background:#fff;color:var(--ink-2);border-radius:7px;padding:7px 13px;transition:all .12s}
   .chip:hover{border-color:var(--brand-2);color:var(--brand-2)}
@@ -347,6 +362,7 @@
         <button class="tab" role="tab" aria-selected="false" data-tab="storage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg><span class="idx">04</span>存储洞察</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="downshift"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/></svg><span class="idx">05</span>中低端智驾市场洞察</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1-.5-7.97 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 17.5 18H7z"/></svg><span class="idx">06</span>云算力成本洞察</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg><span class="idx">07</span>周报月报</button>
       </nav>
     </div>
   </header>
@@ -432,6 +448,20 @@
         <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1-.5-7.97 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 17.5 18H7z"/></svg>云算力成本洞察</h2>
       </div>
       <div id="out-cloud"></div>
+    </section>
+
+    <section class="sec" id="sec-report" hidden>
+      <div class="head">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>周报 / 月报<span class="src">基于本站日报与今日要闻归档汇总</span></h2>
+        <div class="note">周报每周一自动生成上周,月报每月 2 号生成上月;也可手动生成任一周期。</div>
+      </div>
+      <div class="rptbar">
+        <select id="rpt-kind" class="archsel" onchange="rptFillPeriods()"><option value="W">周报</option><option value="M">月报</option></select>
+        <select id="rpt-period" class="archsel"></select>
+        <button class="chip" onclick="rptLoad()">查看</button>
+        <button class="chip" onclick="rptRefresh(this)">↻ 重新生成</button>
+      </div>
+      <div id="out-report"></div>
     </section>
 
     <div class="foot">数据由服务端通过博查联网搜索 + DeepSeek 整理公开信息生成,每条附来源链接供核查;搜索结果存在时效与覆盖差异,关键数据请以来源原文为准。</div>
@@ -555,6 +585,59 @@ async function refreshHeadlines(ch,btn){
 }
 
 // 往期日报
+// —— 周报 / 月报 ——
+function rptMonday(d){const x=new Date(d);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);return x;}
+function rptIso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function rptFillPeriods(){
+  const kind=document.getElementById("rpt-kind").value,sel=document.getElementById("rpt-period");
+  const now=new Date();let opts=[];
+  if(kind==="W"){
+    let m=rptMonday(now);
+    for(let i=0;i<12;i++){const from=rptIso(m),e=new Date(m);e.setDate(e.getDate()+6);
+      opts.push([`W:${from}`,`${from.slice(5)} – ${rptIso(e).slice(5)}${i===0?" (本周)":""}`]);m.setDate(m.getDate()-7);}
+  }else{
+    for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      const ym=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+      opts.push([`M:${ym}`,`${d.getFullYear()}年${d.getMonth()+1}月${i===0?" (本月)":""}`]);}
+  }
+  sel.innerHTML=opts.map(([v,t],i)=>`<option value="${v}"${i===1?" selected":""}>${esc(t)}</option>`).join("");
+}
+function renderReport(d){
+  const st=d.stats||{};
+  let h=`<div class="card"><div class="rpthead"><div><div class="rptt">${esc(d.title||"")}</div>
+    <div class="rptm">${esc(d.range||"")} · 素材 ${st.days||0} 天 / 行业 ${st.news||0} 条 · 新车 ${st.launch||0} 条 · 财务 ${st.fin||0} 条${d.updated_at?" · 生成于 "+esc(fmtTime(d.updated_at)):""}</div></div></div>`;
+  if(d.overview)h+=`<div class="rptov">${esc(d.overview)}</div>`;
+  for(const s of (d.sections||[])){
+    h+=`<div class="rptsec"><div class="rptst">${esc(s.title||"")}</div>`;
+    if(s.body)h+=`<div class="rptb">${esc(s.body)}</div>`;
+    if((s.points||[]).length)h+=`<ul class="rptpts">${s.points.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
+    h+=`</div>`;
+  }
+  if((d.watch||[]).length)h+=`<div class="rptsec rptwatch"><div class="rptst">下期关注</div><ul class="rptpts">${d.watch.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>`;
+  return h+`</div>`;
+}
+async function rptLoad(){
+  const key=document.getElementById("rpt-period").value,out=document.getElementById("out-report");
+  if(!key)return;
+  out.innerHTML=`<div class="loading-hint">正在读取报告…首次生成需要 20-40 秒,请稍候。</div>`;
+  try{
+    const r=await fetch("/api/reports/item?key="+encodeURIComponent(key));const d=await r.json();
+    if(!r.ok)throw new Error(d.error||"HTTP "+r.status);
+    out.innerHTML=renderReport(d);
+  }catch(e){out.innerHTML=errorBox(e.message||"网络异常","rptLoad()");}
+}
+async function rptRefresh(btn){
+  const key=document.getElementById("rpt-period").value;if(!key)return;
+  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken();return;}
+  btn.disabled=true;btn.textContent="生成中…";
+  try{
+    const r=await fetch("/api/reports/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"HTTP "+r.status);
+    document.getElementById("out-report").innerHTML=`<div class="loading-hint">正在重新生成,约 30 秒后自动刷新…</div>`;
+    setTimeout(()=>{rptLoad();btn.disabled=false;btn.textContent="↻ 重新生成";},32000);
+  }catch(e){alert("生成失败:"+(e.message||"网络异常"));btn.disabled=false;btn.textContent="↻ 重新生成";}
+}
+
 async function loadArchive(){
   try{
     const r=await fetch("/api/news/archive");const d=await r.json();
@@ -977,7 +1060,7 @@ const loaded={};
 document.querySelectorAll(".tab").forEach(t=>{t.onclick=()=>{const tab=t.dataset.tab;
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
   document.querySelectorAll(".sec").forEach(s=>{s.hidden=s.id!=="sec-"+tab;});
-  if(!loaded[tab]){loaded[tab]=true; if(tab==="launch"){loadCadence();loadHeadlines("launch");}else{loadSection(tab);}}};});
+  if(!loaded[tab]){loaded[tab]=true; if(tab==="launch"){loadCadence();loadHeadlines("launch");}else if(tab==="report"){rptFillPeriods();rptLoad();}else{loadSection(tab);}}};});
 
 // Subscribe
 document.getElementById("sub-btn").onclick=async()=>{const inp=document.getElementById("email"),msg=document.getElementById("submsg");

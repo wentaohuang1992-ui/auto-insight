@@ -10,7 +10,7 @@ const FAILURE_KEEP = Math.max(10, Number(process.env.DIGEST_FAILURE_KEEP || 50))
 
 // 注意 digestFailures 是后加的键:老的 data.json 里没有它。下面 `{ ...blank(), ...readStore() }`
 // 的展开顺序保证了缺失的顶层键会被空结构补上,所以老文件可以直接读,不需要迁移。
-const blank = () => ({ subscribers: {}, digests: {}, snapshots: {}, digestFailures: [], headlines: {} });
+const blank = () => ({ subscribers: {}, digests: {}, snapshots: {}, digestFailures: [], headlines: {}, headlineArchive: {}, reports: {} });
 let store = { ...blank(), ...readStore(FILE, blank) };
 
 function persist() {
@@ -34,15 +34,54 @@ export function saveSnapshot(kind, payload) {
 }
 export function getSnapshot(kind) { return store.snapshots[kind] || null; }
 
-// 今日要闻(多频道:launch/fin),只存最新一份
+// 今日要闻(多频道:launch/fin):存最新一份 + 按日期归档(供周报/月报回溯)
+const HL_KEEP_DAYS = Math.max(30, Number(process.env.HEADLINE_KEEP_DAYS || 400));
+function pruneHeadlineArchive() {
+  const a = store.headlineArchive || {};
+  const keys = Object.keys(a).sort();                 // 升序,旧的在前
+  const cut = new Date(Date.now() - HL_KEEP_DAYS * 864e5).toISOString().slice(0, 10);
+  for (const k of keys) { if (k < cut) delete a[k]; }
+}
 export function saveHeadlines(channel, payload) {
   store.headlines = store.headlines || {};
   store.headlines[channel] = { payload, updated_at: new Date().toISOString() };
+  // 归档:headlineArchive[iso][channel] = payload
+  const iso = (payload && payload.iso) || new Date().toISOString().slice(0, 10);
+  store.headlineArchive = store.headlineArchive || {};
+  store.headlineArchive[iso] = store.headlineArchive[iso] || {};
+  store.headlineArchive[iso][channel] = { ...payload, archived_at: new Date().toISOString() };
+  pruneHeadlineArchive();
   persist();
 }
 export function getHeadlines(channel) {
   const r = store.headlines && store.headlines[channel];
   return r ? { ...r.payload, updated_at: r.updated_at } : null;
+}
+/** 取 [fromIso, toIso] 区间内的要闻归档,返回 [{iso, channels:{launch,fin}}] */
+export function headlinesInRange(fromIso, toIso) {
+  const a = store.headlineArchive || {};
+  return Object.keys(a).filter((k) => k >= fromIso && k <= toIso).sort()
+    .map((iso) => ({ iso, channels: a[iso] }));
+}
+
+// 周报 / 月报:key 形如 W:2026-08-24(周一) 或 M:2026-08
+export function saveReport(key, payload) {
+  store.reports = store.reports || {};
+  store.reports[key] = { payload, updated_at: new Date().toISOString() };
+  persist();
+}
+export function getReport(key) {
+  const r = store.reports && store.reports[key];
+  return r ? { ...r.payload, updated_at: r.updated_at } : null;
+}
+export function listReports() {
+  const r = store.reports || {};
+  return Object.keys(r).sort().reverse().map((key) => ({
+    key, kind: key.startsWith("W:") ? "weekly" : "monthly",
+    title: r[key].payload?.title || key,
+    range: r[key].payload?.range || "",
+    updated_at: r[key].updated_at,
+  }));
 }
 
 // 日报(按 iso 日期归档)

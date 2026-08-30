@@ -4,9 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
-import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines } from "./src/db.js";
+import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines, saveReport, getReport, listReports } from "./src/db.js";
 import { genHeadlines, headlineChannels } from "./src/headlines.js";
 import { fetchReportLinks } from "./src/fin_reports.js";
+import { genReport } from "./src/reports.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -103,6 +104,27 @@ app.get("/api/news", (req, res) => {
     .then((d) => res.json(d)).catch(fail(res));
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
+
+// —— 周报 / 月报(综合) ——
+app.get("/api/reports", (req, res) => { try { res.json({ items: listReports() }); } catch (e) { fail(res)(e); } });
+app.get("/api/reports/item", (req, res) => {
+  const key = String(req.query.key || "").trim();
+  if (!/^[WM]:[\d-]+$/.test(key)) return res.status(400).json({ error: "key 形如 W:2026-08-24 或 M:2026-08" });
+  const cached = getReport(key);
+  if (cached) return res.json(cached);
+  genReport(key).then((d) => { saveReport(key, d); res.json(d); }).catch(fail(res));
+});
+app.post("/api/reports/refresh", apiGuard, (req, res) => {
+  const key = String((req.body && req.body.key) || "").trim();
+  if (!/^[WM]:[\d-]+$/.test(key)) return res.status(400).json({ error: "key 形如 W:2026-08-24 或 M:2026-08" });
+  const jk = "report-" + key;
+  if (jobs[jk] && jobs[jk].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(jk); if (wait) return res.status(429).json({ error: `刚触发过,请 ${wait} 秒后再试` });
+  jobs[jk] = { status: "running", startedAt: Date.now() };
+  genReport(key).then((d) => { saveReport(key, d); jobs[jk] = { status: "done", finishedAt: Date.now() }; })
+    .catch((e) => { console.error("[report]", e.message); jobs[jk] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
+});
 // 财报原文 PDF:巨潮(A股)/披露易(港股)真实公告链接
 app.get("/api/fin/reports", (req, res) => {
   const name = String(req.query.company || "").trim();
