@@ -53,6 +53,15 @@
     .fpill{flex:none;font:inherit;font-size:13px;padding:6px 13px;border:1px solid var(--line-2,#D3DAE4);background:#fff;border-radius:7px;cursor:pointer;color:var(--ink-2,#3A434F);white-space:nowrap}
     .fpill.on{background:var(--amber,#E0A22B);color:#16264F;border-color:var(--amber,#E0A22B);font-weight:700}
     .fbars{display:flex;align-items:flex-end;gap:5px;height:130px;padding-top:8px;border-bottom:1px solid var(--line)}
+    .rptbl-wrap{overflow-x:auto}
+    .rptbl{border-collapse:collapse;font-size:12.5px;min-width:340px}
+    .rptbl th,.rptbl td{border:1px solid var(--line);padding:6px 12px;text-align:center;white-space:nowrap}
+    .rptbl thead th{background:#F7F9FC;color:var(--ink-2);font-weight:700;font-size:12px}
+    .rptbl .rpy{background:#F7F9FC;color:var(--ink);font-weight:700;font-family:var(--mono)}
+    .rptbl a{color:var(--brand-2);text-decoration:none;font-weight:600}
+    .rptbl a:hover{text-decoration:underline}
+    .rptbl .rpd{font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+    .rptbl .rpnone{color:#C7CDD6}
     .fbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
     .fbar .b{width:74%;max-width:28px;background:linear-gradient(180deg,#3E6BE0,#2E5BD8);border-radius:4px 4px 0 0;min-height:3px}
     .fbar.last .b{background:#15307A}
@@ -413,7 +422,7 @@
     }).join("");
     return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
   }
-  // 财报原文 PDF:向后端要巨潮/披露易的真实公告链接
+  // 财报原文 PDF:向后端要巨潮/披露易的真实公告链接,按 年份 × 报告期 结构化展示
   async function loadReports(name) {
     const box = document.getElementById("freports");
     if (!box) return;
@@ -421,10 +430,18 @@
       const r = await fetch("/api/fin/reports?company=" + encodeURIComponent(name));
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
-      const ls = (d.links || []).slice(0, 6);
-      if (!ls.length) { box.innerHTML = `<span class="fhint">未检索到年报/半年报原文${(d.warns || []).length ? "(" + ESC(d.warns.join(";")) + ")" : ""}。</span>`; return; }
-      box.innerHTML = `<div class="fhint" style="margin-bottom:5px">年报 / 半年报原文</div>`
-        + ls.map(l => `<a class="fminib" href="${ESC(l.url)}" target="_blank" rel="noopener" style="text-decoration:none;margin:0 6px 6px 0;display:inline-block">${ESC(l.title || l.kind || "公告")}${l.date ? " · " + ESC(l.date) : ""} ↗</a>`).join("");
+      const rows = d.byYear || [];
+      if (!rows.length) { box.innerHTML = `<span class="fhint">未检索到年报/季报原文${(d.warns || []).length ? "(" + ESC(d.warns.join(";")) + ")" : ""}。</span>`; return; }
+      const ORDER = [["FY", "年报"], ["Q3", "三季报"], ["H1", "半年报"], ["Q1", "一季报"]];
+      const cell = (items, code) => {
+        const it = items.find(x => x.period === code);
+        if (!it) return `<td class="rpnone">—</td>`;
+        return `<td><a href="${ESC(it.url)}" target="_blank" rel="noopener" title="${ESC(it.title)}">PDF ↗</a><div class="rpd">${ESC(it.date || "")}</div></td>`;
+      };
+      box.innerHTML = `<div class="fhint" style="margin-bottom:6px">财报原文 · 按报告期(来源:${ESC(rows[0].items[0].market || "")}${rows[0].items[0].market === "A股" ? " 巨潮资讯" : " 披露易"})</div>
+        <div class="rptbl-wrap"><table class="rptbl"><thead><tr><th>年度</th>${ORDER.map(([, t]) => `<th>${t}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map(y => `<tr><th class="rpy">${y.year}</th>${ORDER.map(([c]) => cell(y.items, c)).join("")}</tr>`).join("")}</tbody></table></div>
+        <div class="fhint" style="margin-top:5px">「—」表示该期尚未披露或来源未收录(港股通常无一/三季报)。</div>`;
     } catch (e) { box.innerHTML = `<span class="fhint">财报原文获取失败:${ESC(e.message || "网络异常")}</span>`; }
   }
 

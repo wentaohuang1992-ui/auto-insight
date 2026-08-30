@@ -19,7 +19,33 @@ const UA = { "User-Agent": "Mozilla/5.0", "Accept": "application/json,text/plain
 const CNINFO = "http://www.cninfo.com.cn";
 const CNINFO_STATIC = "http://static.cninfo.com.cn/";
 // 公告分类:年报 / 半年报(见一手数据源地图的分类代码表)
-const CN_CATEGORY = { 年报: "category_ndbg_szsh", 半年报: "category_bndbg_szsh" };
+// 从公告标题解析报告期,用于结构化归位。返回 {year, period, label, sort}
+// period: FY 年报 / H1 半年报 / Q1 一季报 / Q3 三季报
+export function parsePeriod(title, kind, date) {
+  const t = String(title || "");
+  const y = (t.match(/(20\d{2})\s*年/) || [])[1];
+  let period = { 年报: "FY", 半年报: "H1", 一季报: "Q1", 三季报: "Q3" }[kind] || "";
+  if (!period) {
+    if (/年度报告/.test(t)) period = "FY";
+    else if (/半年度报告/.test(t)) period = "H1";
+    else if (/第一季度/.test(t)) period = "Q1";
+    else if (/第三季度/.test(t)) period = "Q3";
+  }
+  // 年份兜底:季报/年报通常在次年披露,用公告日期回推
+  let year = y ? Number(y) : (date ? Number(date.slice(0, 4)) : 0);
+  if (!y && date) { const m = Number(date.slice(5, 7)); if (period === "FY" && m <= 6) year -= 1; }
+  const ord = { Q1: 1, H1: 2, Q3: 3, FY: 4 }[period] || 0;
+  const label = { FY: "年报", H1: "半年报", Q1: "一季报", Q3: "三季报" }[period] || kind || "公告";
+  return { year, period, label, sort: year * 10 + ord };
+}
+
+// 摘要/英文/更正/取消等不是报告正文
+const NOISE_RE = /摘要|英文|English|更正|补充|已取消|催告|问询|说明公告|风险提示/i;
+
+const CN_CATEGORY = {
+  年报: "category_ndbg_szsh", 半年报: "category_bndbg_szsh",
+  一季报: "category_yjdbg_szsh", 三季报: "category_sjdbg_szsh",
+};
 
 let _orgCache = null; // { "000001": "gssz0000001", ... }
 
@@ -39,7 +65,7 @@ export async function loadOrgMap() {
 }
 
 /** 取某 A 股公司的年报/半年报 PDF 链接。code 形如 002594.SZ / 601127.SH。 */
-export async function aShareReports(codeWithSuffix, { kinds = ["年报", "半年报"], pageSize = 8 } = {}) {
+export async function aShareReports(codeWithSuffix, { kinds = ["年报", "半年报", "一季报", "三季报"], pageSize = 12 } = {}) {
   const [code, suffix] = codeWithSuffix.split(".");
   const column = suffix === "SH" ? "sse" : "szse"; // 上交所 sse / 深交所 szse
   const orgId = (await loadOrgMap())[code];
@@ -61,12 +87,10 @@ export async function aShareReports(codeWithSuffix, { kinds = ["年报", "半年
       const j = JSON.parse(await r.text());
       for (const a of j.announcements || []) {
         if (!a.adjunctUrl) continue;
-        links.push({
-          market: "A股", kind,
-          title: a.announcementTitle || "",
-          date: a.announcementTime ? new Date(+a.announcementTime).toISOString().slice(0, 10) : "",
-          url: CNINFO_STATIC + a.adjunctUrl,
-        });
+        const title = (a.announcementTitle || "").replace(/<[^>]+>/g, "");
+        if (NOISE_RE.test(title)) continue;
+        const date = a.announcementTime ? new Date(+a.announcementTime).toISOString().slice(0, 10) : "";
+        links.push({ market: "A股", kind, title, date, url: CNINFO_STATIC + a.adjunctUrl, ...parsePeriod(title, kind, date) });
       }
     } catch (e) { console.error("[fin_reports] 巨潮检索", code, kind, e.message); }
   }
@@ -78,7 +102,7 @@ export async function aShareReports(codeWithSuffix, { kinds = ["年报", "半年
 // ---------------------------------------------------------------------
 const HKEX = "https://www1.hkexnews.hk";
 // t2code:年报 40100 / 中期报告 40200(见一手数据源地图)
-const HK_T2 = { 年报: "40100", 半年报: "40200" };
+const HK_T2 = { 年报: "40100", 半年报: "40200", 季报: "40300" };
 
 /** 港股代码(如 00175.HK)→ 披露易内部 stockId。prefix.do 返回 JSONP 包裹,需剥回调。 */
 export async function hkStockId(codeWithSuffix) {
@@ -95,7 +119,7 @@ export async function hkStockId(codeWithSuffix) {
   return hit ? hit.stockId : null;
 }
 
-export async function hkReports(codeWithSuffix, { kinds = ["年报", "半年报"], from = "20240101", to } = {}) {
+export async function hkReports(codeWithSuffix, { kinds = ["年报", "半年报", "季报"], from = "20220101", to } = {}) {
   const toDate = to || new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const stockId = await hkStockId(codeWithSuffix);
   if (!stockId) return { links: [], warn: `披露易没解析到 ${codeWithSuffix} 的 stockId` };
@@ -115,12 +139,10 @@ export async function hkReports(codeWithSuffix, { kinds = ["年报", "半年报"
       for (const a of (Array.isArray(rows) ? rows : rows.records || [])) {
         const link = a.FILE_LINK || a.fileLink;
         if (!link) continue;
-        links.push({
-          market: "港股", kind,
-          title: a.TITLE || a.title || "",
-          date: a.DATE_TIME ? String(a.DATE_TIME).slice(0, 10) : "",
-          url: HKEX + link,
-        });
+        const title = String(a.TITLE || a.title || "").replace(/<[^>]+>/g, "");
+        if (NOISE_RE.test(title)) continue;
+        const date = a.DATE_TIME ? String(a.DATE_TIME).slice(0, 10).replace(/\//g, "-") : "";
+        links.push({ market: "港股", kind, title, date, url: HKEX + link, ...parsePeriod(title, kind, date) });
       }
     } catch (e) { console.error("[fin_reports] 披露易检索", codeWithSuffix, kind, e.message); }
   }
@@ -131,7 +153,7 @@ export async function hkReports(codeWithSuffix, { kinds = ["年报", "半年报"
 // 汇总:按公司实体(带 aShare/hk 字段)取全部报告链接。同主体优先 A 股。
 // ---------------------------------------------------------------------
 export async function fetchReportLinks(entity, opts = {}) {
-  const out = { id: entity.id || entity.name, name: entity.name, links: [], warns: [] };
+  const out = { id: entity.id || entity.name, name: entity.name, links: [], byYear: [], warns: [] };
   if (entity.aShare) {
     const { links, warn } = await aShareReports(entity.aShare, opts);
     out.links.push(...links); if (warn) out.warns.push(warn);
@@ -140,7 +162,21 @@ export async function fetchReportLinks(entity, opts = {}) {
     const { links, warn } = await hkReports(entity.hk, opts);
     out.links.push(...links); if (warn) out.warns.push(warn);
   }
-  // 每类只留最近 3 份,按日期倒序
-  out.links.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  // 同一 (市场,年份,报告期) 只留最早披露的那份(原报优先于更正后重发)
+  const seen = new Map();
+  for (const l of out.links) {
+    const k = `${l.market}|${l.year}|${l.period}`;
+    if (!l.period || !l.year) continue;
+    const prev = seen.get(k);
+    if (!prev || (l.date && prev.date && l.date < prev.date)) seen.set(k, l);
+  }
+  const uniq = [...seen.values()].sort((a, b) => b.sort - a.sort);
+  out.links = uniq;
+  // 结构化:按年份分组,每年内按 年报→三季报→半年报→一季报 排列
+  const years = [...new Set(uniq.map((l) => l.year))].sort((a, b) => b - a);
+  out.byYear = years.map((y) => ({
+    year: y,
+    items: uniq.filter((l) => l.year === y).sort((a, b) => b.sort - a.sort),
+  }));
   return out;
 }
