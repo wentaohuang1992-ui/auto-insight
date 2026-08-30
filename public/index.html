@@ -120,6 +120,9 @@
   .rptb{font-size:13.5px;line-height:1.75;color:var(--ink-2);margin-bottom:7px}
   .rptpts{margin:0;padding-left:18px}
   .rptpts li{font-size:13px;line-height:1.7;color:var(--ink-2);margin-bottom:3px}
+  .rptlk{margin-left:6px;display:inline-flex;gap:6px;flex-wrap:wrap}
+  .rptlk a{font-size:11px;color:var(--brand-2);text-decoration:none;background:rgba(46,91,216,.07);border:1px solid rgba(46,91,216,.2);border-radius:5px;padding:1px 6px;white-space:nowrap}
+  .rptlk a:hover{background:rgba(46,91,216,.14)}
   .rptwatch .rptst{color:var(--signal)}
   .rptwatch .rptst::before{background:var(--amber)}
   .chips{display:flex;gap:9px;flex-wrap:wrap}
@@ -352,7 +355,7 @@
         <div class="status">
           <span class="seg"><span class="dot"></span> LIVE</span>
           <span class="seg" id="clock">--:--:--</span>
-          <button class="seg keybtn" id="keybtn" onclick="setAdminToken()" title="设置管理员令牌:抓取、编辑等写操作需要">🔑 <span id="keytxt">未登录</span></button>
+          <button class="seg keybtn" id="keybtn" onclick="setAdminToken()" title="设置管理员密码:抓取数据、重新生成等写操作需要;只看内容不需要">🔑 <span id="keytxt">未登录</span></button>
         </div>
       </div>
       <nav class="tabs" role="tablist">
@@ -456,8 +459,10 @@
         <div class="note">周报每周一自动生成上周,月报每月 2 号生成上月;也可手动生成任一周期。</div>
       </div>
       <div class="rptbar">
+        <select id="rpt-year" class="archsel" onchange="rptFillPeriods()"></select>
+        <select id="rpt-month" class="archsel" onchange="rptFillPeriods()"></select>
         <select id="rpt-kind" class="archsel" onchange="rptFillPeriods()"><option value="W">周报</option><option value="M">月报</option></select>
-        <select id="rpt-period" class="archsel"></select>
+        <select id="rpt-week" class="archsel"></select>
         <button class="chip" onclick="rptLoad()">查看</button>
         <button class="chip" onclick="rptRefresh(this)">↻ 重新生成</button>
       </div>
@@ -571,7 +576,7 @@ async function loadHeadlines(ch){
 }
 async function refreshHeadlines(ch,btn){
   if(!ch)return;
-  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken();return;}
+  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken("refresh");return;}
   if(btn){btn.disabled=true;btn.textContent="刷新中…";}
   try{
     const r=await fetch("/api/headlines/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel:ch})});
@@ -588,36 +593,64 @@ async function refreshHeadlines(ch,btn){
 // —— 周报 / 月报 ——
 function rptMonday(d){const x=new Date(d);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);return x;}
 function rptIso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function rptFillPeriods(){
-  const kind=document.getElementById("rpt-kind").value,sel=document.getElementById("rpt-period");
-  const now=new Date();let opts=[];
-  if(kind==="W"){
-    let m=rptMonday(now);
-    for(let i=0;i<12;i++){const from=rptIso(m),e=new Date(m);e.setDate(e.getDate()+6);
-      opts.push([`W:${from}`,`${from.slice(5)} – ${rptIso(e).slice(5)}${i===0?" (本周)":""}`]);m.setDate(m.getDate()-7);}
-  }else{
-    for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-      const ym=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
-      opts.push([`M:${ym}`,`${d.getFullYear()}年${d.getMonth()+1}月${i===0?" (本月)":""}`]);}
+// 某年某月的所有周(以周一归属月份为准),与后端 weeksOfMonth 同一算法
+function rptWeeksOfMonth(y,m){
+  const first=new Date(y,m-1,1),d=new Date(first);
+  d.setDate(1+((8-(first.getDay()||7))%7));
+  const out=[];
+  while(d.getMonth()===m-1){out.push({key:"W:"+rptIso(d),week:out.length+1});d.setDate(d.getDate()+7);}
+  return out;
+}
+function rptInitSelectors(){
+  const now=new Date(),ys=document.getElementById("rpt-year"),ms=document.getElementById("rpt-month");
+  if(!ys.options.length){
+    let o="";for(let y=now.getFullYear();y>=now.getFullYear()-2;y--)o+=`<option value="${y}">${y}年</option>`;
+    ys.innerHTML=o;ys.value=String(now.getFullYear());
   }
-  sel.innerHTML=opts.map(([v,t],i)=>`<option value="${v}"${i===1?" selected":""}>${esc(t)}</option>`).join("");
+  if(!ms.options.length){
+    let o="";for(let m=1;m<=12;m++)o+=`<option value="${m}">${m}月</option>`;
+    ms.innerHTML=o;ms.value=String(now.getMonth()+1);
+  }
+}
+function rptFillPeriods(){
+  rptInitSelectors();
+  const y=+document.getElementById("rpt-year").value,m=+document.getElementById("rpt-month").value;
+  const kind=document.getElementById("rpt-kind").value,ws=document.getElementById("rpt-week");
+  if(kind==="M"){ws.hidden=true;ws.innerHTML=`<option value="M:${y}-${String(m).padStart(2,"0")}">全月</option>`;return;}
+  ws.hidden=false;
+  const list=rptWeeksOfMonth(y,m);
+  // 默认选中"当周"(若当前年月即所选年月)
+  const now=new Date(),curKey="W:"+rptIso(rptMonday(now));
+  ws.innerHTML=list.map(w=>`<option value="${w.key}"${w.key===curKey?" selected":""}>第${w.week}周</option>`).join("");
+}
+function rptCurrentKey(){
+  const kind=document.getElementById("rpt-kind").value;
+  const y=+document.getElementById("rpt-year").value,m=+document.getElementById("rpt-month").value;
+  if(kind==="M")return `M:${y}-${String(m).padStart(2,"0")}`;
+  return document.getElementById("rpt-week").value;
+}
+function rptLinks(ls){
+  if(!ls||!ls.length)return "";
+  return `<span class="rptlk">`+ls.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.title||"")}">原文${l.date?" "+esc(l.date.slice(5)):""} ↗</a>`).join("")+`</span>`;
 }
 function renderReport(d){
   const st=d.stats||{};
   let h=`<div class="card"><div class="rpthead"><div><div class="rptt">${esc(d.title||"")}</div>
-    <div class="rptm">${esc(d.range||"")} · 素材 ${st.days||0} 天 / 行业 ${st.news||0} 条 · 新车 ${st.launch||0} 条 · 财务 ${st.fin||0} 条${d.updated_at?" · 生成于 "+esc(fmtTime(d.updated_at)):""}</div></div></div>`;
+    <div class="rptm">素材 ${st.days||0} 天 / 行业 ${st.news||0} 条 · 新车 ${st.launch||0} 条 · 财务 ${st.fin||0} 条${d.updated_at?" · 生成于 "+esc(fmtTime(d.updated_at)):""}</div></div></div>`;
   if(d.overview)h+=`<div class="rptov">${esc(d.overview)}</div>`;
   for(const s of (d.sections||[])){
     h+=`<div class="rptsec"><div class="rptst">${esc(s.title||"")}</div>`;
     if(s.body)h+=`<div class="rptb">${esc(s.body)}</div>`;
-    if((s.points||[]).length)h+=`<ul class="rptpts">${s.points.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
+    if((s.points||[]).length)h+=`<ul class="rptpts">${s.points.map(p=>{
+      const t=typeof p==="string"?p:(p.t||"");const ls=typeof p==="string"?[]:(p.links||[]);
+      return `<li>${esc(t)}${rptLinks(ls)}</li>`;}).join("")}</ul>`;
     h+=`</div>`;
   }
   if((d.watch||[]).length)h+=`<div class="rptsec rptwatch"><div class="rptst">下期关注</div><ul class="rptpts">${d.watch.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>`;
   return h+`</div>`;
 }
 async function rptLoad(){
-  const key=document.getElementById("rpt-period").value,out=document.getElementById("out-report");
+  const key=rptCurrentKey(),out=document.getElementById("out-report");
   if(!key)return;
   out.innerHTML=`<div class="loading-hint">正在读取报告…首次生成需要 20-40 秒,请稍候。</div>`;
   try{
@@ -627,8 +660,8 @@ async function rptLoad(){
   }catch(e){out.innerHTML=errorBox(e.message||"网络异常","rptLoad()");}
 }
 async function rptRefresh(btn){
-  const key=document.getElementById("rpt-period").value;if(!key)return;
-  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken();return;}
+  const key=rptCurrentKey();if(!key)return;
+  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken("refresh");return;}
   btn.disabled=true;btn.textContent="生成中…";
   try{
     const r=await fetch("/api/reports/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})});

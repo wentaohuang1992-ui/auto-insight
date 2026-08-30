@@ -16,17 +16,43 @@ export function weekKeyOf(dateIso) {
 }
 export function monthKeyOf(dateIso) { return "M:" + dateIso.slice(0, 7); }
 
+/** 某周(以周一为准)属于当月第几周:按周一所在月份计算 */
+export function weekOfMonth(mondayIso) {
+  const d = new Date(mondayIso + "T00:00:00");
+  const y = d.getFullYear(), m = d.getMonth();
+  const first = new Date(y, m, 1);
+  const firstMon = new Date(first);
+  firstMon.setDate(1 + ((8 - (first.getDay() || 7)) % 7));   // 该月第一个周一
+  const n = Math.floor((d - firstMon) / 6048e5) + 1;
+  return { year: y, month: m + 1, week: n < 1 ? 1 : n };
+}
+
 /** key → {from,to,title,kind} */
 export function rangeOf(key) {
   if (key.startsWith("W:")) {
     const from = key.slice(2), d = new Date(from + "T00:00:00");
     d.setDate(d.getDate() + 6);
     const to = iso(d);
-    return { from, to, kind: "weekly", title: `周报 · ${cn(from)} – ${cn(to)}` };
+    const w = weekOfMonth(from);
+    return { from, to, kind: "weekly", title: `${w.year}年${w.month}月 第${w.week}周 · 周报` };
   }
   const ym = key.slice(2), [y, m] = ym.split("-").map(Number);
   const from = `${ym}-01`, to = iso(new Date(y, m, 0));
-  return { from, to, kind: "monthly", title: `月报 · ${y}年${m}月` };
+  return { from, to, kind: "monthly", title: `${y}年${m}月 · 月报` };
+}
+
+/** 列出某年某月包含的所有周(以周一归属月份为准),供前端三级选择 */
+export function weeksOfMonth(year, month) {
+  const first = new Date(year, month - 1, 1);
+  const d = new Date(first);
+  d.setDate(1 + ((8 - (first.getDay() || 7)) % 7));      // 该月第一个周一
+  const out = [];
+  while (d.getMonth() === month - 1) {
+    const from = iso(d), e = new Date(d); e.setDate(e.getDate() + 6);
+    out.push({ key: "W:" + from, week: out.length + 1, from, to: iso(e) });
+    d.setDate(d.getDate() + 7);
+  }
+  return out;
 }
 
 /** 上一周期的 key(定时任务用:周一出上周、月初出上月) */
@@ -59,7 +85,7 @@ function collect(from, to) {
   return src;
 }
 
-const brief = (arr, cap) => arr.slice(0, cap).map((x) => `[${x.d}] ${x.t}｜${(x.s || "").slice(0, 90)}${x.u ? "｜" + x.u : ""}`).join("\n");
+const brief = (arr, cap, off) => arr.slice(0, cap).map((x, i) => `#${off + i} [${x.d}] ${x.t}｜${(x.s || "").slice(0, 90)}`).join("\n");
 
 /**
  * 生成一份综合周报/月报。key: "W:YYYY-MM-DD" | "M:YYYY-MM"
@@ -72,32 +98,46 @@ export async function genReport(key) {
   if (!total) throw new Error(`区间 ${from} ~ ${to} 没有已归档的日报或要闻,无法生成${kind === "weekly" ? "周报" : "月报"}`);
 
   const label = kind === "weekly" ? "周报" : "月报";
-  const prompt = `你是资深汽车行业分析师。下面是 ${from} 至 ${to} 期间本站已归档的行业动态、新车上市与财务融资资讯。
+  const all = [...src.news, ...src.launch, ...src.fin];   // 统一编号,供 LLM 引用
+  const nNews = Math.min(src.news.length, 120), nLaunch = Math.min(src.launch.length, 60), nFin = Math.min(src.fin.length, 60);
+  const idx = [...src.news.slice(0, 120), ...src.launch.slice(0, 60), ...src.fin.slice(0, 60)];
+  const prompt = `你是资深汽车行业分析师。下面是 ${from} 至 ${to} 期间本站已归档的行业动态、新车上市与财务融资资讯,每条前面有编号 #N。
 请写一份**综合${label}**:把散落的每日信息归纳成脉络,指出趋势与变化,而不是罗列新闻。
 
 要求:
 ① overview:200-300 字的整体综述,点出本期最重要的 2-3 条主线;
-② sections:分 3-5 个主题板块(如 政策与市场、新车与订单、销量与竞争格局、财务与融资、供应链与成本),每个板块给 title + 一段 150 字左右的 body(要有归纳和因果,不要复述标题)+ 3-5 条 points 要点;
-③ watch:3-5 条「下期关注」,写具体可验证的观察点;
-④ 只使用下方资料中出现的事实,不要引入资料之外的数字或事件;数字务必与资料一致,拿不准就不写。
+② sections:分 3-5 个主题板块(如 政策与市场、新车与订单、销量与竞争格局、财务与融资、供应链与成本),每个板块给 title + 一段 150 字左右的 body(要有归纳和因果,不要复述标题)+ 3-5 条 points;
+③ **每条 point 写成对象** {"t":"要点文字","refs":[编号,编号]},refs 填该要点依据的资料编号(1-3 个,必须是上面出现过的 #N 数字);
+④ watch:3-5 条「下期关注」,写具体可验证的观察点(纯文字数组);
+⑤ 只使用下方资料中出现的事实,不要引入资料之外的数字或事件;**不要自己写网址**,只写编号。
 
 只输出 JSON,不要任何解释或代码块标记:
-{"overview":"...","sections":[{"title":"...","body":"...","points":["...","..."]}],"watch":["...","..."]}
+{"overview":"...","sections":[{"title":"...","body":"...","points":[{"t":"...","refs":[1,5]}]}],"watch":["...","..."]}
 
-【行业动态】(共 ${src.news.length} 条)
-${brief(src.news, 120)}
+【行业动态】
+${brief(src.news, 120, 1)}
 
-【新车上市 · 订单 · 口碑】(共 ${src.launch.length} 条)
-${brief(src.launch, 60)}
+【新车上市 · 订单 · 口碑】
+${brief(src.launch, 60, 1 + nNews)}
 
-【财务 · 融资】(共 ${src.fin.length} 条)
-${brief(src.fin, 60)}`;
+【财务 · 融资】
+${brief(src.fin, 60, 1 + nNews + nLaunch)}`;
 
   const data = await chatJSON(prompt, 6000);
+  // 把 refs 编号映射回真实链接(LLM 不碰 URL,杜绝编造)
+  const link = (n) => { const it = idx[Number(n) - 1]; return it && it.u ? { title: it.t, url: it.u, date: it.d } : null; };
+  const sections = (Array.isArray(data.sections) ? data.sections : []).map((s) => ({
+    title: s.title || "",
+    body: s.body || "",
+    points: (s.points || []).map((p) => {
+      if (typeof p === "string") return { t: p, links: [] };
+      return { t: p.t || "", links: (p.refs || []).map(link).filter(Boolean).slice(0, 3) };
+    }),
+  }));
   return {
     key, kind, title, range: `${from} ~ ${to}`,
     overview: data.overview || "",
-    sections: Array.isArray(data.sections) ? data.sections : [],
+    sections,
     watch: Array.isArray(data.watch) ? data.watch : [],
     stats: { days: src.days, news: src.news.length, launch: src.launch.length, fin: src.fin.length },
     generatedAt: new Date().toISOString(),

@@ -7,7 +7,7 @@ import { generateCadence } from "./src/cadence.js";
 import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines, saveReport, getReport, listReports } from "./src/db.js";
 import { genHeadlines, headlineChannels } from "./src/headlines.js";
 import { fetchReportLinks } from "./src/fin_reports.js";
-import { genReport } from "./src/reports.js";
+import { genReport, weeksOfMonth } from "./src/reports.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -107,6 +107,12 @@ app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests
 
 // —— 周报 / 月报(综合) ——
 app.get("/api/reports", (req, res) => { try { res.json({ items: listReports() }); } catch (e) { fail(res)(e); } });
+// 某年某月包含哪些周(前端三级选择用)
+app.get("/api/reports/weeks", (req, res) => {
+  const y = Number(req.query.year), m = Number(req.query.month);
+  if (!y || !m || m < 1 || m > 12) return res.status(400).json({ error: "year/month 不合法" });
+  try { res.json({ items: weeksOfMonth(y, m) }); } catch (e) { fail(res)(e); }
+});
 app.get("/api/reports/item", (req, res) => {
   const key = String(req.query.key || "").trim();
   if (!/^[WM]:[\d-]+$/.test(key)) return res.status(400).json({ error: "key 形如 W:2026-08-24 或 M:2026-08" });
