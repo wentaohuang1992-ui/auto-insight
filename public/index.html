@@ -652,9 +652,14 @@ function renderReport(d){
 async function rptLoad(){
   const key=rptCurrentKey(),out=document.getElementById("out-report");
   if(!key)return;
-  out.innerHTML=`<div class="loading-hint">正在读取报告…首次生成需要 20-40 秒,请稍候。</div>`;
+  out.innerHTML=`<div class="loading-hint">正在读取报告…</div>`;
   try{
     const r=await fetch("/api/reports/item?key="+encodeURIComponent(key));const d=await r.json();
+    if(r.status===404&&d.notGenerated){
+      out.innerHTML=`<div class="card" style="padding:22px"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px">该周期的报告尚未生成</div>
+        <div class="note" style="margin:0">周报每周一自动生成上周,月报每月 2 号自动生成上月。<br>需要现在生成,请点上方「↻ 重新生成」(仅管理员可操作,会消耗 DeepSeek 与搜索额度)。</div></div>`;
+      return;
+    }
     if(!r.ok)throw new Error(d.error||"HTTP "+r.status);
     out.innerHTML=renderReport(d);
   }catch(e){out.innerHTML=errorBox(e.message||"网络异常","rptLoad()");}

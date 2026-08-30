@@ -117,8 +117,9 @@ app.get("/api/reports/item", (req, res) => {
   const key = String(req.query.key || "").trim();
   if (!/^[WM]:[\d-]+$/.test(key)) return res.status(400).json({ error: "key 形如 W:2026-08-24 或 M:2026-08" });
   const cached = getReport(key);
-  if (cached) return res.json(cached);
-  genReport(key).then((d) => { saveReport(key, d); res.json(d); }).catch(fail(res));
+  // 只读:没有就如实告知,不当场生成(生成会消耗额度,须走带鉴权的 refresh)
+  if (!cached) return res.status(404).json({ error: "该周期的报告尚未生成", notGenerated: true });
+  res.json(cached);
 });
 app.post("/api/reports/refresh", apiGuard, (req, res) => {
   const key = String((req.body && req.body.key) || "").trim();
