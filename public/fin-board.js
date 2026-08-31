@@ -3,7 +3,9 @@
 (function () {
   // ---------- 一次性注入样式 ----------
   function injectStyle() {
-    if (document.getElementById("fin-style")) return;
+    const VER = "fin-v2";
+    const old = document.getElementById("fin-style");
+    if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const s = document.createElement("style"); s.id = "fin-style";
     s.textContent = `
     #out-fin{font-variant-numeric:tabular-nums}

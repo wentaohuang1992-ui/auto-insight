@@ -2,7 +2,9 @@
 (function () {
   const S = "#out-storage";
   function injectStyle() {
-    if (document.getElementById("storage-style")) return;
+    const VER = "st-v2";
+    const old = document.getElementById("storage-style");
+    if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
     ${S}{font-variant-numeric:tabular-nums}
     ${S} .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
@@ -57,7 +59,7 @@
     ${S} .ff input,${S} .ff textarea{font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line,#E2E8F0);border-radius:8px}
     ${S} .btn{font:inherit;font-size:13px;font-weight:700;padding:8px 15px;border:0;border-radius:8px;cursor:pointer}${S} .btn.p{background:#15307A;color:#fff}${S} .btn.g{background:#EEF1F5;color:#3A434F}
     ${S} .x{margin-left:auto;cursor:pointer;color:#64748B}`;
-    const s = document.createElement("style"); s.id = "storage-style"; s.textContent = css; document.head.appendChild(s);
+    const s = document.createElement("style"); s.id = "storage-style"; s.dataset.ver = VER; s.textContent = css; document.head.appendChild(s);
   }
   const ESC = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const MD = (s) => ESC(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/_(.+?)_/g, "<i>$1</i>");
