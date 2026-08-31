@@ -53,7 +53,14 @@ app.use((err, req, res, next) => {
   if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "请求体不是合法 JSON" });
   next(err);
 });
-app.use(express.static(path.join(__dirname, "public")));
+// 前端资源不缓存:HTML 与 JS 改了就必须立刻生效,否则浏览器会一直用旧文件
+// (曾因 ds-board.js 被缓存,前端改动反复"看起来没生效")
+app.use(express.static(path.join(__dirname, "public"), {
+  etag: true, lastModified: true,
+  setHeaders(res, filePath) {
+    if (/\.(html|js)$/i.test(filePath)) res.setHeader("Cache-Control", "no-cache, must-revalidate");
+  },
+}));
 app.use("/api", apiGuard); // 写接口需要 ADMIN_TOKEN;公开接口按 IP 限流
 
 const fail = (res) => (e) => res.status(500).json({ error: e.message || "服务端错误" });
