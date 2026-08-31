@@ -123,6 +123,27 @@
 
 
 
+  // 季度财务与出货量(字段对齐车企财务模块:三大报表主干 + 出货量)
+  function qtbl(v, kind) {
+    const qs = (RAW.quarters || []).filter(x => x.vendorId === v.id).sort((a, b) => (b.year - a.year) || (b.q - a.q)).slice(0, 8);
+    const N = (x, d) => x == null ? "—" : Number(x).toFixed(d == null ? 2 : d);
+    const cur = qs.length && qs[0].currency === "USD" ? "亿美元" : "亿元";
+    const COLS = [
+      ["营收", "revenue", 2], ["营业成本", "operatingCost", 2], ["毛利率%", "grossMargin", 1],
+      ["归母净利", "netProfit", 2], ["扣非归母", "netProfitEx", 2], ["研发", "rdSpend", 2],
+      ["经营现金流", "ocf", 2], ["存货", "inventory", 2], ["应付", "ap", 2], ["应收", "ar", 2],
+      ["货币资金", "cash", 2], ["总资产", "totalAssets", 2], ["总负债", "totalLiab", 2],
+    ];
+    const body = qs.length ? qs.map(r => `<tr>
+        <td class="qp">${r.year}Q${r.q}</td>
+        ${COLS.map(([, k, d]) => `<td>${N(r[k], d)}</td>`).join("")}
+        <td>${r.shipment == null ? "—" : N(r.shipment, 1) + " " + ESC(r.shipUnit || "")}</td>
+        <td><button class="mini" onclick="DSBOARD.editQ('${kind}','${v.id}','${r.id}')">改</button></td></tr>`).join("")
+      : `<tr><td colspan="${COLS.length + 3}" style="color:#94A3B8;padding:10px">暂无季度数据。点「↻ 抓取」自动获取,或「＋ 录入」手工添加。</td></tr>`;
+    return `<div class="vsec"><div class="vst">财务与出货量 · 季度<span class="vunit">金额单位:${cur}</span><button class="mini" style="margin-left:auto" onclick="DSBOARD.finOne('${ESC(v.name)}','${kind}',this)">↻ 抓取</button><button class="mini" onclick="DSBOARD.addQ('${kind}','${v.id}')">＋ 录入</button></div>
+      <div class="qwrap"><table class="qtbl"><thead><tr><th>报告期</th>${COLS.map(([t]) => `<th>${t}</th>`).join("")}<th>出货量</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  }
+
   // 供应商:一家一页。顶部一排选择器(类似车型库子标签),下面是该家的完整档案
   let VSEL = { adas: "", cockpit: "" };
   function viewVendors(kind) {
