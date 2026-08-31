@@ -40,6 +40,7 @@
     ${S} .qtbl thead th{background:#F7F9FC;color:#64748B;font-weight:700;font-size:11px;text-align:center}
     ${S} .qtbl .qp{text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:#16264F}
     ${S} .qgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+    ${S} .vunit{font-size:10.5px;color:#94A3B8;font-weight:400;margin-left:6px}
     ${S} .vformh{font-size:12px;font-weight:800;color:#16264F;margin:12px 0 6px;padding-top:8px;border-top:1px solid #EEF1F5}
     ${S} .btn.d{background:#fff;color:#D11F35;border:1px solid rgba(209,31,53,.3)}
     ${S} .tab2{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border:1px solid var(--line,#E2E8F0);background:#fff;color:#3A434F;border-radius:9px;cursor:pointer}
@@ -121,19 +122,32 @@
   function qForm(kind, vendorId, r) {
     const isNew = !r;
     const now = new Date(), dq = Math.floor(now.getMonth() / 3) + 1;
-    const v = r || { year: now.getFullYear(), q: dq, revenue: "", grossMargin: "", netProfit: "", rdSpend: "", shipment: "", shipUnit: "万套", asp: "", note: "" };
+    const v = r || { year: now.getFullYear(), q: dq, shipUnit: "万套" };
     const F = (k, label, ph) => `<div class="ff"><label>${label}</label><input id="dsf-${k}" value="${ESC(v[k] ?? "")}" ${ph ? `placeholder="${ph}"` : ""}></div>`;
     openM(isNew ? "录入季度数据" : "编辑季度数据",
       `<div class="qgrid">${F("year", "年份")}${F("q", "季度(1-4)")}</div>
-       <div class="vformh">财务(单位:亿元 / %)</div>
-       <div class="qgrid">${F("revenue", "营业收入(亿元)")}${F("grossMargin", "毛利率(%)")}</div>
-       <div class="qgrid">${F("netProfit", "归母净利(亿元)")}${F("rdSpend", "研发投入(亿元)")}</div>
+       <div class="vformh">利润表(亿元 / %)</div>
+       <div class="qgrid">${F("revenue", "营业收入")}${F("operatingCost", "营业成本")}</div>
+       <div class="qgrid">${F("grossMargin", "毛利率(%)")}${F("rdSpend", "研发投入")}</div>
+       <div class="qgrid">${F("netProfit", "归母净利")}${F("netProfitEx", "扣非归母")}</div>
+       <div class="vformh">资产负债与现金流(亿元)</div>
+       <div class="qgrid">${F("ocf", "经营现金流")}${F("financingCF", "筹资现金流")}</div>
+       <div class="qgrid">${F("inventory", "存货")}${F("ar", "应收账款")}</div>
+       <div class="qgrid">${F("ap", "应付账款")}${F("cash", "货币资金")}</div>
+       <div class="qgrid">${F("totalAssets", "总资产")}${F("totalLiab", "总负债")}</div>
+       <div class="qgrid">${F("govGrant", "政府补助")}${F("overseasPct", "海外收入占比(%)")}</div>
        <div class="vformh">出货量</div>
        <div class="qgrid">${F("shipment", "出货量")}<div class="ff"><label>单位</label><select id="dsf-shipUnit">${["万套", "万片", "万辆", "万颗"].map(u => `<option${v.shipUnit === u ? " selected" : ""}>${u}</option>`).join("")}</select></div></div>
        ${F("asp", "单价 ASP(元,可留空)")}
        ${F("note", "备注")}`,
       async () => {
-        const body = { vendorId, kind, year: gv("year"), q: gv("q"), revenue: gv("revenue"), grossMargin: gv("grossMargin"), netProfit: gv("netProfit"), rdSpend: gv("rdSpend"), shipment: gv("shipment"), shipUnit: gv("shipUnit"), asp: gv("asp"), note: gv("note") };
+        const body = { vendorId, kind, year: gv("year"), q: gv("q"),
+          revenue: gv("revenue"), operatingCost: gv("operatingCost"), grossMargin: gv("grossMargin"),
+          netProfit: gv("netProfit"), netProfitEx: gv("netProfitEx"), rdSpend: gv("rdSpend"),
+          ocf: gv("ocf"), financingCF: gv("financingCF"), inventory: gv("inventory"), ar: gv("ar"),
+          ap: gv("ap"), cash: gv("cash"), totalAssets: gv("totalAssets"), totalLiab: gv("totalLiab"),
+          govGrant: gv("govGrant"), overseasPct: gv("overseasPct"),
+          shipment: gv("shipment"), shipUnit: gv("shipUnit"), asp: gv("asp"), note: gv("note") };
         try {
           const res = await fetch("/api/downshift/quarters", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
           const j = await res.json(); if (!res.ok) throw new Error(j.error || "保存失败");
@@ -186,17 +200,25 @@
         .map(([k, x]) => `<div class="row"><span class="k">${k}</span><span class="v ${x ? "" : "na"}">${x ? ESC(x) : "待补"}</span></div>`).join("");
       return rows;
     };
-    // 季度财务与出货量(参照车企财务模块:营收/毛利率/净利/研发 + 出货量与单价)
+    // 季度财务与出货量(字段对齐车企财务模块:三大报表主干 + 出货量)
     const qtbl = (v) => {
-      const qs = (RAW.quarters || []).filter(x => x.vendorId === v.id).sort((a, b) => (b.year - a.year) || (b.q - a.q)).slice(0, 6);
+      const qs = (RAW.quarters || []).filter(x => x.vendorId === v.id).sort((a, b) => (b.year - a.year) || (b.q - a.q)).slice(0, 8);
       const N = (x, d) => x == null ? "—" : Number(x).toFixed(d == null ? 2 : d);
+      const cur = qs.length && qs[0].currency === "USD" ? "亿美元" : "亿元";
+      const COLS = [
+        ["营收", "revenue", 2], ["营业成本", "operatingCost", 2], ["毛利率%", "grossMargin", 1],
+        ["归母净利", "netProfit", 2], ["扣非归母", "netProfitEx", 2], ["研发", "rdSpend", 2],
+        ["经营现金流", "ocf", 2], ["存货", "inventory", 2], ["应付", "ap", 2], ["应收", "ar", 2],
+        ["货币资金", "cash", 2], ["总资产", "totalAssets", 2], ["总负债", "totalLiab", 2],
+      ];
       const body = qs.length ? qs.map(r => `<tr>
-          <td class="qp">${r.year}Q${r.q}</td><td>${N(r.revenue)}</td><td>${N(r.grossMargin, 1)}</td><td>${N(r.netProfit)}</td>
-          <td>${N(r.rdSpend)}</td><td>${r.shipment == null ? "—" : N(r.shipment, 1) + " " + ESC(r.shipUnit || "")}</td>
+          <td class="qp">${r.year}Q${r.q}</td>
+          ${COLS.map(([, k, d]) => `<td>${N(r[k], d)}</td>`).join("")}
+          <td>${r.shipment == null ? "—" : N(r.shipment, 1) + " " + ESC(r.shipUnit || "")}</td>
           <td><button class="mini" onclick="DSBOARD.editQ('${kind}','${v.id}','${r.id}')">改</button></td></tr>`).join("")
-        : `<tr><td colspan="7" style="color:#94A3B8;padding:10px">暂无季度数据,点「＋ 录入季度」添加。</td></tr>`;
-      return `<div class="vsec"><div class="vst">财务与出货量 · 季度<button class="mini" style="margin-left:auto" onclick="DSBOARD.finOne('${ESC(v.name)}','${kind}',this)">↻ 抓取</button><button class="mini" onclick="DSBOARD.addQ('${kind}','${v.id}')">＋ 录入</button></div>
-        <div class="qwrap"><table class="qtbl"><thead><tr><th>报告期</th><th>营收(亿)</th><th>毛利率%</th><th>净利(亿)</th><th>研发(亿)</th><th>出货量</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+        : `<tr><td colspan="${COLS.length + 3}" style="color:#94A3B8;padding:10px">暂无季度数据。点「↻ 抓取」自动获取,或「＋ 录入」手工添加。</td></tr>`;
+      return `<div class="vsec"><div class="vst">财务与出货量 · 季度<span class="vunit">金额单位:${cur}</span><button class="mini" style="margin-left:auto" onclick="DSBOARD.finOne('${ESC(v.name)}','${kind}',this)">↻ 抓取</button><button class="mini" onclick="DSBOARD.addQ('${kind}','${v.id}')">＋ 录入</button></div>
+        <div class="qwrap"><table class="qtbl"><thead><tr><th>报告期</th>${COLS.map(([t]) => `<th>${t}</th>`).join("")}<th>出货量</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
     };
     const card = (v) => `<div class="vcard">
       <div class="vh"><span class="vn">${ESC(v.name)}</span>${v.tag ? `<span class="vt">${ESC(v.tag)}</span>` : ""}<span class="vl">${ESC(v.listed || "")}</span>

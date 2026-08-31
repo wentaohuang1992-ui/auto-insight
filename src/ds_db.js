@@ -263,15 +263,23 @@ export function vendorDel(name, id) {
   const ok = db[k].length < n; if (ok) save(db); return ok;
 }
 
-// —— 供应商财务与出货量库(参照车企财务模块 fin_db 的季度记录模式) ——
-// quarters: { id: "<vendorId>-<year>Q<q>", vendorId, kind(adas/cockpit), year, q,
-//   revenue 营收(亿元), grossMargin 毛利率(%), netProfit 归母净利(亿元), rdSpend 研发(亿元),
-//   shipment 出货量, shipUnit 单位(万套/万片/万辆), asp 单价(元), note, sources, manual }
+// —— 供应商财务与出货量库(字段对齐车企财务模块 fin_db.cleanQ) ——
+// quarters: { id: "<vendorId>-<year>Q<q>", vendorId, kind(adas/cockpit), year, q, ...财务字段, shipment, shipUnit, asp, currency, note, sources, manual }
 const QNUM = (v) => { if (v == null || v === "") return null; const n = Number(String(v).replace(/[,\s]/g, "")); return Number.isFinite(n) ? n : null; };
+// 与 fin_db 同名同义的科目(单位:亿元;比率为百分数数值)
+const VQ_FIELDS = [
+  "revenue", "netProfit", "operatingCost", "inventory", "ap", "rdSpend",
+  "ocf", "cash", "stDebt", "ltDebt", "ar", "financingCF", "totalAssets", "totalLiab",
+  "netProfitEx", "govGrant", "overseasPct", "grossMargin",
+];
 function cleanVQ(r) {
   const o = {};
-  for (const k of ["revenue", "grossMargin", "netProfit", "rdSpend", "shipment", "asp"]) o[k] = QNUM(r[k]);
+  for (const k of VQ_FIELDS) o[k] = QNUM(r[k]);
+  // 供应商特有:出货量(报表没有,需另行来源)与单价
+  o.shipment = QNUM(r.shipment);
   o.shipUnit = r.shipUnit || "万套";
+  o.asp = QNUM(r.asp);
+  o.currency = r.currency || "CNY";     // 美股来源为 USD,单位换算前先标清楚
   o.note = r.note || "";
   o.sources = Array.isArray(r.sources) ? r.sources : [];
   return o;

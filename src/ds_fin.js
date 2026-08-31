@@ -92,8 +92,15 @@ export async function fetchVendorQuarters(vendor, kind, { save = true, limit = 8
       ? +(((r.revenue - r.operatingCost) / r.revenue) * 100).toFixed(2) : null;
     const rec = {
       vendorId: vendor.id, kind, year: r.year, q: r.q,
-      revenue: r.revenue ?? null, grossMargin: gm,
-      netProfit: r.netProfit ?? null, rdSpend: r.rdSpend ?? null,
+      // 与车企模块同名同义的全部科目,抓到什么存什么
+      revenue: r.revenue ?? null, operatingCost: r.operatingCost ?? null, grossMargin: gm,
+      netProfit: r.netProfit ?? null, netProfitEx: r.netProfitEx ?? null, rdSpend: r.rdSpend ?? null,
+      ocf: r.ocf ?? null, financingCF: r.financingCF ?? null,
+      inventory: r.inventory ?? null, ap: r.ap ?? null, ar: r.ar ?? null, cash: r.cash ?? null,
+      stDebt: r.stDebt ?? null, ltDebt: r.ltDebt ?? null,
+      totalAssets: r.totalAssets ?? null, totalLiab: r.totalLiab ?? null,
+      govGrant: r.govGrant ?? null, overseasPct: r.overseasPct ?? null,
+      currency: r.currency || "CNY",
       note: `自动抓取(${p.kind === "A" ? "东方财富A股" : p.kind === "HK" ? "东方财富港股" : "SEC EDGAR"})${r.currency === "USD" ? " · 单位:亿美元" : ""}`,
       sources: [{ title: p.kind === "US" ? "SEC EDGAR XBRL" : (p.kind === "A" ? "东方财富 财务数据" : "东方财富 港股F10"), url: "" }],
     };
