@@ -1,4 +1,4 @@
-// 车企财务数据库:持久化(financials.json)。四张逻辑表:
+// 车企洞察数据库:持久化(financials.json)。四张逻辑表:
 //  companies   车企基础  {id,name,type(core/competitor),kind(新势力/传统车企),ticker,listing,note,manual,sources,updatedAt}
 //  salesMonthly 月度销量  {id,company,year,month,sales,sources,note,manual,updatedAt}
 //  quarterly   季度财务+财经运营(当季口径)

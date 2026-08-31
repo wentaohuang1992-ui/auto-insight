@@ -1,4 +1,4 @@
-// 中低端智驾市场洞察:downshift.json。集合:
+// 部件供应商洞察:downshift.json。集合:
 //  penetration 渗透矩阵 {id(band::config),band,config,value,trend,note,sources,manual}
 //  tiers 方案档位 {id,tier,priceBand,bom,chip,ability,sensor,note,sources,manual}
 //  chips 国产芯片动向 {id,name,tops,position,status,models,note,sources,manual}

@@ -1,4 +1,4 @@
-/* 中低端智驾市场洞察看板:读 /api/downshift。三视图:智能驾驶 / 智能座舱 / 市场新闻 + 综合判断 + 编辑 + AI更新。 */
+/* 部件供应商洞察看板:读 /api/downshift。三视图:智能驾驶 / 智能座舱 / 市场新闻 + 综合判断 + 编辑 + AI更新。 */
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
@@ -95,7 +95,7 @@
   const MD = (s) => ESC(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/_(.+?)_/g, "<i>$1</i>");
   const heat = (v) => v == null ? "h0" : v < 5 ? "h0" : v < 25 ? "h1" : v < 50 ? "h2" : "h3";
 
-  let RAW = null, VIEW = "adas", FK = "all";
+  let RAW = null, VIEW = "adas";
   function render(d) { injectStyle(); RAW = d; return html(); }
   function rerender() { const el = document.querySelector(S); if (el) el.innerHTML = html(); }
   window.DSBOARD = { render, rerender };
@@ -105,13 +105,13 @@
     const tabs = `<div class="tabs">
       <button class="tab2 ${VIEW === "adas" ? "on" : ""}" onclick="DSBOARD.view('adas')">智能驾驶</button>
       <button class="tab2 ${VIEW === "cockpit" ? "on" : ""}" onclick="DSBOARD.view('cockpit')">智能座舱</button>
-      <button class="tab2 ${VIEW === "feed" ? "on" : ""}" onclick="DSBOARD.view('feed')">市场新闻</button>
       <span style="flex:1"></span>
       <button class="mini" onclick="DSBOARD.finAll(this)">↻ 抓取财务</button>
       <button class="mini" onclick="DSBOARD.update(this)">↻ AI 更新</button>
       <button class="mini" onclick="DSBOARD.editOpinion()">✎ 编辑观点</button></div>`;
     const op = `<div class="op"><div class="h">综合判断 <span class="b">AI 起草 + 你核对</span></div><p>${MD(RAW.opinion && RAW.opinion.text || "—")}</p></div>`;
-    return tabs + op + (VIEW === "cockpit" ? viewVendors("cockpit") : VIEW === "feed" ? viewFeed() : viewVendors("adas"));
+    const K = VIEW === "cockpit" ? "cockpit" : "adas";
+    return tabs + op + viewFeed(K) + viewVendors(K);
   }
 
 
@@ -234,19 +234,20 @@
       <div class="vgrid">${arr.map(card).join("")}</div></div>`).join("");
   }
 
-  function viewFeed() {
-    const cs = [["all", "全部"], ["noa", "NOA下沉"], ["vis", "纯视觉成本"], ["chip", "国产芯片"]];
-    const chips = `<div class="chips">${cs.map(([k, t]) => `<button class="fc ${FK === k ? "on" : ""}" onclick="DSBOARD.filter('${k}')">${t}</button>`).join("")}</div>`;
-    const list = (RAW.feed || []).filter(x => FK === "all" || x.kind === FK);
-    const kn = { noa: "NOA下沉", vis: "纯视觉成本", chip: "国产芯片" };
+  // 市场新闻:按所在页签(adas/cockpit)过滤,不再单独成页签,也不再有分类筛选条
+  function viewFeed(kind) {
+    // 老数据的 kind 是 noa/vis/chip(均属智驾方向) → 归入 adas
+    const isAdas = (x) => x.kind === "adas" || ["noa", "vis", "chip"].includes(x.kind);
+    const list = (RAW.feed || []).filter(x => kind === "cockpit" ? x.kind === "cockpit" : isAdas(x)).slice(0, 12);
     const items = list.length ? `<ul class="nfeed">` + list.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
         <div class="ti">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
         ${x.insight ? `<div class="sm">${ESC(x.insight)}</div>` : ""}
-        <div class="meta">${ESC(kn[x.kind] || x.kind || "")}${x.source ? `<span>·</span>${ESC(x.source)}` : ""}${x.date ? `<span>·</span>${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
+        <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
       </div></li>`).join("") + `</ul>`
-      : `<div class="empty">暂无新闻。点右上"↻ AI 更新"抓取最新动向。</div>`;
-    return `<div class="card"><div class="ch">市场新闻</div><div class="cb">${chips}${items}</div></div>`;
+      : `<div class="empty">暂无${kind === "cockpit" ? "座舱" : "智驾"}相关新闻。点右上「↻ AI 更新」抓取。</div>`;
+    return `<div class="card"><div class="ch">市场新闻</div><div class="cb">${items}</div></div>`;
   }
+
 
   // 弹窗
   function closeM() { const o = document.getElementById("ds-modal"); if (o) o.remove(); }
@@ -262,7 +263,6 @@
   Object.assign(window.DSBOARD, {
     closeM,
     view(v) { VIEW = v; rerender(); },
-    filter(k) { FK = k; rerender(); },
     async delVendor(kind, id) { if (!confirm("删除该厂商?")) return; await fetch(`/api/downshift/vendor/${kind}/${id}`, { method: "DELETE" }); closeM(); reload(); },
     async finOne(name, kind, btn) {
       btn.disabled = true; const t = btn.textContent; btn.textContent = "抓取中…";

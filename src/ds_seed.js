@@ -1,20 +1,20 @@
-// 中低端智驾·AI 更新:抓三类情报(NOA下沉/纯视觉成本/国产芯片)→ 情报流 + 决策观点(草稿)。
+// 部件供应商·AI 更新:抓三类情报(NOA下沉/纯视觉成本/国产芯片)→ 情报流 + 决策观点(草稿)。
 import { research } from "./research.js";
 import { setFeed, setOpinion } from "./ds_db.js";
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
-const SCHEMA = `请基于下方资料,整理"中低端(15-20万及更低)智驾市场"的最新动向,聚焦三类:
-① NOA下沉(城市/高速NOA进入更低价格带、某车型把高阶智驾下放)
-② 纯视觉成本(去激光雷达路线、纯视觉行泊一体/NOA 的 BOM 与降本)
-③ 行泊一体国产芯片(地平线/黑芝麻/爱芯/芯擎 等算力·量产·上车)
+const SCHEMA = `请基于下方资料,整理汽车零部件供应商(智能驾驶 / 智能座舱)的最新动向,分两类:
+① adas 智能驾驶:方案供应商(地平线/Momenta/华为/卓驭/黑芝麻/元戎等)的定点、量产、装机、价格与份额变化
+② cockpit 智能座舱:座舱域控、车机、车载屏幕/面板、HUD、语音(德赛西威/华阳/京东方/天马/长信/伟时/科大讯飞/伟世通等)的定点、出货、价格与份额变化
 只用资料中真实出现的信息,不编造;每条给一句"对供给/竞争格局的洞察"。
-JSON:{"feed":[{"kind":"noa|vis|chip","title":"标题","source":"来源媒体","url":"原文链接","date":"YYYY-MM-DD","insight":"一句洞察"}],
-"opinion":"3-4句:当前城市/高速NOA的降本边界落在哪个价格带、谁在推动下沉、对高阶方案供应商意味着什么(可用**加粗**)"}`;
+JSON:{"feed":[{"kind":"adas|cockpit","title":"标题","source":"来源媒体","url":"原文链接","date":"YYYY-MM-DD","insight":"一句洞察"}],
+"opinion":"3-4句:当前智驾与座舱供应链的竞争格局在如何变化、谁在扩份额、代价是什么(可用**加粗**)"}`;
 
 export async function updateDownshift() {
   const d = await research({
-    queries: ["城市NOA 下沉 15万 智驾", "纯视觉 行泊一体 成本 方案", "地平线 征程6 黑芝麻 行泊一体 上车", "高阶智驾 下放 低价车型"],
-    gnewsQueries: ["城市NOA 下沉 智驾", "纯视觉 智驾 成本", "地平线 黑芝麻 芯片 上车"],
+    queries: ["地平线 Momenta 智驾方案 定点 量产", "华为 乾崑 卓驭 智驾 装机 份额", "智驾芯片 黑芝麻 征程 上车 出货",
+      "座舱域控 德赛西威 华阳 出货 定点", "车载屏幕 京东方 天马 车载显示 份额", "车载 HUD 语音 座舱 供应商 装机"],
+    gnewsQueries: ["智驾供应商 定点 量产", "座舱域控 出货 份额", "车载显示 屏幕 供应商"],
     gnewsWhen: "30d", schema: SCHEMA, freshness: "oneMonth", count: 10, summaryLen: 600, maxTokens: 5000, model: MODEL,
   });
   const n = setFeed(Array.isArray(d.feed) ? d.feed : []);

@@ -225,7 +225,7 @@ app.get("/api/brand-market", (req, res) => {
   brandMarket(brand).then((d) => res.json(d)).catch(fail(res));
 });
 
-// —— 车企财务数据库(companies / salesMonthly / quarterly / parts) ——
+// —— 车企洞察数据库(companies / salesMonthly / quarterly / parts) ——
 app.get("/api/fin", (req, res) => { try { res.json(findb.getAll()); } catch (e) { fail(res)(e); } });
 // 车企
 app.post("/api/fin/companies", (req, res) => { const r = findb.addCompany(req.body || {}); if (!r) return res.status(409).json({ error: "车企已存在或名称为空" }); res.json({ ok: true, company: r }); });
@@ -404,7 +404,7 @@ app.post("/api/fin/import", (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ===== 中低端智驾市场洞察 =====
+// ===== 部件供应商洞察 =====
 app.get("/api/downshift", (req, res) => { try { res.json(dsdb.getAll()); } catch (e) { fail(res)(e); } });
 app.put("/api/downshift/penetration/:id", (req, res) => { const r = dsdb.putPenetration(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
 app.put("/api/downshift/tiers/:id", (req, res) => { const r = dsdb.tiers.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
