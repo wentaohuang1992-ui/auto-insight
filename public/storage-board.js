@@ -39,13 +39,13 @@
     ${S} .empty{background:#fff;border:1px dashed var(--line,#E2E8F0);border-radius:12px;padding:22px;text-align:center;color:#64748B;font-size:13px}
 
     ${S} .nfeed{list-style:none;margin:0;padding:0}
-    ${S} .nfeed li{display:flex;gap:11px;padding:13px 0;border-top:1px solid #EEF1F5}
+    ${S} .nfeed li{display:flex;gap:18px;padding:16px 0;border-top:1px solid #EEF1F5}
     ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
-    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#2E5BD8;font-weight:700;flex:none;width:20px;line-height:1.5}
-    ${S} .nfeed .ti{font-size:14px;font-weight:700;color:#1B2230;line-height:1.5}
+    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;font-weight:600;color:#2E5BD8;flex:none;width:26px;padding-top:2px}
+    ${S} .nfeed .ti{font-size:16px;font-weight:700;color:#1B2230;letter-spacing:-.2px;margin-bottom:5px}
     ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
     ${S} .nfeed .ti a:hover{color:#2E5BD8}
-    ${S} .nfeed .sm{font-size:13px;color:#4A5568;line-height:1.65;margin-top:4px}
+    ${S} .nfeed .sm{font-size:14px;color:#4A5568;line-height:1.7;margin-top:0}
     ${S} .nfeed .meta{font-size:11.5px;color:#94A3B8;display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px}
     ${S} .nfeed .meta a{color:#2E5BD8;text-decoration:none}
     ${S} .fov{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:90;display:flex;align-items:center;justify-content:center;padding:14px}

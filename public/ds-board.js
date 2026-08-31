@@ -10,13 +10,13 @@
     ${S} .feedbox{max-height:270px;overflow-y:auto;-webkit-overflow-scrolling:touch}
     ${S} .fsum{background:#F7F9FC;border:1px solid #E7EBF1;border-left:3px solid #E0A22B;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.7;color:#3D4759;margin-bottom:10px}
     ${S} .nfeed{list-style:none;margin:0;padding:0}
-    ${S} .nfeed li{display:flex;gap:11px;padding:13px 0;border-top:1px solid #EEF1F5}
+    ${S} .nfeed li{display:flex;gap:18px;padding:16px 0;border-top:1px solid #EEF1F5}
     ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
-    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#2E5BD8;font-weight:700;flex:none;width:20px;line-height:1.5}
-    ${S} .nfeed .ti{font-size:14px;font-weight:700;color:#1B2230;line-height:1.5}
+    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;font-weight:600;color:#2E5BD8;flex:none;width:26px;padding-top:2px}
+    ${S} .nfeed .ti{font-size:16px;font-weight:700;color:#1B2230;letter-spacing:-.2px;margin-bottom:5px}
     ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
     ${S} .nfeed .ti a:hover{color:#2E5BD8}
-    ${S} .nfeed .sm{font-size:13px;color:#4A5568;line-height:1.65;margin-top:4px}
+    ${S} .nfeed .sm{font-size:14px;color:#4A5568;line-height:1.7;margin-top:0}
     ${S} .nfeed .meta{font-size:11.5px;color:#94A3B8;display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px}
     ${S} .nfeed .meta a{color:#2E5BD8;text-decoration:none}
     ${S} .vbar{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:0 0 12px;margin-bottom:14px;border-bottom:1px solid #E7EBF1;-webkit-overflow-scrolling:touch}
