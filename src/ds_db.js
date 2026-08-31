@@ -194,7 +194,7 @@ const COCKPIT = [
 
 const OPINION = '当前**高速 NOA + 行泊一体**已凭纯视觉 + 国产芯片下探到 **10–15 万**带；**城市 NOA** 的降本临界点正落在 **15–20 万**——这也是下沉竞争最激烈的战场。(示例,可编辑)';
 
-function blank() { return { penetration: [], tiers: [], chips: [], feed: [], adas: [], cockpit: [], quarters: [], opinion: { text: "", updatedAt: null }, updatedAt: null }; }
+function blank() { return { penetration: [], tiers: [], chips: [], feed: [], adas: [], cockpit: [], quarters: [], feedSummary: {}, opinion: { text: "", updatedAt: null }, updatedAt: null }; }
 function load() { return { ...blank(), ...readStore(P, blank) }; }
 function save(db) { db.updatedAt = now(); return writeStore(P, db); }
 
@@ -211,7 +211,7 @@ export function ensureSeeded() {
 }
 export function getAll() {
   const db = ensureSeeded();
-  return { penetration: db.penetration, tiers: db.tiers, chips: db.chips, feed: db.feed.slice(0, 40), adas: db.adas || [], cockpit: db.cockpit || [], quarters: db.quarters || [], opinion: db.opinion, bands: BANDS, configs: CONFIGS, meta: { updatedAt: db.updatedAt, feed: db.feed.length } };
+  return { penetration: db.penetration, tiers: db.tiers, chips: db.chips, feed: db.feed.slice(0, 40), adas: db.adas || [], cockpit: db.cockpit || [], quarters: db.quarters || [], feedSummary: db.feedSummary || {}, opinion: db.opinion, bands: BANDS, configs: CONFIGS, meta: { updatedAt: db.updatedAt, feed: db.feed.length } };
 }
 
 // 渗透率
@@ -313,4 +313,11 @@ export function delVendorQuarter(id) {
   const n = (db.quarters || []).length;
   db.quarters = (db.quarters || []).filter(x => x.id !== id);
   const ok = db.quarters.length < n; if (ok) save(db); return ok;
+}
+
+// 今日要闻总结(按 adas/cockpit 两类)
+export function setFeedSummary(obj) {
+  const db = ensureSeeded();
+  db.feedSummary = { ...(db.feedSummary || {}), ...(obj || {}), updatedAt: now() };
+  save(db); return db.feedSummary;
 }

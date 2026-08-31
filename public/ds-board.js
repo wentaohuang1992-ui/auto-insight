@@ -1,4 +1,4 @@
-/* 部件供应商洞察看板:读 /api/downshift。三视图:智能驾驶 / 智能座舱 / 市场新闻 + 综合判断 + 编辑 + AI更新。 */
+/* 部件供应商洞察看板:读 /api/downshift。两页签:智能驾驶 / 智能座舱,各含 今日要闻 + 供应商档案(一家一页) + 季度财务。 */
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
@@ -7,16 +7,25 @@
     ${S}{font-variant-numeric:tabular-nums}
     ${S} .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
 
+    ${S} .feedbox{max-height:270px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    ${S} .fsum{background:#F7F9FC;border:1px solid #E7EBF1;border-left:3px solid #E0A22B;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.7;color:#3D4759;margin-bottom:10px}
     ${S} .nfeed{list-style:none;margin:0;padding:0}
     ${S} .nfeed li{display:flex;gap:11px;padding:13px 0;border-top:1px solid #EEF1F5}
     ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
-    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#94A3B8;font-weight:600;flex:none;padding-top:2px}
+    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#2E5BD8;font-weight:700;flex:none;width:20px;line-height:1.5}
     ${S} .nfeed .ti{font-size:14px;font-weight:700;color:#1B2230;line-height:1.5}
     ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
     ${S} .nfeed .ti a:hover{color:#2E5BD8}
     ${S} .nfeed .sm{font-size:13px;color:#4A5568;line-height:1.65;margin-top:4px}
     ${S} .nfeed .meta{font-size:11.5px;color:#94A3B8;display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px}
     ${S} .nfeed .meta a{color:#2E5BD8;text-decoration:none}
+    ${S} .vbar{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;padding:0 0 12px;margin-bottom:14px;border-bottom:1px solid #E7EBF1;-webkit-overflow-scrolling:touch}
+    ${S} .vbl{font-size:11px;color:#94A3B8;font-weight:700;flex:none;margin-right:2px}
+    ${S} .vbsep{width:1px;height:18px;background:#E2E8F0;flex:none;margin:0 4px}
+    ${S} .vpill{flex:none;font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border:1px solid transparent;background:none;color:#64748B;border-radius:8px 8px 0 0;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap}
+    ${S} .vpill:hover{color:#16264F}
+    ${S} .vpill.on{color:#16264F;background:#fff;border-color:#E7EBF1;border-bottom-color:#16264F}
+    ${S} .vpage{overflow:visible}
     ${S} .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:14px 15px}
     ${S} .vcard{border:1px solid #E7EBF1;border-radius:10px;overflow:hidden;background:#fff}
     ${S} .vh{display:flex;align-items:center;gap:7px;padding:10px 12px;background:#F7F9FC;border-bottom:1px solid #EEF1F5;flex-wrap:wrap}
@@ -107,145 +116,70 @@
       <button class="tab2 ${VIEW === "cockpit" ? "on" : ""}" onclick="DSBOARD.view('cockpit')">智能座舱</button>
       <span style="flex:1"></span>
       <button class="mini" onclick="DSBOARD.finAll(this)">↻ 抓取财务</button>
-      <button class="mini" onclick="DSBOARD.update(this)">↻ AI 更新</button>
-      <button class="mini" onclick="DSBOARD.editOpinion()">✎ 编辑观点</button></div>`;
-    const op = `<div class="op"><div class="h">综合判断 <span class="b">AI 起草 + 你核对</span></div><p>${MD(RAW.opinion && RAW.opinion.text || "—")}</p></div>`;
+      <button class="mini" onclick="DSBOARD.update(this)">↻ AI 更新</button></div>`;
     const K = VIEW === "cockpit" ? "cockpit" : "adas";
-    return tabs + op + viewFeed(K) + viewVendors(K);
+    return tabs + viewFeed(K) + viewVendors(K);
   }
 
 
 
-  // 厂商卡片:业务面 + 财务面。kind: adas 智能驾驶 / cockpit 智能座舱
-  // 厂商表单:业务面 + 财务面
-  // 季度财务与出货量录入(字段对齐车企财务模块)
-  function qForm(kind, vendorId, r) {
-    const isNew = !r;
-    const now = new Date(), dq = Math.floor(now.getMonth() / 3) + 1;
-    const v = r || { year: now.getFullYear(), q: dq, shipUnit: "万套" };
-    const F = (k, label, ph) => `<div class="ff"><label>${label}</label><input id="dsf-${k}" value="${ESC(v[k] ?? "")}" ${ph ? `placeholder="${ph}"` : ""}></div>`;
-    openM(isNew ? "录入季度数据" : "编辑季度数据",
-      `<div class="qgrid">${F("year", "年份")}${F("q", "季度(1-4)")}</div>
-       <div class="vformh">利润表(亿元 / %)</div>
-       <div class="qgrid">${F("revenue", "营业收入")}${F("operatingCost", "营业成本")}</div>
-       <div class="qgrid">${F("grossMargin", "毛利率(%)")}${F("rdSpend", "研发投入")}</div>
-       <div class="qgrid">${F("netProfit", "归母净利")}${F("netProfitEx", "扣非归母")}</div>
-       <div class="vformh">资产负债与现金流(亿元)</div>
-       <div class="qgrid">${F("ocf", "经营现金流")}${F("financingCF", "筹资现金流")}</div>
-       <div class="qgrid">${F("inventory", "存货")}${F("ar", "应收账款")}</div>
-       <div class="qgrid">${F("ap", "应付账款")}${F("cash", "货币资金")}</div>
-       <div class="qgrid">${F("totalAssets", "总资产")}${F("totalLiab", "总负债")}</div>
-       <div class="qgrid">${F("govGrant", "政府补助")}${F("overseasPct", "海外收入占比(%)")}</div>
-       <div class="vformh">出货量</div>
-       <div class="qgrid">${F("shipment", "出货量")}<div class="ff"><label>单位</label><select id="dsf-shipUnit">${["万套", "万片", "万辆", "万颗"].map(u => `<option${v.shipUnit === u ? " selected" : ""}>${u}</option>`).join("")}</select></div></div>
-       ${F("asp", "单价 ASP(元,可留空)")}
-       ${F("note", "备注")}`,
-      async () => {
-        const body = { vendorId, kind, year: gv("year"), q: gv("q"),
-          revenue: gv("revenue"), operatingCost: gv("operatingCost"), grossMargin: gv("grossMargin"),
-          netProfit: gv("netProfit"), netProfitEx: gv("netProfitEx"), rdSpend: gv("rdSpend"),
-          ocf: gv("ocf"), financingCF: gv("financingCF"), inventory: gv("inventory"), ar: gv("ar"),
-          ap: gv("ap"), cash: gv("cash"), totalAssets: gv("totalAssets"), totalLiab: gv("totalLiab"),
-          govGrant: gv("govGrant"), overseasPct: gv("overseasPct"),
-          shipment: gv("shipment"), shipUnit: gv("shipUnit"), asp: gv("asp"), note: gv("note") };
-        try {
-          const res = await fetch("/api/downshift/quarters", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-          const j = await res.json(); if (!res.ok) throw new Error(j.error || "保存失败");
-          closeM(); reload();
-        } catch (e) { alert(e.message); }
-      },
-      isNew ? "" : `<button class="btn d" onclick="DSBOARD.delQ('${r.id}')">删除</button>`);
-  }
-
-  function vendorForm(kind, title, v, isNew) {
-    const F = (k, label, ta) => ta
-      ? `<div class="ff"><label>${label}</label><textarea id="dsf-${k}" rows="2">${ESC(v[k] || "")}</textarea></div>`
-      : `<div class="ff"><label>${label}</label><input id="dsf-${k}" value="${ESC(v[k] || "")}"></div>`;
-    const catSel = kind === "cockpit"
-      ? `<div class="ff"><label>分类(可多选,逗号分隔:车机 / 屏幕)</label><input id="dsf-category" value="${ESC(v.category || "")}" placeholder="如:车机 或 车机,屏幕"></div>` : "";
-    openM(title,
-      F("name", "厂商名称") + F("tag", "标签(如 芯片+算法 / 车机)") + F("listed", "上市代码或未上市") + catSel +
-      `<div class="vformh">业务分析</div>` +
-      F("positioning", "定位", true) + F("products", "主要产品", true) + F("customers", "主要客户", true) + F("massProd", "量产进度", true) + F("share", "市场地位", true) +
-      `<div class="vformh">财务分析</div>` +
-      F("revenue", "营业收入") + F("grossMargin", "毛利率") + F("netProfit", "净利润") + F("rd", "研发投入") + F("funding", "融资/上市") +
-      F("note", "备注", true),
-      async () => {
-        const body = { name: gv("name"), tag: gv("tag"), listed: gv("listed"), positioning: gv("positioning"), products: gv("products"), customers: gv("customers"), massProd: gv("massProd"), share: gv("share"), revenue: gv("revenue"), grossMargin: gv("grossMargin"), netProfit: gv("netProfit"), rd: gv("rd"), funding: gv("funding"), note: gv("note") };
-        if (kind === "cockpit") body.category = gv("category");
-        try {
-          const url = isNew ? `/api/downshift/vendor/${kind}` : `/api/downshift/vendor/${kind}/${v.id}`;
-          await fetch(url, { method: isNew ? "POST" : "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-          closeM(); reload();
-        } catch (e) { alert(e.message); }
-      },
-      isNew ? "" : `<button class="btn d" onclick="DSBOARD.delVendor('${kind}','${v.id}')">删除</button>`);
-  }
-
+  // 供应商:一家一页。顶部一排选择器(类似车型库子标签),下面是该家的完整档案
+  let VSEL = { adas: "", cockpit: "" };
   function viewVendors(kind) {
     const list = (RAW[kind] || []);
+    if (!list.length) return `<div class="card"><div class="ch">暂无供应商</div><div class="empty">点「＋ 新增厂商」添加。</div></div>`;
     const isCk = kind === "cockpit";
-    const title = isCk ? "智能座舱 · 车机与屏幕竞争格局" : "智能驾驶 · 核心供应商";
-    if (!list.length) return `<div class="card"><div class="ch">${title}</div><div class="empty">暂无数据。点「＋ 新增厂商」添加。</div></div>`;
-    // 座舱按 车机 / 屏幕 分组
-    // 分类支持多值(逗号分隔),如华阳既做车机也做显示总成 → 两组都出现
+    if (!VSEL[kind] || !list.some(x => x.id === VSEL[kind])) VSEL[kind] = list[0].id;
+    const v = list.find(x => x.id === VSEL[kind]);
+    // 选择器:座舱按 车机/屏幕 分组标注
     const inCat = (x, c) => String(x.category || "").split(/[,，\/]/).map(s => s.trim()).includes(c);
-    const groups = isCk
-      ? [["车机", list.filter(x => inCat(x, "车机"))], ["屏幕", list.filter(x => inCat(x, "屏幕"))]]
-      : [["", list]];
-    const biz = (v) => [["定位", v.positioning], ["主要产品", v.products], ["主要客户", v.customers], ["量产进度", v.massProd], ["市场地位", v.share]]
+    const pill = (x) => `<button class="vpill ${x.id === VSEL[kind] ? "on" : ""}" onclick="DSBOARD.pickVendor('${kind}','${x.id}')">${ESC(x.name)}</button>`;
+    const bar = isCk
+      ? `<div class="vbar"><span class="vbl">车机</span>${list.filter(x => inCat(x, "车机")).map(pill).join("")}<span class="vbsep"></span><span class="vbl">屏幕</span>${list.filter(x => inCat(x, "屏幕")).map(pill).join("")}</div>`
+      : `<div class="vbar">${list.map(pill).join("")}</div>`;
+    const biz = [["定位", v.positioning], ["主要产品", v.products], ["主要客户", v.customers], ["量产进度", v.massProd], ["市场地位", v.share]]
       .filter(([, x]) => x).map(([k, x]) => `<div class="row"><span class="k">${k}</span><span class="v">${ESC(x)}</span></div>`).join("");
-    const fin = (v) => {
-      const rows = [["营业收入", v.revenue], ["毛利率", v.grossMargin], ["净利润", v.netProfit], ["研发投入", v.rd], ["融资/上市", v.funding]]
-        .map(([k, x]) => `<div class="row"><span class="k">${k}</span><span class="v ${x ? "" : "na"}">${x ? ESC(x) : "待补"}</span></div>`).join("");
-      return rows;
-    };
-    // 季度财务与出货量(字段对齐车企财务模块:三大报表主干 + 出货量)
-    const qtbl = (v) => {
-      const qs = (RAW.quarters || []).filter(x => x.vendorId === v.id).sort((a, b) => (b.year - a.year) || (b.q - a.q)).slice(0, 8);
-      const N = (x, d) => x == null ? "—" : Number(x).toFixed(d == null ? 2 : d);
-      const cur = qs.length && qs[0].currency === "USD" ? "亿美元" : "亿元";
-      const COLS = [
-        ["营收", "revenue", 2], ["营业成本", "operatingCost", 2], ["毛利率%", "grossMargin", 1],
-        ["归母净利", "netProfit", 2], ["扣非归母", "netProfitEx", 2], ["研发", "rdSpend", 2],
-        ["经营现金流", "ocf", 2], ["存货", "inventory", 2], ["应付", "ap", 2], ["应收", "ar", 2],
-        ["货币资金", "cash", 2], ["总资产", "totalAssets", 2], ["总负债", "totalLiab", 2],
-      ];
-      const body = qs.length ? qs.map(r => `<tr>
-          <td class="qp">${r.year}Q${r.q}</td>
-          ${COLS.map(([, k, d]) => `<td>${N(r[k], d)}</td>`).join("")}
-          <td>${r.shipment == null ? "—" : N(r.shipment, 1) + " " + ESC(r.shipUnit || "")}</td>
-          <td><button class="mini" onclick="DSBOARD.editQ('${kind}','${v.id}','${r.id}')">改</button></td></tr>`).join("")
-        : `<tr><td colspan="${COLS.length + 3}" style="color:#94A3B8;padding:10px">暂无季度数据。点「↻ 抓取」自动获取,或「＋ 录入」手工添加。</td></tr>`;
-      return `<div class="vsec"><div class="vst">财务与出货量 · 季度<span class="vunit">金额单位:${cur}</span><button class="mini" style="margin-left:auto" onclick="DSBOARD.finOne('${ESC(v.name)}','${kind}',this)">↻ 抓取</button><button class="mini" onclick="DSBOARD.addQ('${kind}','${v.id}')">＋ 录入</button></div>
-        <div class="qwrap"><table class="qtbl"><thead><tr><th>报告期</th>${COLS.map(([t]) => `<th>${t}</th>`).join("")}<th>出货量</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div>`;
-    };
-    const card = (v) => `<div class="vcard">
+    // 财务概览:优先用最新季度实际数据动态计算,没有再回落到文字字段
+    const qs = (RAW.quarters || []).filter(x => x.vendorId === v.id).sort((a, b) => (b.year - a.year) || (b.q - a.q));
+    const q0 = qs[0], cur = q0 && q0.currency === "USD" ? "亿美元" : "亿元";
+    const N = (x, d) => x == null ? null : Number(x).toFixed(d == null ? 2 : d);
+    const ov = q0 ? [
+      ["营业收入", N(q0.revenue) ? `${N(q0.revenue)} ${cur}` : null],
+      ["毛利率", N(q0.grossMargin, 1) ? `${N(q0.grossMargin, 1)}%` : null],
+      ["归母净利", N(q0.netProfit) ? `${N(q0.netProfit)} ${cur}` : null],
+      ["研发投入", N(q0.rdSpend) ? `${N(q0.rdSpend)} ${cur}` : null],
+      ["研发费率", (q0.rdSpend != null && q0.revenue) ? `${(q0.rdSpend / q0.revenue * 100).toFixed(1)}%` : null],
+      ["出货量", q0.shipment != null ? `${N(q0.shipment, 1)} ${ESC(q0.shipUnit || "")}` : null],
+    ] : [["营业收入", v.revenue], ["毛利率", v.grossMargin], ["归母净利", v.netProfit], ["研发投入", v.rd], ["融资/上市", v.funding]];
+    const ovHtml = ov.map(([k, x]) => `<div class="row"><span class="k">${k}</span><span class="v ${x ? "" : "na"}">${x ? ESC(String(x)) : "待补"}</span></div>`).join("");
+    const ovTag = q0 ? `<span class="vunit">${q0.year}Q${q0.q} · 自动抓取</span>` : `<span class="vunit">尚无季度数据,点下方「↻ 抓取」</span>`;
+    return bar + `<div class="card vpage">
       <div class="vh"><span class="vn">${ESC(v.name)}</span>${v.tag ? `<span class="vt">${ESC(v.tag)}</span>` : ""}<span class="vl">${ESC(v.listed || "")}</span>
-        <button class="mini" style="margin-left:auto" onclick="DSBOARD.editVendor('${kind}','${v.id}')">✎ 编辑</button></div>
-      <div class="vsec"><div class="vst">业务分析</div>${biz(v)}</div>
-      <div class="vsec"><div class="vst">财务概览</div>${fin(v)}</div>
-      ${qtbl(v)}
+        <button class="mini" style="margin-left:auto" onclick="DSBOARD.editVendor('${kind}','${v.id}')">✎ 编辑</button>
+        <button class="mini" onclick="DSBOARD.addVendor('${kind}')">＋ 新增厂商</button></div>
+      <div class="vsec"><div class="vst">业务分析</div>${biz}</div>
+      <div class="vsec"><div class="vst">财务概览${ovTag}</div>${ovHtml}</div>
+      ${qtbl(v, kind)}
       ${v.note ? `<div class="vnote">${ESC(v.note)}</div>` : ""}
-      ${(v.sources || []).length ? `<div class="vsrc">${v.sources.map(x => `<a href="${ESC(x.url || x)}" target="_blank" rel="noopener">${ESC(x.title || "来源")} ↗</a>`).join("")}</div>` : ""}
     </div>`;
-    return groups.filter(([, arr]) => arr.length).map(([g, arr]) => `<div class="card">
-      <div class="ch">${title}${g ? " · " + g : ""}<span class="n"><button class="mini" onclick="DSBOARD.addVendor('${kind}')">＋ 新增厂商</button></span></div>
-      <div class="vgrid">${arr.map(card).join("")}</div></div>`).join("");
   }
 
-  // 市场新闻:按所在页签(adas/cockpit)过滤,不再单独成页签,也不再有分类筛选条
+  // 今日要闻:按所在页签(adas/cockpit)过滤,只留近 7 天,列表限高可滚动,顶部一段今日总结
   function viewFeed(kind) {
-    // 老数据的 kind 是 noa/vis/chip(均属智驾方向) → 归入 adas
     const isAdas = (x) => x.kind === "adas" || ["noa", "vis", "chip"].includes(x.kind);
-    const list = (RAW.feed || []).filter(x => kind === "cockpit" ? x.kind === "cockpit" : isAdas(x)).slice(0, 12);
-    const items = list.length ? `<ul class="nfeed">` + list.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
+    const cut = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    const all = (RAW.feed || []).filter(x => kind === "cockpit" ? x.kind === "cockpit" : isAdas(x));
+    // 有日期的按日期倒序并只留近 7 天;没日期的排后面(抓取时未给日期)
+    const fresh = all.filter(x => !x.date || x.date >= cut).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const sum = (RAW.feedSummary || {})[kind] || "";
+    const head = sum ? `<div class="fsum">${ESC(sum)}</div>` : "";
+    const items = fresh.length ? `<ul class="nfeed">` + fresh.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
         <div class="ti">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
         ${x.insight ? `<div class="sm">${ESC(x.insight)}</div>` : ""}
         <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
       </div></li>`).join("") + `</ul>`
-      : `<div class="empty">暂无${kind === "cockpit" ? "座舱" : "智驾"}相关新闻。点右上「↻ AI 更新」抓取。</div>`;
-    return `<div class="card"><div class="ch">市场新闻</div><div class="cb">${items}</div></div>`;
+      : `<div class="empty">近 7 天暂无${kind === "cockpit" ? "座舱" : "智驾"}相关要闻。点右上「↻ AI 更新」抓取。</div>`;
+    return `<div class="card"><div class="ch">今日要闻</div><div class="cb">${head}<div class="feedbox">${items}</div></div></div>`;
   }
 
 
@@ -288,6 +222,7 @@
         }, 4000);
       } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = "↻ 抓取财务"; }
     },
+    pickVendor(kind, id) { VSEL[kind] = id; rerender(); },
     addQ(kind, vendorId) { qForm(kind, vendorId, null); },
     editQ(kind, vendorId, id) { const r = (RAW.quarters || []).find(x => x.id === id); qForm(kind, vendorId, r); },
     async delQ(id) { if (!confirm("删除该季度记录?")) return; await fetch("/api/downshift/quarters/" + id, { method: "DELETE" }); closeM(); reload(); },

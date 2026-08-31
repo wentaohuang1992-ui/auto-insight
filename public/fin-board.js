@@ -434,7 +434,7 @@
       if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
       const rows = d.byYear || [];
       if (!rows.length) { box.innerHTML = `<span class="fhint">未检索到年报/季报原文${(d.warns || []).length ? "(" + ESC(d.warns.join(";")) + ")" : ""}。</span>`; RPT_CACHE[name] = box.innerHTML; return; }
-      const ORDER = [["FY", "年报"], ["Q3", "三季报"], ["H1", "半年报"], ["Q1", "一季报"]];
+      const ORDER = [["Q1", "一季报"], ["H1", "半年报"], ["Q3", "三季报"], ["FY", "年报"]];
       const cell = (items, code) => {
         const it = items.find(x => x.period === code);
         if (!it) return `<td class="rpnone">—</td>`;

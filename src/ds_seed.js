@@ -1,6 +1,6 @@
 // 部件供应商·AI 更新:抓三类情报(NOA下沉/纯视觉成本/国产芯片)→ 情报流 + 决策观点(草稿)。
 import { research } from "./research.js";
-import { setFeed, setOpinion } from "./ds_db.js";
+import { setFeed, setFeedSummary } from "./ds_db.js";
 const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
 const SCHEMA = `请基于下方资料,整理汽车零部件供应商(智能驾驶 / 智能座舱)的最新动向,分两类:
@@ -8,7 +8,8 @@ const SCHEMA = `请基于下方资料,整理汽车零部件供应商(智能驾�
 ② cockpit 智能座舱:座舱域控、车机、车载屏幕/面板、HUD、语音(德赛西威/华阳/京东方/天马/长信/伟时/科大讯飞/伟世通等)的定点、出货、价格与份额变化
 只用资料中真实出现的信息,不编造;每条给一句"对供给/竞争格局的洞察"。
 JSON:{"feed":[{"kind":"adas|cockpit","title":"标题","source":"来源媒体","url":"原文链接","date":"YYYY-MM-DD","insight":"一句洞察"}],
-"opinion":"3-4句:当前智驾与座舱供应链的竞争格局在如何变化、谁在扩份额、代价是什么(可用**加粗**)"}`;
+"summaryAdas":"2-3句:今日智能驾驶方向的要闻总结,点出最重要的变化",
+"summaryCockpit":"2-3句:今日智能座舱方向的要闻总结,点出最重要的变化"}`;
 
 export async function updateDownshift() {
   const d = await research({
@@ -18,7 +19,7 @@ export async function updateDownshift() {
     gnewsWhen: "30d", schema: SCHEMA, freshness: "oneMonth", count: 10, summaryLen: 600, maxTokens: 5000, model: MODEL,
   });
   const n = setFeed(Array.isArray(d.feed) ? d.feed : []);
-  if (d.opinion && String(d.opinion).trim()) setOpinion(String(d.opinion).trim() + "\n\n_(AI 起草 · 请核对)_");
+  setFeedSummary({ adas: String(d.summaryAdas || "").trim(), cockpit: String(d.summaryCockpit || "").trim() });
   console.log("[ds] feed+", n);
   return { feed: n, opinion: !!d.opinion };
 }

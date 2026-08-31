@@ -41,7 +41,7 @@
     ${S} .nfeed{list-style:none;margin:0;padding:0}
     ${S} .nfeed li{display:flex;gap:11px;padding:13px 0;border-top:1px solid #EEF1F5}
     ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
-    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#94A3B8;font-weight:600;flex:none;padding-top:2px}
+    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#2E5BD8;font-weight:700;flex:none;width:20px;line-height:1.5}
     ${S} .nfeed .ti{font-size:14px;font-weight:700;color:#1B2230;line-height:1.5}
     ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
     ${S} .nfeed .ti a:hover{color:#2E5BD8}
