@@ -422,16 +422,18 @@
     }).join("");
     return toolbar + `<div class="fscroll" style="overflow-x:auto"><table class="ftbl"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
   }
-  // 财报原文 PDF:向后端要巨潮/披露易的真实公告链接,按 年份 × 报告期 结构化展示
+  // 财报原文 PDF:按公司缓存,同一会话内只抓一次(公告不会一天变几次)
+  const RPT_CACHE = {};
   async function loadReports(name) {
     const box = document.getElementById("freports");
     if (!box) return;
+    if (RPT_CACHE[name]) { box.innerHTML = RPT_CACHE[name]; return; }
     try {
       const r = await fetch("/api/fin/reports?company=" + encodeURIComponent(name));
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
       const rows = d.byYear || [];
-      if (!rows.length) { box.innerHTML = `<span class="fhint">未检索到年报/季报原文${(d.warns || []).length ? "(" + ESC(d.warns.join(";")) + ")" : ""}。</span>`; return; }
+      if (!rows.length) { box.innerHTML = `<span class="fhint">未检索到年报/季报原文${(d.warns || []).length ? "(" + ESC(d.warns.join(";")) + ")" : ""}。</span>`; RPT_CACHE[name] = box.innerHTML; return; }
       const ORDER = [["FY", "年报"], ["Q3", "三季报"], ["H1", "半年报"], ["Q1", "一季报"]];
       const cell = (items, code) => {
         const it = items.find(x => x.period === code);
@@ -442,6 +444,7 @@
         <div class="rptbl-wrap"><table class="rptbl"><thead><tr><th>年度</th>${ORDER.map(([, t]) => `<th>${t}</th>`).join("")}</tr></thead>
         <tbody>${rows.map(y => `<tr><th class="rpy">${y.year}</th>${ORDER.map(([c]) => cell(y.items, c)).join("")}</tr>`).join("")}</tbody></table></div>
         <div class="fhint" style="margin-top:5px">「—」表示该期尚未披露或来源未收录(港股通常无一/三季报)。</div>`;
+      RPT_CACHE[name] = box.innerHTML;
     } catch (e) { box.innerHTML = `<span class="fhint">财报原文获取失败:${ESC(e.message || "网络异常")}</span>`; }
   }
 

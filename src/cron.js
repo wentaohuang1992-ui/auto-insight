@@ -320,9 +320,9 @@ export function startCron() {
   cron.schedule("50 8 * * *", () => runWatch({}).catch((e) => console.error("[cron] 财报哨兵", e)), { timezone: TZ });
   cron.schedule("0 9 5 * *", () => fetchAllSales({ months: 3 }).catch((e) => console.error("[cron] 产销快报", e)), { timezone: TZ });
   cron.schedule("0 9 * * *", () => sendDaily().catch((e) => console.error("[cron] 发送", e)), { timezone: TZ });
-  // 周一 09:30 出上周周报;每月 2 号 09:40 出上月月报(2 号跑,确保上月最后一天的日报已入库)
+  // 周一 09:30 出上周周报;每月 1 号 09:40 出上月月报
   cron.schedule("30 9 * * 1", () => buildReport(prevWeekKey(today().iso)).catch((e) => console.error("[cron] 周报", e.message)), { timezone: TZ });
-  cron.schedule("40 9 2 * *", () => buildReport(prevMonthKey(today().iso)).catch((e) => console.error("[cron] 月报", e.message)), { timezone: TZ });
+  cron.schedule("40 9 1 * *", () => buildReport(prevMonthKey(today().iso)).catch((e) => console.error("[cron] 月报", e.message)), { timezone: TZ });
   console.log(`[cron] 已排程:每月1号 08:00 财报 / 08:10 车型库 / 08:40 上市节奏;每周一 08:20 存储洞察;每天 08:30 日报(失败重试${RETRY_MAX}次)+ 补漏 / 09:00 邮件 (时区 ${TZ})`);
 
   // 启动补漏:进程重启常常就发生在故障之后,这一次检查能立刻把前几天的坑填上,

@@ -37,6 +37,17 @@
     ${S} .feed .d{font-size:11px;color:#64748B;margin-left:auto}
     ${S} .feed .t{font-size:13.5px;font-weight:700;color:#1B2230;margin-bottom:3px}${S} .feed .i{font-size:12.5px;color:#3A434F}
     ${S} .empty{background:#fff;border:1px dashed var(--line,#E2E8F0);border-radius:12px;padding:22px;text-align:center;color:#64748B;font-size:13px}
+
+    ${S} .nfeed{list-style:none;margin:0;padding:0}
+    ${S} .nfeed li{display:flex;gap:11px;padding:13px 0;border-top:1px solid #EEF1F5}
+    ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
+    ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#94A3B8;font-weight:600;flex:none;padding-top:2px}
+    ${S} .nfeed .ti{font-size:14px;font-weight:700;color:#1B2230;line-height:1.5}
+    ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
+    ${S} .nfeed .ti a:hover{color:#2E5BD8}
+    ${S} .nfeed .sm{font-size:13px;color:#4A5568;line-height:1.65;margin-top:4px}
+    ${S} .nfeed .meta{font-size:11.5px;color:#94A3B8;display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px}
+    ${S} .nfeed .meta a{color:#2E5BD8;text-decoration:none}
     ${S} .fov{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:90;display:flex;align-items:center;justify-content:center;padding:14px}
     ${S} .modal{background:#fff;border-radius:14px;width:min(620px,98vw);max-height:92vh;display:flex;flex-direction:column}
     ${S} .modal-h{padding:13px 16px;border-bottom:1px solid var(--line,#E2E8F0);font-weight:700;display:flex}
@@ -58,7 +69,7 @@
   window.STORAGEBOARD = { render, rerender };
 
   function lineChart(labels, s1, s2) {
-    const W = 760, H = 280, pl = 46, pr = 18, pt = 16, pb = 32;
+    const W = 760, H = 200, pl = 42, pr = 16, pt = 12, pb = 26;
     const all = [...s1, ...s2].filter(v => v != null); if (!all.length) return '<div class="empty">暂无价格序列</div>';
     const min = Math.min(...all), max = Math.max(...all), lo = min - (max - min) * 0.12 || min - 1, hi = max + (max - min) * 0.12 || max + 1;
     const n = Math.max(labels.length, s1.length, s2.length);
@@ -69,7 +80,7 @@
     const xl = labels.map((l, i) => (i % 2 === 0 || i === labels.length - 1) ? `<text x="${X(i)}" y="${H - 11}" text-anchor="middle" font-size="9.5" fill="#94A3B8">${ESC(l)}</text>` : "").join("");
     const pathOf = (arr) => arr.map((v, i) => v == null ? "" : `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ").replace(/^L/, "M");
     const dots = (arr, c) => arr.map((v, i) => v == null ? "" : `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2.6" fill="${c}"/>`).join("");
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${grid}
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:210px">${grid}
       <path d="${pathOf(s1)}" fill="none" stroke="#15307A" stroke-width="2.5"/>
       <path d="${pathOf(s2)}" fill="none" stroke="#B5710E" stroke-width="2.5" stroke-dasharray="6 4"/>
       ${dots(s1, "#15307A")}${dots(s2, "#B5710E")}${xl}</svg>`;
@@ -91,14 +102,18 @@
       <div class="kpi"><div class="t">现货溢价(现货−合约)</div><div class="v">${gap == null ? "—" : (gap >= 0 ? "+" : "") + "$" + f2(gap)}</div><div class="d" style="color:#64748B">${gap == null ? "" : "现货" + (gap >= 0 ? "高于合约,上行信号" : "低于合约,下行信号")}</div></div></div>`;
     const caps = (c.caps || []).map(cap => `<tr ondblclick="STORAGEBOARD.editCap('${c.id}','${cap.id}')"><td class="nm">${ESC(cap.spec)}</td><td>$${f2(cap.contract)}</td><td class="${cap.contractMoM >= 0 ? "up" : "dn"}">${cap.contractMoM == null ? "—" : (cap.contractMoM >= 0 ? "+" : "") + cap.contractMoM + "%"}</td><td>$${f2(cap.spot)}</td><td class="${cap.spotMoM >= 0 ? "up" : "dn"}">${cap.spotMoM == null ? "—" : (cap.spotMoM >= 0 ? "+" : "") + cap.spotMoM + "%"}</td><td>${cap.contract != null && cap.spot != null ? ((cap.spot - cap.contract) >= 0 ? "+" : "") + "$" + f2(cap.spot - cap.contract) : "—"}</td><td><button class="mini" onclick="STORAGEBOARD.editCap('${c.id}','${cap.id}')">改</button></td></tr>`).join("");
     const kn = { tf: "TrendForce", cfm: "ChinaFlashMarket", gn: "Google News" };
-    const feed = (RAW.feed || []).length ? RAW.feed.map(x => `<div class="item"><div class="m"><span class="so ${x.source}">${kn[x.source] || x.source}</span>${x.date ? `<span class="d">${ESC(x.date)}</span>` : ""}</div><div class="t">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener" style="color:#1B2230;text-decoration:none">${ESC(x.title)} ↗</a>` : ESC(x.title)}</div><div class="i">${ESC(x.insight)}</div></div>`).join("")
-      : `<div class="empty">暂无情报。点右上"↻ AI 更新情报",从 TrendForce / ChinaFlashMarket / 新闻 抓取最新动向。</div>`;
+    const feed = (RAW.feed || []).length ? `<ul class="nfeed">` + RAW.feed.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
+        <div class="ti">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
+        ${x.insight ? `<div class="sm">${ESC(x.insight)}</div>` : ""}
+        <div class="meta">${ESC(kn[x.source] || x.source || "")}${x.date ? `<span>·</span>${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
+      </div></li>`).join("") + `</ul>`
+      : `<div class="empty">暂无新闻。点右上"↻ AI 更新情报"抓取最新动向。</div>`;
     return tabs + op + kpis + `
       <div class="card"><div class="ch">价格趋势 · 合约价 vs 现货价<span class="n">${ESC(c.unit)} <button class="mini" onclick="STORAGEBOARD.editSeries('${c.id}')">✎ 编辑序列</button> <button class="mini" onclick="STORAGEBOARD.appendPoint('${c.id}')">＋ 追加月</button></span></div>
         <div class="cb"><div class="legend"><span><i class="c"></i>合约价(Contract)</span><span><i class="s"></i>现货价(Spot)</span></div>${lineChart(c.labels || [], ct, sp)}<div class="src"><b>数据来源:</b> ${ESC(c.source || "—")}</div></div></div>
       <div class="card"><div class="ch">容量细分 · 当前价与环比<span class="n"><button class="mini" onclick="STORAGEBOARD.editCap('${c.id}','__new__')">＋ 新增</button></span></div>
         <div class="scroll"><table><thead><tr><th>容量规格</th><th>合约价</th><th>合约环比</th><th>现货价</th><th>现货环比</th><th>价差</th><th></th></tr></thead><tbody>${caps || `<tr><td colspan="7" style="color:#64748B;padding:14px">暂无</td></tr>`}</tbody></table></div></div>
-      <div class="card"><div class="ch">动向情报流 · TrendForce / ChinaFlashMarket / 新闻</div><div class="cb feed">${feed}</div></div>`;
+      <div class="card"><div class="ch">热点新闻</div><div class="cb">${feed}</div></div>`;
   }
 
   // 弹窗

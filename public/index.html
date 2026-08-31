@@ -107,6 +107,8 @@
   .archive .chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
   .archsel{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);background:#fff;border:1px solid var(--line-2);border-radius:7px;padding:7px 10px;cursor:pointer;max-width:170px}
   .archcnt{font-size:11.5px;color:var(--muted)}
+  .mtbar{display:flex;align-items:center;gap:9px}
+  .mtbar::before{content:"";width:3px;height:15px;background:var(--amber);border-radius:1px;flex:none}
   /* 周报 / 月报 */
   .rptbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
   .rpthead{padding:16px 20px 0}
@@ -364,8 +366,7 @@
         <button class="tab" role="tab" aria-selected="false" data-tab="fin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg><span class="idx">03</span>车企财务数据</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="storage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg><span class="idx">04</span>存储洞察</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="downshift"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/></svg><span class="idx">05</span>中低端智驾市场洞察</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1-.5-7.97 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 17.5 18H7z"/></svg><span class="idx">06</span>云算力成本洞察</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg><span class="idx">07</span>周报月报</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg><span class="idx">06</span>周报月报</button>
       </nav>
     </div>
   </header>
@@ -415,7 +416,7 @@
       <div id="hl-launch" class="hlfeed"></div>
       <div class="module">
         <div class="module-head">
-          <div class="mt">新能源新车 / 改款车上市节奏 · 2026</div>
+          <div class="mt mtbar">新能源新车 / 改款车上市节奏 · 2026</div>
           <div class="ms">横向时间轴看全年分布,点击某月查看当月小结与车型详情</div>
         </div>
         <div class="subtabs" id="cad-subtabs">
@@ -444,25 +445,16 @@
       </div>
       <div id="out-downshift"></div>
     </section>
-
-    <section class="sec" id="sec-cloud" hidden>
-      <div class="head">
-        <div class="ref">SECTION 06 · CLOUD COMPUTE COST</div>
-        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1-.5-7.97 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 17.5 18H7z"/></svg>云算力成本洞察</h2>
-      </div>
-      <div id="out-cloud"></div>
-    </section>
-
     <section class="sec" id="sec-report" hidden>
       <div class="head">
-        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>周报 / 月报<span class="src">基于本站日报与今日要闻归档汇总</span></h2>
-        <div class="note">周报每周一自动生成上周,月报每月 2 号生成上月;也可手动生成任一周期。</div>
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>周报/月报<span class="src">基于本站日报与今日要闻归档汇总</span></h2>
+        <div class="note">周报每周一自动生成上周,月报每月 1 号生成上月;也可手动生成任一周期。</div>
       </div>
       <div class="rptbar">
-        <select id="rpt-year" class="archsel" onchange="rptFillPeriods()"></select>
-        <select id="rpt-month" class="archsel" onchange="rptFillPeriods()"></select>
-        <select id="rpt-kind" class="archsel" onchange="rptFillPeriods()"><option value="W">周报</option><option value="M">月报</option></select>
-        <select id="rpt-week" class="archsel"></select>
+        <select id="rpt-year" class="archsel" onchange="rptFillPeriods();rptLoad()"></select>
+        <select id="rpt-month" class="archsel" onchange="rptFillPeriods();rptLoad()"></select>
+        <select id="rpt-kind" class="archsel" onchange="rptFillPeriods();rptLoad()"><option value="W">周报</option><option value="M">月报</option></select>
+        <select id="rpt-week" class="archsel" onchange="rptLoad()"></select>
         <button class="chip" onclick="rptLoad()">查看</button>
         <button class="chip" onclick="rptRefresh(this)">↻ 重新生成</button>
       </div>
@@ -485,10 +477,9 @@
 <script src="/api-auth.js"></script>
 <script src="/fin-board.js"></script>
 <script src="/ds-board.js"></script>
-<script src="/cloud-board.js"></script>
 <script src="/storage-board.js"></script>
 <script>
-const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",cloud:"/api/cloud",storage:"/api/storage"};
+const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
 if(b&&t&&window.hasAdminToken&&window.hasAdminToken()){b.classList.add("on");t.textContent="已登录";}})();
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -533,7 +524,7 @@ function renderNews(d){const items=(d&&d.items)||[];
       </div></li>`).join("")+`</ul>`;
   return h;}
 
-const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews,downshift:(d)=>window.DSBOARD.render(d),cloud:(d)=>window.CLOUDBOARD.render(d),storage:(d)=>window.STORAGEBOARD.render(d)};
+const RENDER={fin:(d)=>window.FINBOARD.render(d),news:renderNews,downshift:(d)=>window.DSBOARD.render(d),storage:(d)=>window.STORAGEBOARD.render(d)};
 const CACHE={};
 let viewingDate=null; // 正在查看的往期日期(null=今日)
 
@@ -609,7 +600,11 @@ function rptInitSelectors(){
   }
   if(!ms.options.length){
     let o="";for(let m=1;m<=12;m++)o+=`<option value="${m}">${m}月</option>`;
-    ms.innerHTML=o;ms.value=String(now.getMonth()+1);
+    ms.innerHTML=o;
+    // 默认上月(本月未结束,不会有月报);1 月则回到上一年 12 月
+    const lm=new Date(now.getFullYear(),now.getMonth()-1,1);
+    ms.value=String(lm.getMonth()+1);
+    if(lm.getFullYear()!==now.getFullYear()&&ys.querySelector(`option[value="${lm.getFullYear()}"]`))ys.value=String(lm.getFullYear());
   }
 }
 function rptFillPeriods(){
@@ -619,9 +614,12 @@ function rptFillPeriods(){
   if(kind==="M"){ws.hidden=true;ws.innerHTML=`<option value="M:${y}-${String(m).padStart(2,"0")}">全月</option>`;return;}
   ws.hidden=false;
   const list=rptWeeksOfMonth(y,m);
-  // 默认选中"当周"(若当前年月即所选年月)
-  const now=new Date(),curKey="W:"+rptIso(rptMonday(now));
-  ws.innerHTML=list.map(w=>`<option value="${w.key}"${w.key===curKey?" selected":""}>第${w.week}周</option>`).join("");
+  // 默认选「上周」:本周还没结束,不会有报告,直接显示上周更符合预期
+  const now=new Date(),lastMon=rptMonday(now);lastMon.setDate(lastMon.getDate()-7);
+  const wantKey="W:"+rptIso(lastMon);
+  let sel=list.findIndex(w=>w.key===wantKey);
+  if(sel<0)sel=list.length-1;   // 上周不在所选月份(如月初),退回该月最后一周
+  ws.innerHTML=list.map((w,i)=>`<option value="${w.key}"${i===sel?" selected":""}>第${w.week}周</option>`).join("");
 }
 function rptCurrentKey(){
   const kind=document.getElementById("rpt-kind").value;
@@ -657,7 +655,7 @@ async function rptLoad(){
     const r=await fetch("/api/reports/item?key="+encodeURIComponent(key));const d=await r.json();
     if(r.status===404&&d.notGenerated){
       out.innerHTML=`<div class="card" style="padding:22px"><div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px">该周期的报告尚未生成</div>
-        <div class="note" style="margin:0">周报每周一自动生成上周,月报每月 2 号自动生成上月。<br>需要现在生成,请点上方「↻ 重新生成」(仅管理员可操作,会消耗 DeepSeek 与搜索额度)。</div></div>`;
+        <div class="note" style="margin:0">周报每周一自动生成上周,月报每月 1 号自动生成上月。<br>需要现在生成,请点上方「↻ 重新生成」(仅管理员可操作,会消耗 DeepSeek 与搜索额度)。</div></div>`;
       return;
     }
     if(!r.ok)throw new Error(d.error||"HTTP "+r.status);
@@ -779,6 +777,20 @@ function cadDetail(key,m,showYW){
   const c=cadCounts(mo.cars);
   let line=`本月共 <b>${c.total}</b> 款:新车 ${c.nw} 款、改款 ${c.fc} 款${c.est?`,其中预计 ${c.est} 款`:""}。`;
   if(showYW&&c.yw)line+=`其中引望车系 <b>${c.yw}</b> 款。`;
+  // 品牌分布
+  const bc={};mo.cars.forEach(x=>{if(x.brand)bc[x.brand]=(bc[x.brand]||0)+1;});
+  const bl=Object.entries(bc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)}${v>1?" "+v+"款":""}`);
+  if(bl.length)line+=`<br><b>涉及品牌:</b>${bl.join("、")}。`;
+  // 价格带(从 price 里抽数字,取最低与最高)
+  const nums=[];mo.cars.forEach(x=>{const ms=String(x.price||"").match(/\d+(\.\d+)?/g);if(ms)ms.forEach(v=>nums.push(parseFloat(v)));});
+  if(nums.length)line+=`<b>价格区间:</b>${Math.min(...nums)}–${Math.max(...nums)} 万元(已公布 ${mo.cars.filter(x=>x.price&&!/暂无/.test(x.price)).length}/${c.total} 款)。`;
+  // 智驾配置
+  const hi=mo.cars.filter(x=>x.hi).length;
+  if(hi)line+=`<b>智驾:</b>搭载华为乾崑/HI 方案 ${hi} 款。`;
+  // 已公布订单/销量的车型
+  const ord=mo.cars.filter(x=>x.orders&&!/暂无/.test(x.orders));
+  if(ord.length)line+=`<br><b>订单与销量:</b>${ord.slice(0,3).map(x=>`${esc(x.model)}(${esc(x.orders)})`).join("；")}${ord.length>3?` 等 ${ord.length} 款已公布`:""}。`;
+  else line+=`<br><b>订单与销量:</b>本月上市车型暂无公开的小定/大定或销量数据。`;
   h+=`<div class="msum"><div class="t">当月小结</div>${line}</div><div class="grid">${mo.cars.map(cadCar).join("")}</div>`;
   return h;
 }
@@ -802,10 +814,38 @@ function cadCadence(d,key,showYW,members,lineupItems){
   return h;
 }
 function cadMount(d,key,showYW,members,host,lineupItems){host.innerHTML=cadCadence(d,key,showYW,members,lineupItems);
-  const has=MONTHS.filter(m=>d.months[m]&&d.months[m].cars.length);cadSelect(key,has.length?has[has.length-1]:1,showYW);}
+  const has=MONTHS.filter(m=>d.months[m]&&d.months[m].cars.length);
+  // 默认展示当月;当月无车则取最近的有车月份
+  const cur=new Date().getMonth()+1;
+  let pick=has.includes(cur)?cur:(has.filter(m=>m<=cur).pop()||has[0]||1);
+  cadSelect(key,pick,showYW);}
 
-function normModel(s){return String(s||"").replace(/\s+/g,"").toLowerCase();}
-function dedupeByModel(arr){const seen=new Set(),out=[];for(const x of arr){const k=normModel(x.model);if(k&&!seen.has(k)){seen.add(k);out.push(x);}}return out;}
+function normModel(s){
+  // 去空格/大小写,并剥掉括号注解(暂定)(YU9)等 —— "小米昆仑N3(暂定)"与"小米昆仑N3(YU9)"视为同一车
+  return String(s||"").replace(/[（(][^）)]*[）)]/g,"").replace(/[\s·・\-—_]+/g,"").toLowerCase();
+}
+// 同名车型取"信息更全"的那条:有价格/订单/备注/非预计者优先
+function modelScore(x){
+  let sc=0;
+  if(x.price&&!/暂无/.test(x.price))sc+=3;
+  if(x.orders&&!/暂无/.test(x.orders))sc+=3;
+  if(x.note)sc+=1;
+  if(!x.estimated)sc+=2;            // 已确定优于预计
+  if((x.sources||[]).length)sc+=1;
+  if(x.date)sc+=1;
+  return sc;
+}
+function dedupeByModel(arr){
+  const best=new Map();
+  for(const x of arr){
+    const k=normModel(x.model); if(!k)continue;
+    const p=best.get(k);
+    if(!p||modelScore(x)>modelScore(p))best.set(k,x);
+  }
+  // 保持原有顺序
+  const kept=new Set([...best.values()]);
+  return arr.filter(x=>kept.has(x));
+}
 // HI智驾 = 引望HI leaf + 传统/新势力里标记 hi 的华为乾崑车(两边都归)
 function hiCarsAll(){
   const ywHi=CAD.yinwang.cars.map(c=>({...c,yw:true})).filter(c=>ywGroupOf(c)==="hi");

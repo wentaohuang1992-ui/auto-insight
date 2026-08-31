@@ -8,6 +8,7 @@ import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listD
 import { genHeadlines, headlineChannels } from "./src/headlines.js";
 import { fetchReportLinks } from "./src/fin_reports.js";
 import { genReport, weeksOfMonth } from "./src/reports.js";
+import { fetchVendorQuarters, fetchAllVendors } from "./src/ds_fin.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -411,6 +412,51 @@ app.post("/api/downshift/chips", (req, res) => res.json({ ok: true, row: dsdb.ch
 app.put("/api/downshift/chips/:id", (req, res) => { const r = dsdb.chips.put(req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" }); res.json({ ok: true, row: r }); });
 app.delete("/api/downshift/chips/:id", (req, res) => res.json({ ok: dsdb.chips.del(req.params.id) }));
 app.put("/api/downshift/opinion", (req, res) => res.json({ ok: true, opinion: dsdb.setOpinion(req.body?.text || "") }));
+// 智能驾驶 / 智能座舱 厂商卡片
+app.post("/api/downshift/vendor/:kind", (req, res) => {
+  const k = req.params.kind; if (!["adas", "cockpit"].includes(k)) return res.status(400).json({ error: "kind 必须是 adas 或 cockpit" });
+  res.json({ ok: true, row: dsdb.vendorAdd(k, req.body || {}) });
+});
+app.put("/api/downshift/vendor/:kind/:id", (req, res) => {
+  const k = req.params.kind; if (!["adas", "cockpit"].includes(k)) return res.status(400).json({ error: "kind 必须是 adas 或 cockpit" });
+  const r = dsdb.vendorPut(k, req.params.id, req.body || {}); if (!r) return res.status(404).json({ error: "未找到" });
+  res.json({ ok: true, row: r });
+});
+app.delete("/api/downshift/vendor/:kind/:id", (req, res) => {
+  const k = req.params.kind; if (!["adas", "cockpit"].includes(k)) return res.status(400).json({ error: "kind 必须是 adas 或 cockpit" });
+  res.json({ ok: dsdb.vendorDel(k, req.params.id) });
+});
+// 供应商季度财务与出货量
+app.get("/api/downshift/quarters", (req, res) => {
+  try { const v = req.query.vendorId; res.json({ items: v ? dsdb.vendorQuarters(String(v)) : dsdb.allQuarters() }); } catch (e) { fail(res)(e); }
+});
+app.post("/api/downshift/quarters", (req, res) => {
+  const r = dsdb.upsertVendorQuarter(req.body || {}, { manual: true });
+  if (!r.ok) return res.status(400).json(r);
+  res.json(r);
+});
+app.delete("/api/downshift/quarters/:id", (req, res) => res.json({ ok: dsdb.delVendorQuarter(req.params.id) }));
+// 自动抓取供应商财务(复用东方财富 A股/港股源)
+app.post("/api/downshift/fin-fetch", (req, res) => {
+  const name = String((req.body && req.body.vendor) || "").trim();
+  const kind = String((req.body && req.body.kind) || "").trim();
+  const all = dsdb.getAll();
+  if (name) {
+    const v = [...(all.adas || []), ...(all.cockpit || [])].find((x) => x.id === name || x.name === name);
+    if (!v) return res.status(404).json({ error: "未知供应商:" + name });
+    const k = kind || ((all.adas || []).some((x) => x.id === v.id) ? "adas" : "cockpit");
+    return fetchVendorQuarters(v, k).then((r) => res.json(r)).catch(fail(res));
+  }
+  // 全量:异步跑,先返回
+  const jk = "ds-fin-all";
+  if (jobs[jk] && jobs[jk].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(jk); if (wait) return res.status(429).json({ error: `刚触发过,请 ${wait} 秒后再试` });
+  jobs[jk] = { status: "running", startedAt: Date.now() };
+  fetchAllVendors().then((r) => { jobs[jk] = { status: "done", finishedAt: Date.now(), ...r }; })
+    .catch((e) => { jobs[jk] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started" });
+});
+app.get("/api/downshift/fin-fetch/status", (req, res) => res.json(jobs["ds-fin-all"] || { status: "idle" }));
 app.post("/api/downshift/update", (req, res) => {
   const key = "ds-update";
   if (jobs[key] && jobs[key].status === "running") return res.json({ status: "running" });
