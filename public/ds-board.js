@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
-    const VER = "ds-v2";
+    const VER = "ds-v3";
     const old = document.getElementById("ds-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -12,8 +12,8 @@
     ${S} .feedbox{max-height:270px;overflow-y:auto;-webkit-overflow-scrolling:touch}
     ${S} .fsum{background:#F7F9FC;border:1px solid #E7EBF1;border-left:3px solid #E0A22B;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.7;color:#3D4759;margin-bottom:10px}
     ${S} .nfeed{list-style:none;margin:0;padding:0}
-    ${S} .nfeed li{display:flex;gap:18px;padding:16px 0;border-top:1px solid #EEF1F5}
-    ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
+    ${S} .nfeed li{display:flex;gap:18px;padding:18px 22px;border-bottom:1px solid #EEF1F5;border-top:0}
+    ${S} .nfeed li:last-child{border-bottom:0}
     ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;font-weight:600;color:#2E5BD8;flex:none;width:26px;padding-top:2px}
     ${S} .nfeed .ti{font-size:16px;font-weight:700;color:#1B2230;letter-spacing:-.2px;margin-bottom:5px}
     ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
@@ -62,6 +62,9 @@
     ${S} .op .h .b{font-size:10px;font-weight:600;color:#64748B;background:#F4F6FA;border:1px solid var(--line,#E2E8F0);padding:2px 7px;border-radius:5px}
     ${S} .op p{font-size:13px;color:#3A434F;line-height:1.8;white-space:pre-wrap}
     ${S} .card{background:#fff;border:1px solid var(--line,#E2E8F0);border-radius:14px;overflow:hidden;margin-bottom:16px}
+    ${S} .cb{padding:14px 15px}
+    ${S} .cb.nopad{padding:0}
+    ${S} .cb.nopad .fsum{margin:14px 15px 0}
     ${S} .ch{padding:12px 15px;border-bottom:1px solid #EEF1F5;font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center}
     ${S} .ch .n{font-size:11px;font-weight:400;color:#64748B;margin-left:auto}
     ${S} table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -202,7 +205,7 @@
         <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
       </div></li>`).join("") + `</ul>`
       : `<div class="empty">近 7 天暂无${kind === "cockpit" ? "座舱" : "智驾"}相关要闻。点右上「↻ AI 更新」抓取。</div>`;
-    return `<div class="card"><div class="ch">今日要闻</div><div class="cb">${head}<div class="feedbox">${items}</div></div></div>`;
+    return `<div class="card"><div class="ch">今日要闻</div><div class="cb nopad">${head}<div class="feedbox">${items}</div></div></div>`;
   }
 
 

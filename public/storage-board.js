@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-storage";
   function injectStyle() {
-    const VER = "st-v2";
+    const VER = "st-v3";
     const old = document.getElementById("storage-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -23,6 +23,7 @@
     ${S} .ch{padding:12px 15px;border-bottom:1px solid #EEF1F5;font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center}
     ${S} .ch .n{font-size:11px;font-weight:400;color:#64748B;margin-left:auto;display:flex;gap:6px;align-items:center}
     ${S} .cb{padding:14px 15px}
+    ${S} .cb.nopad{padding:0}
     ${S} .legend{display:flex;gap:18px;align-items:center;font-size:12px;color:#3A434F;margin-bottom:6px}
     ${S} .legend i{display:inline-block;width:22px;height:0;vertical-align:middle;margin-right:6px}
     ${S} .legend .c{border-top:3px solid #15307A}${S} .legend .s{border-top:3px dashed #B5710E}
@@ -41,8 +42,8 @@
     ${S} .empty{background:#fff;border:1px dashed var(--line,#E2E8F0);border-radius:12px;padding:22px;text-align:center;color:#64748B;font-size:13px}
 
     ${S} .nfeed{list-style:none;margin:0;padding:0}
-    ${S} .nfeed li{display:flex;gap:18px;padding:16px 0;border-top:1px solid #EEF1F5}
-    ${S} .nfeed li:first-child{border-top:0;padding-top:4px}
+    ${S} .nfeed li{display:flex;gap:18px;padding:18px 22px;border-bottom:1px solid #EEF1F5;border-top:0}
+    ${S} .nfeed li:last-child{border-bottom:0}
     ${S} .nfeed .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;font-weight:600;color:#2E5BD8;flex:none;width:26px;padding-top:2px}
     ${S} .nfeed .ti{font-size:16px;font-weight:700;color:#1B2230;letter-spacing:-.2px;margin-bottom:5px}
     ${S} .nfeed .ti a{color:#1B2230;text-decoration:none}
@@ -115,7 +116,7 @@
         <div class="cb"><div class="legend"><span><i class="c"></i>合约价(Contract)</span><span><i class="s"></i>现货价(Spot)</span></div>${lineChart(c.labels || [], ct, sp)}<div class="src"><b>数据来源:</b> ${ESC(c.source || "—")}</div></div></div>
       <div class="card"><div class="ch">容量细分 · 当前价与环比<span class="n"><button class="mini" onclick="STORAGEBOARD.editCap('${c.id}','__new__')">＋ 新增</button></span></div>
         <div class="scroll"><table><thead><tr><th>容量规格</th><th>合约价</th><th>合约环比</th><th>现货价</th><th>现货环比</th><th>价差</th><th></th></tr></thead><tbody>${caps || `<tr><td colspan="7" style="color:#64748B;padding:14px">暂无</td></tr>`}</tbody></table></div></div>
-      <div class="card"><div class="ch">热点新闻</div><div class="cb">${feed}</div></div>`;
+      <div class="card"><div class="ch">热点新闻</div><div class="cb nopad">${feed}</div></div>`;
   }
 
   // 弹窗
