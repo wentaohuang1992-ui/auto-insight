@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
-    const VER = "ds-v3";
+    const VER = "ds-v4";
     const old = document.getElementById("ds-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -11,6 +11,16 @@
 
     ${S} .feedbox{max-height:270px;overflow-y:auto;-webkit-overflow-scrolling:touch}
     ${S} .fsum{background:#F7F9FC;border:1px solid #E7EBF1;border-left:3px solid #E0A22B;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.7;color:#3D4759;margin-bottom:10px}
+    ${S} .dynbox{max-height:196px;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid #EEF1F5;border-radius:8px}
+    ${S} .dynlist{list-style:none;margin:0;padding:0}
+    ${S} .dynlist li{padding:9px 12px;border-top:1px solid #F1F4F8}
+    ${S} .dynlist li:first-child{border-top:0}
+    ${S} .dynlist .dt{font-size:13.5px;font-weight:600;color:#1B2230;line-height:1.5}
+    ${S} .dynlist .dt a{color:#1B2230;text-decoration:none}
+    ${S} .dynlist .dt a:hover{color:#2E5BD8}
+    ${S} .dynlist .dm{font-size:11px;color:#94A3B8;margin-top:3px}
+    ${S} .dynlist .dm a{color:#2E5BD8;text-decoration:none}
+    ${S} .dynempty{font-size:12.5px;color:#94A3B8;padding:4px 0}
     ${S} .nfeed{list-style:none;margin:0;padding:0}
     ${S} .nfeed li{display:flex;gap:18px;padding:18px 22px;border-bottom:1px solid #EEF1F5;border-top:0}
     ${S} .nfeed li:last-child{border-bottom:0}
@@ -179,10 +189,24 @@
     ] : [["营业收入", v.revenue], ["毛利率", v.grossMargin], ["归母净利", v.netProfit], ["研发投入", v.rd], ["融资/上市", v.funding]];
     const ovHtml = ov.map(([k, x]) => `<div class="row"><span class="k">${k}</span><span class="v ${x ? "" : "na"}">${x ? ESC(String(x)) : "待补"}</span></div>`).join("");
     const ovTag = q0 ? `<span class="vunit">${q0.year}Q${q0.q} · 自动抓取</span>` : `<span class="vunit">尚无季度数据,点下方「↻ 抓取」</span>`;
+    // 公司动态:近 7 天里提到该供应商的新闻(标题/摘要含公司名或别名),限 5 条可滚动
+    const alias = (v.name || "").replace(/\s*[（(].*?[)）]\s*/g, "").split(/[\/、]/).map(s => s.trim()).filter(Boolean);
+    const cut7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    const hits = (RAW.feed || []).filter(x => {
+      if (x.date && x.date < cut7) return false;
+      const t = `${x.title || ""}${x.insight || ""}`;
+      return alias.some(a => a.length > 1 && t.includes(a));
+    }).sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 8);
+    const dyn = `<div class="vsec"><div class="vst">公司动态<span class="vunit">近 7 天</span></div>
+      ${hits.length ? `<div class="dynbox"><ul class="dynlist">${hits.map(x => `<li>
+          <div class="dt">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
+          <div class="dm">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? " · " : ""}${ESC(x.date)}` : ""}${x.url ? ` · <a href="${ESC(x.url)}" target="_blank" rel="noopener">原文 ↗</a>` : ""}</div>
+        </li>`).join("")}</ul></div>` : `<div class="dynempty">近 7 天暂无该公司相关新闻。点右上「↻ AI 更新」抓取最新动向。</div>`}</div>`;
     return bar + `<div class="card vpage">
       <div class="vh"><span class="vn">${ESC(v.name)}</span>${v.tag ? `<span class="vt">${ESC(v.tag)}</span>` : ""}<span class="vl">${ESC(v.listed || "")}</span>
         <button class="mini" style="margin-left:auto" onclick="DSBOARD.editVendor('${kind}','${v.id}')">✎ 编辑</button>
         <button class="mini" onclick="DSBOARD.addVendor('${kind}')">＋ 新增厂商</button></div>
+      ${dyn}
       <div class="vsec"><div class="vst">业务分析</div>${biz}</div>
       <div class="vsec"><div class="vst">财务概览${ovTag}</div>${ovHtml}</div>
       ${qtbl(v, kind)}
