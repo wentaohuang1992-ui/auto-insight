@@ -1,16 +1,17 @@
 // 新闻 AI 摘要:抓原文正文 → DeepSeek 归纳要点。结果按 URL 缓存,同一条只生成一次。
 import { fetchWithTimeout } from "./http.js";
 import { chatJSON } from "./llm.js";
-import { bochaSearch } from "./search.js";
+import { responsesWebSearch } from "./ds_search.js";
 
 /** 第二来源:阅读器代理。它会真正渲染页面(含 JS)并返回干净正文,能解决脚本渲染与多数反爬。 */
 async function fetchViaReader(url) {
   // r.jina.ai 直接在原链接前加前缀即可;可用 READER_PREFIX 换成自建/其他服务
+  // 免密钥调用近来常被限流(403),设 JINA_API_KEY 后额度与成功率明显提高
   const prefix = process.env.READER_PREFIX || "https://r.jina.ai/";
-  const r = await fetchWithTimeout(prefix + url, {
-    headers: { "Accept": "text/plain", "User-Agent": "auto-insight/1.0", "X-Return-Format": "text" },
-  }, 25000);
-  if (!r.ok) throw new Error(`阅读器 HTTP ${r.status}`);
+  const headers = { "Accept": "text/plain", "User-Agent": "auto-insight/1.0", "X-Return-Format": "text" };
+  if (process.env.JINA_API_KEY) headers.Authorization = `Bearer ${process.env.JINA_API_KEY}`;
+  const r = await fetchWithTimeout(prefix + url, { headers }, 25000);
+  if (!r.ok) throw new Error(`阅读器 HTTP ${r.status}${r.status === 403 ? "(未配置 JINA_API_KEY 或已限流)" : ""}`);
   let t = await r.text();
   // 去掉阅读器自带的头部元信息(Title:/URL Source:/Markdown Content: 等)
   t = t.replace(/^(Title|URL Source|Published Time|Markdown Content|Warning):.*$/gim, "")
@@ -33,19 +34,18 @@ async function fetchViaArchive(url) {
   return await fetchArticleText(snap.url);
 }
 
-/** 第四来源:搜索引擎返回的正文摘要(博查带 summary 字段) */
-async function fetchViaSearch(url, title) {
-  if (!title) return "";
-  const rs = await bochaSearch(title, { count: 6 });
-  const host = (() => { try { return new URL(url).host; } catch (_) { return ""; } })();
-  const norm = (s) => String(s || "").replace(/\s|【|】|"|"/g, "");
-  const key = norm(title).slice(0, 14);
-  const hit = rs.find((x) => x.url === url)
-    || rs.find((x) => host && String(x.url || "").includes(host) && norm(x.title).includes(key))
-    || rs.find((x) => norm(x.title).includes(key));
-  if (!hit) return "";
-  const body = [hit.summary, hit.snippet].filter(Boolean).join("\n");
-  return body.length > 150 ? body.slice(0, 4000) : "";
+/** 第四来源:DeepSeek 原生联网检索。让模型自己去读这条新闻,返回正文要点(不依赖博查额度)。 */
+async function fetchViaDeepSeek(url, title) {
+  const instr = "你是新闻资料整理助手。请联网打开给定链接(或检索同一条新闻的可靠来源),读取正文后,把正文的关键事实原样整理出来:时间、主体、数字、事件经过、各方表态。只输出事实,不要评论、不要总结成结论、不要编造。若确实找不到该新闻,只回复:NOTFOUND";
+  const input = `链接:${url}\n标题:${title || "(无)"}\n请读取这条新闻的正文内容。`;
+  const r = await responsesWebSearch(instr, input, { timeoutMs: 90000 });
+  const t = String(r?.text || "").trim();
+  if (!t || /^NOTFOUND/i.test(t)) throw new Error("联网检索未找到该新闻");
+  // 把检索到的证据片段一并带上,信息更全
+  const ev = Array.isArray(r.evidence) ? r.evidence.join("\n").slice(0, 2000) : "";
+  const merged = (t + (ev ? "\n" + ev : "")).slice(0, 6000);
+  if (merged.length < 160) throw new Error("联网检索内容过短");
+  return merged;
 }
 
 /** 抓网页并粗提正文。失败时抛出带原因的错误,便于上层区分处理。 */
@@ -85,7 +85,7 @@ async function fetchArticleText(url) {
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .split("\n").map((s) => s.trim()).filter((s) => s.length > 12)
     .join("\n");
-  if (text.length < 200) throw new Error("正文过短或为脚本渲染");
+  if (text.length < 160) throw new Error("正文过短或为脚本渲染");
   return text.slice(0, 6000);
 }
 
@@ -98,20 +98,27 @@ export async function summarizeArticle({ url, title = "", hint = "" }) {
   // 四级取正文:原文直抓 → 阅读器代理(可渲染JS) → 档案馆快照 → 搜索正文摘要
   const tiers = [
     ["原文", () => fetchArticleText(url)],
+    ["联网检索", () => fetchViaDeepSeek(url, title)],   // DeepSeek 自带联网,不依赖第三方搜索额度
     ["阅读器", () => fetchViaReader(url)],
     ["历史快照", () => fetchViaArchive(url)],
-    ["搜索正文", () => fetchViaSearch(url, title)],
   ];
   let text = "", source = "";
   const tried = [];
   for (const [name, fn] of tiers) {
     try {
       const t = await fn();
-      if (t && t.length >= 200) { text = t; source = name; break; }
+      if (t && t.length >= 160) { text = t; source = name; break; }
       tried.push(`${name}:内容过短`);
     } catch (e) { tried.push(`${name}:${e.message}`); }
   }
-  if (!text) throw new Error(`四种途径都未取到正文,已跳过摘要生成 · ${tried.join(" / ")}`);
+  if (!text) {
+    const joined = tried.join(" / ");
+    // 额度/欠费类错误单独点明 —— 这类不是代码问题,改代码也没用
+    if (/enough money|package quota|余额|欠费|quota/i.test(joined)) {
+      throw new Error(`搜索服务额度已用尽,同时原文与阅读器均不可读,无法生成摘要。请先为博查搜索账户充值/续费。\n明细:${joined}`);
+    }
+    throw new Error(`四种途径都未取到正文,已跳过摘要生成 · ${joined}`);
+  }
 
   const prompt = `请阅读下面的新闻内容,写一份中文摘要。要求:① summary 用 3-4 句话概括核心事实(谁、做了什么、关键数字、影响);② points 给 3-5 条要点,每条一句话,尽量含具体数字或名称;③ 只用下面内容中出现的信息,不得编造;内容里没有的数字一律不写;④ 用你自己的话概括,不要整段照抄原文。
 标题:${title}

@@ -10,6 +10,7 @@ import { fetchReportLinks } from "./src/fin_reports.js";
 import { genReport, weeksOfMonth } from "./src/reports.js";
 import { fetchVendorQuarters, fetchAllVendors } from "./src/ds_fin.js";
 import { summarizeArticle } from "./src/summarize.js";
+import { searchQuotaState } from "./src/search.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -573,8 +574,10 @@ app.get("/api/refresh/status", (req, res) => {
 app.get("/api/health", (req, res) => {
   const locked = lockedStores();
   const upSec = process.uptime();
+  const quota = searchQuotaState();
   const failLimit = Math.min(50, Math.max(1, Number(req.query?.failures) || 10));
   res.json({
+    searchQuota: quota.exhausted ? { ok: false, note: "博查搜索额度已用尽,日报/要闻/摘要都会受影响,请充值或续费", at: new Date(quota.at).toISOString() } : { ok: true },
     ok: locked.length === 0,
     model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
     search: "bocha",
