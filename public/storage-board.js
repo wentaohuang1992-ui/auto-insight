@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-storage";
   function injectStyle() {
-    const VER = "st-v3";
+    const VER = "st-v4";
     const old = document.getElementById("storage-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -67,7 +67,7 @@
   const f2 = (v) => v == null || isNaN(v) ? "—" : (+v).toFixed(2);
 
   let RAW = null, K = null;
-  function render(d) { injectStyle(); RAW = d; if (!K || !(d.categories || []).some(c => c.id === K)) K = (d.categories[0] || {}).id; return html(); }
+  function render(d) { injectStyle(); RAW = d; const cs = d.categories || []; if (!K || !cs.some(c => c.id === K)) K = (cs[0] || {}).id; return html(); }
   function rerender() { const el = document.querySelector(S); if (el) el.innerHTML = html(); }
   window.STORAGEBOARD = { render, rerender };
 
@@ -108,7 +108,7 @@
     const feed = (RAW.feed || []).length ? `<ul class="nfeed">` + RAW.feed.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
         <div class="ti">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
         ${x.insight ? `<div class="sm">${ESC(x.insight)}</div>` : ""}
-        <div class="meta">${ESC(kn[x.source] || x.source || "")}${x.date ? `<span>·</span>${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
+        <div class="meta">${ESC(kn[x.source] || x.source || "")}${x.date ? `<span>·</span>${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}${x.url && window.aiSumBtn ? window.aiSumBtn(x.url, x.title, x.insight) : ""}</div>
       </div></li>`).join("") + `</ul>`
       : `<div class="empty">暂无新闻。点右上"↻ AI 更新情报"抓取最新动向。</div>`;
     return tabs + op + kpis + `

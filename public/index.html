@@ -106,6 +106,26 @@
   .archive .lab{font-family:var(--sans);font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:10px}
   .archive .chips{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
   .archsel{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);background:#fff;border:1px solid var(--line-2);border-radius:7px;padding:7px 10px;cursor:pointer;max-width:170px}
+  /* AI 摘要弹窗(全站共用) */
+  .ais-scrim{position:fixed;inset:0;background:rgba(11,18,32,.5);display:none;align-items:center;justify-content:center;z-index:9998;padding:18px}
+  .ais-scrim.on{display:flex}
+  .ais-box{background:var(--card);border-radius:12px;max-width:560px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(11,18,32,.28)}
+  .ais-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .ais-t{font-size:14.5px;font-weight:700;color:var(--ink);line-height:1.5;flex:1}
+  .ais-x{appearance:none;border:0;background:none;font-size:17px;color:var(--muted);cursor:pointer;padding:0 2px;line-height:1}
+  .ais-body{padding:16px 18px;overflow-y:auto}
+  .aisl{font-size:13px;color:var(--muted)}
+  .aist{font-size:11.5px;color:#B0B8C4;margin-top:5px}
+  .aisw{font-size:12px;color:var(--signal);background:#FFFBF2;border:1px solid #F0E2C4;border-radius:7px;padding:7px 10px;margin-bottom:10px}
+  .aistx{font-size:13.5px;line-height:1.8;color:var(--ink-2)}
+  .aisp{margin:10px 0 0;padding-left:18px}
+  .aisp li{font-size:13px;line-height:1.75;color:var(--ink-2);margin-bottom:4px}
+  .aisf{margin-top:14px;padding-top:11px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .aisf a{color:var(--brand-2);text-decoration:none;margin-left:auto}
+  .aisrf{appearance:none;border:1px solid var(--line-2);background:#fff;border-radius:6px;padding:3px 9px;font-family:var(--sans);font-size:11.5px;color:var(--ink-2);cursor:pointer}
+  .aisrf:hover{border-color:var(--amber);color:var(--signal)}
+  .aisbtn{appearance:none;border:0;background:none;padding:0;cursor:pointer;font-family:var(--sans);font-size:11.5px;color:var(--signal);font-weight:600}
+  .aisbtn:hover{text-decoration:underline}
   .archcnt{font-size:11.5px;color:var(--muted)}
   .mtbar{display:flex;align-items:center;gap:9px}
   .mtbar::before{content:"";width:3px;height:15px;background:var(--amber);border-radius:1px;flex:none}
@@ -478,10 +498,10 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260901064749"></script>
-<script src="/fin-board.js?v=20260901064749"></script>
-<script src="/ds-board.js?v=20260901064749"></script>
-<script src="/storage-board.js?v=20260901064749"></script>
+<script src="/api-auth.js?v=20260901072539"></script>
+<script src="/fin-board.js?v=20260901072539"></script>
+<script src="/ds-board.js?v=20260901072539"></script>
+<script src="/storage-board.js?v=20260901072539"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -524,7 +544,7 @@ function renderNews(d){const items=(d&&d.items)||[];
     <li onclick='openDetail("news",${i})'><span class="no">${String(i+1).padStart(2,"0")}</span>
       <div class="ct"><div class="ti">${esc(it.title)}</div><div class="sm">${esc(it.summary)}</div>
         <div class="meta">${esc(it.source||host(it.url))}<span>·</span>${esc(it.time||"")}
-        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">查看原文 ↗</a>`:""}</div>
+        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">查看原文 ↗</a>`:""}${aiSumBtn(it.url,it.title,it.summary)}</div>
       </div></li>`).join("")+`</ul>`;
   return h;}
 
@@ -555,7 +575,7 @@ function renderHeadlines(d){
     <li class="nostatic"><span class="no">${String(i+1).padStart(2,"0")}</span>
       <div class="ct"><div class="ti">${esc(it.title)}</div><div class="sm">${esc(it.summary||"")}</div>
         <div class="meta">${esc(it.source||host(it.url))}<span>·</span>${esc(it.time||"")}
-        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener">查看原文 ↗</a>`:""}</div>
+        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener">查看原文 ↗</a>`:""}${aiSumBtn(it.url,it.title,it.summary)}</div>
       </div></li>`).join("")+`</ul></div>`;
   return h;
 }
@@ -741,6 +761,49 @@ document.getElementById("back-today").onclick=()=>loadSection("news");
 
 // 详情弹窗
 const scrim=document.getElementById("scrim");
+// —— 新闻 AI 摘要(全站共用):独立弹窗,先查缓存,没有再生成 ——
+// 各看板(ds/storage)与本页的新闻列表都调用 window.aiSummary(url, title, hint)
+window.aiSummary=async function(u,t,h,force){
+  const url=decodeURIComponent(u||""),title=decodeURIComponent(t||""),hint=decodeURIComponent(h||"");
+  if(!/^https?:\/\//i.test(url)){alert("该条没有可用的原文链接");return;}
+  const box=document.getElementById("ai-sum");
+  const body=document.getElementById("ai-sum-body");
+  document.getElementById("ai-sum-title").textContent=title||"AI 摘要";
+  box.classList.add("on");
+  body.innerHTML=`<div class="aisl">正在读取原文并生成摘要…<div class="aist">首次生成约需 10-30 秒;之后再看是即时的。</div></div>`;
+  const draw=(d)=>{
+    const stale=d.degraded;   // 旧版按标题生成的,标出来并允许重新生成
+    body.innerHTML=`${stale?`<div class="aisw">这是旧版按标题生成的说明,建议重新生成</div>`:""}
+      <div class="aistx">${esc(d.summary||"")}</div>
+      ${(d.points||[]).length?`<ul class="aisp">${d.points.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      <div class="aisf">${d.source?`依据:${esc(d.source)}`:""}
+        <button class="aisrf" onclick="aiSummary('${encodeURIComponent(url)}','${encodeURIComponent(title)}','${encodeURIComponent(hint)}',1)">↻ 重新生成</button>
+        <a href="${esc(url)}" target="_blank" rel="noopener">查看原文 ↗</a></div>`;
+  };
+  try{
+    if(!force){
+      const r=await fetch("/api/summary?url="+encodeURIComponent(url));
+      if(r.ok){const d=await r.json();
+        if(!d.degraded){draw(d);return;}      // 旧版标题摘要不直接用,自动重新生成
+      }
+    }
+    const r2=await fetch("/api/summary",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({url,title,hint,force:true})});
+    const d=await r2.json();
+    if(!r2.ok)throw new Error(d.error||"生成失败");
+    draw(d);
+  }catch(e){
+    body.innerHTML=`<div class="aisw">摘要生成失败</div><div class="aistx">${esc(e.message||"网络异常")}</div>
+      <div class="aisf"><a href="${esc(url)}" target="_blank" rel="noopener">直接查看原文 ↗</a></div>`;
+  }
+};
+window.closeAiSum=function(){document.getElementById("ai-sum").classList.remove("on");};
+// 供列表复用的按钮片段
+window.aiSumBtn=function(url,title,hint){
+  if(!url)return "";
+  return `<span>·</span><button class="aisbtn" onclick="event.stopPropagation();aiSummary('${encodeURIComponent(url)}','${encodeURIComponent(title||"")}','${encodeURIComponent(hint||"")}')">✨ AI 摘要</button>`;
+};
+
 function closeModal(){scrim.classList.remove("on");}
 document.getElementById("m-close").onclick=closeModal;
 scrim.onclick=e=>{if(e.target===scrim)closeModal();};
@@ -1156,7 +1219,7 @@ function renderStorage(d){
     <li class="nostatic"><span class="tcat ${typeClass(it.type)}">${esc(it.type||"新闻")}</span>
       <div class="ct"><div class="ti">${esc(it.title)}</div><div class="sm">${esc(it.summary||"")}</div>
         <div class="meta">${esc(it.source||host(it.url))}<span>·</span>${esc(it.date||"")}
-        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener">查看原文 ↗</a>`:""}</div>
+        ${it.url?`<span>·</span><a href="${esc(it.url)}" target="_blank" rel="noopener">查看原文 ↗</a>`:""}${aiSumBtn(it.url,it.title,it.summary)}</div>
       </div></li>`).join("")+`</ul>`;
   return h;
 }
@@ -1206,5 +1269,13 @@ async function loadTopNews(){
 
 loaded.news=true;loadSection("news");loadTopNews();
 </script>
+
+  <div class="ais-scrim" id="ai-sum" onclick="if(event.target===this)closeAiSum()">
+    <div class="ais-box" role="dialog" aria-modal="true">
+      <div class="ais-head"><div class="ais-t" id="ai-sum-title">AI 摘要</div>
+        <button class="ais-x" onclick="closeAiSum()" aria-label="关闭">✕</button></div>
+      <div class="ais-body" id="ai-sum-body"></div>
+    </div>
+  </div>
 </body>
 </html>

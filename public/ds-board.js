@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
-    const VER = "ds-v8";
+    const VER = "ds-v9";
     const old = document.getElementById("ds-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -214,7 +214,7 @@
     const dyn = `<div class="vsec"><div class="vst">公司动态<span class="vunit">近 7 天</span></div>
       ${hits.length ? `<div class="dynbox"><ul class="dynlist">${hits.map(x => `<li>
           <div class="dt">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
-          <div class="dm">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? " · " : ""}${ESC(x.date)}` : ""}${x.url ? ` · <a href="${ESC(x.url)}" target="_blank" rel="noopener">原文 ↗</a>` : ""}</div>
+          <div class="dm">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? " · " : ""}${ESC(x.date)}` : ""}${x.url ? ` · <a href="${ESC(x.url)}" target="_blank" rel="noopener">原文 ↗</a>${window.aiSumBtn ? " " + window.aiSumBtn(x.url, x.title, x.insight) : ""}` : ""}</div>
         </li>`).join("")}</ul></div>` : `<div class="dynempty">近 7 天暂无该公司相关新闻。点右上「↻ AI 更新」抓取最新动向。</div>`}</div>`;
     return bar + `<div class="card vpage">
       <div class="vh"><span class="vn">${ESC(v.name)}</span>${v.tag ? `<span class="vt">${ESC(v.tag)}</span>` : ""}<span class="vl">${ESC(v.listed || "")}</span>
@@ -240,7 +240,7 @@
     const items = fresh.length ? `<ul class="nfeed">` + fresh.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
         <div class="ti">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
         ${x.insight ? `<div class="sm">${ESC(x.insight)}</div>` : ""}
-        <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}${x.url ? `<span>·</span><button class="sumbtn" onclick="DSBOARD.summarize(this,'${encodeURIComponent(x.url)}','${encodeURIComponent(x.title || "")}','${encodeURIComponent(x.insight || "")}')">✨ AI 摘要</button>` : ""}</div>
+        <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}${x.url && window.aiSumBtn ? window.aiSumBtn(x.url, x.title, x.insight) : ""}</div>
       </div></li>`).join("") + `</ul>`
       : `<div class="empty">近 7 天暂无${kind === "cockpit" ? "座舱" : "智驾"}相关要闻。点右上「↻ AI 更新」抓取。</div>`;
     return `<div class="card"><div class="ch">今日要闻</div><div class="cb nopad">${head}<div class="feedbox">${items}</div></div></div>`;
@@ -299,30 +299,6 @@
           else { const s = Math.round((Date.now() - t0) / 1000); btn.textContent = st.total ? `抓取中 ${st.done || 0}/${st.total}…${s}s` : `抓取中…${s}s`; }
         }, 4000);
       } catch (e) { alert(e.message); reset(); }
-    },
-    // 新闻 AI 摘要:独立弹窗展示(先查缓存,没有再生成)
-    async summarize(btn, u, t, h) {
-      const url = decodeURIComponent(u), title = decodeURIComponent(t), hint = decodeURIComponent(h);
-      openM("AI 摘要", `<div class="sumhead">${ESC(title)}</div><div id="ds-sumbody"><div class="sumload">正在读取原文并生成摘要…<br><span class="sumtip">首次生成约需 10-30 秒,之后再看是即时的。</span></div></div>`, null, "");
-      const save = document.getElementById("ds-save"); if (save) save.style.display = "none";
-      const body = document.getElementById("ds-sumbody");
-      const draw = (d) => {
-        body.innerHTML = `<div class="sumtxt">${ESC(d.summary || "")}</div>
-          ${(d.points || []).length ? `<ul class="sumpts">${d.points.map(x => `<li>${ESC(x)}</li>`).join("")}</ul>` : ""}
-          <div class="sumfoot">${d.source ? `依据:${ESC(d.source)}` : ""}
-            <a href="${ESC(url)}" target="_blank" rel="noopener">查看原文 ↗</a></div>`;
-      };
-      try {
-        let r = await fetch("/api/summary?url=" + encodeURIComponent(url));
-        if (r.ok) { draw(await r.json()); return; }
-        r = await fetch("/api/summary", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url, title, hint }) });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "生成失败");
-        draw(d);
-      } catch (e) {
-        body.innerHTML = `<div class="sumwarn">摘要生成失败</div><div class="sumtxt">${ESC(e.message || "网络异常")}</div>
-          <div class="sumfoot"><a href="${ESC(url)}" target="_blank" rel="noopener">直接查看原文 ↗</a></div>`;
-      }
     },
     pickVendor(kind, id) { VSEL[kind] = id; rerender(); },
     addQ(kind, vendorId) { qForm(kind, vendorId, null); },

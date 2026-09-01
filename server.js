@@ -121,10 +121,11 @@ app.get("/api/summary", (req, res) => {
   res.json(c);
 });
 app.post("/api/summary", apiGuard, (req, res) => {
-  const { url, title, hint } = req.body || {};
+  const { url, title, hint, force } = req.body || {};
   if (!url) return res.status(400).json({ error: "缺少 url" });
   const c = getSummary(url);
-  if (c) return res.json(c);
+  // 旧版按标题生成的(带 degraded 标记)一律重做;force 时也重做
+  if (c && !force && !c.degraded) return res.json(c);
   summarizeArticle({ url, title, hint })
     .then((d) => { saveSummary(url, d); res.json(d); })
     .catch(fail(res));
