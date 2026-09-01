@@ -119,11 +119,8 @@
   .aisw{font-size:12px;color:var(--signal);background:#FFFBF2;border:1px solid #F0E2C4;border-radius:7px;padding:7px 10px;margin-bottom:10px}
   .aistx{font-size:13.5px;line-height:1.8;color:var(--ink-2)}
   .aisp{margin:10px 0 0;padding-left:18px}
-  .aisp li{font-size:13px;line-height:1.75;color:var(--ink-2);margin-bottom:4px}
-  .aisg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
-  .aisgi{background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-  .aisgi .k{display:block;font-size:11px;color:var(--muted)}
-  .aisgi .v{display:block;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink);margin-top:2px;letter-spacing:-.3px}
+  .aisp li{font-size:13.5px;line-height:1.85;color:var(--ink-2);margin-bottom:10px}
+  .aisp li:last-child{margin-bottom:0}
   .aish{font-size:12px;font-weight:700;color:var(--brand);margin:14px 0 6px;display:flex;align-items:center;gap:7px}
   .aish::before{content:"";width:3px;height:12px;background:var(--amber);border-radius:1px}
   .aisi{margin-top:12px;background:#FFFBF2;border:1px solid #F0E2C4;border-left:3px solid var(--amber);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.7;color:var(--ink-2)}
@@ -507,10 +504,10 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260901135708"></script>
-<script src="/fin-board.js?v=20260901135708"></script>
-<script src="/ds-board.js?v=20260901135708"></script>
-<script src="/storage-board.js?v=20260901135708"></script>
+<script src="/api-auth.js?v=20260901140557"></script>
+<script src="/fin-board.js?v=20260901140557"></script>
+<script src="/ds-board.js?v=20260901140557"></script>
+<script src="/storage-board.js?v=20260901140557"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -783,11 +780,9 @@ window.aiSummary=async function(u,t,h,force){
   box.classList.add("on");
   body.innerHTML=`<div class="aisl">正在读取原文并生成摘要…<div class="aist">首次生成约需 10-30 秒;之后再看是即时的。</div></div>`;
   const draw=(d)=>{
-    const stale=d.degraded||(!d.facts&&!d.impact&&(d.points||[]).length<3); // 旧版或过简的,提示可重做
-    const facts=(d.facts||[]).filter(x=>x&&x.k&&x.v);
+    const stale=d.degraded||(!d.impact&&(d.points||[]).length<3); // 旧版或过简的,提示可重做
     body.innerHTML=`${stale?`<div class="aisw">这是旧版摘要,信息较简略,可点「重新生成」获取结构化版本</div>`:""}
       <div class="aistx">${esc(d.summary||"")}</div>
-      ${facts.length?`<div class="aisg">${facts.map(x=>`<div class="aisgi"><span class="k">${esc(x.k)}</span><span class="v">${esc(x.v)}</span></div>`).join("")}</div>`:""}
       ${(d.points||[]).length?`<div class="aish">要点</div><ul class="aisp">${d.points.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
       ${d.impact?`<div class="aisi"><span class="t">影响</span>${esc(d.impact)}</div>`:""}
       <div class="aisf">${d.source?`依据:${esc(d.source)}`:""}${d.timings?`<span class="aisms">取正文 ${(d.timings.fetchMs/1000).toFixed(1)}s · 生成 ${(d.timings.genMs/1000).toFixed(1)}s</span>`:""}

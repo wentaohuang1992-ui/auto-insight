@@ -38,7 +38,7 @@ async function fetchViaArchive(url) {
 async function fetchViaDeepSeek(url, title) {
   const instr = "你是新闻资料整理助手。请联网打开给定链接(或检索同一条新闻的可靠来源),读取正文后,把正文里的事实**尽量完整**地列出来:发生时间、涉及主体、**所有出现过的数字(销量/金额/同比环比/份额/排名/日期)**、事件经过、各方原话表态、背景与对比。宁可多列也不要漏,每条一行。只输出事实,不要评论、不要下结论、不要编造。若确实找不到该新闻,只回复:NOTFOUND";
   const input = `链接:${url}\n标题:${title || "(无)"}\n请读取这条新闻的正文内容。`;
-  const r = await responsesWebSearch(instr, input, { timeoutMs: 45000 });
+  const r = await responsesWebSearch(instr, input, { timeoutMs: 20000 });
   const t = String(r?.text || "").trim();
   if (!t || /^NOTFOUND/i.test(t)) throw new Error("联网检索未找到该新闻");
   // 把检索到的证据片段一并带上,信息更全
@@ -131,23 +131,22 @@ export async function summarizeArticle({ url, title = "", hint = "" }) {
     throw new Error(`四种途径都未取到正文,已跳过摘要生成 · ${joined}`);
   }
 
-  const prompt = `阅读下面的新闻内容,输出结构化中文摘要。严格只用内容中出现的信息,不得编造;内容里没有的字段留空或省略。
+  const prompt = `阅读下面的新闻内容,写一份中文摘要。严格只用内容中出现的信息,不得编造。
 
 要求:
-1. summary:3-4 句话讲清楚这件事 —— 谁、在什么时间、做了什么、关键数字、目前进展。
-2. facts:把内容里出现的**具体数据**逐条抽出来,每条 {"k":"指标名","v":"数值(含单位)"};
-   例如 {"k":"5月销量","v":"38.35万辆"}、{"k":"出口","v":"18.19万辆"}、{"k":"同比","v":"+21.8%"}。
-   有几条抽几条,尽量抽全(4-8 条);一个数字都没有就给空数组。
-3. points:4-6 条要点,每条一句完整的话(20-45 字),覆盖不同侧面(格局/原因/对比/进展/表态),不要与 summary 重复措辞。
-4. impact:一句话说明这件事对行业或相关公司意味着什么(只在内容里有依据时写,否则留空)。
-5. 用你自己的话组织,不要整段照抄原文。
+1. summary:3-4 句话讲清楚这件事 —— 谁、什么时间、做了什么、关键数字、目前进展。
+2. points:**3-4 条**要点,每条是**2-3 句连贯的话(60-110 字)**,把数字直接写进行文里。
+   每条要讲清一个侧面并说明其含义(例如:监管动向及其转变、竞争格局与差距、成因与影响、后续观察点),
+   要有因果和判断,**不要写成短句罗列**,也不要与 summary 重复措辞。
+3. impact:一句话说明这件事对行业或相关公司意味着什么(内容里没有依据就留空)。
+4. 用你自己的话组织,不要整段照抄原文。
 
 标题:${title}
 内容:
 ${text}
 
 只输出 JSON,不要解释或代码块标记:
-{"summary":"...","facts":[{"k":"...","v":"..."}],"points":["...","..."],"impact":"..."}`;
+{"summary":"...","points":["...","..."],"impact":"..."}`;
 
   const tGen0 = Date.now();
   const d = await chatJSON(prompt, 1200);
@@ -155,9 +154,7 @@ ${text}
   return {
     url, title,
     summary: String(d.summary || "").trim(),
-    facts: Array.isArray(d.facts) ? d.facts.filter((x) => x && x.k && x.v)
-      .map((x) => ({ k: String(x.k).trim(), v: String(x.v).trim() })).slice(0, 10) : [],
-    points: Array.isArray(d.points) ? d.points.map((x) => String(x).trim()).filter(Boolean).slice(0, 8) : [],
+    points: Array.isArray(d.points) ? d.points.map((x) => String(x).trim()).filter(Boolean).slice(0, 5) : [],
     impact: String(d.impact || "").trim(),
     source,
     timings: { fetchMs, genMs, chars: text.length },
