@@ -4,11 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
-import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines, saveReport, getReport, listReports } from "./src/db.js";
+import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines, saveReport, getReport, listReports, getSummary, saveSummary } from "./src/db.js";
 import { genHeadlines, headlineChannels } from "./src/headlines.js";
 import { fetchReportLinks } from "./src/fin_reports.js";
 import { genReport, weeksOfMonth } from "./src/reports.js";
 import { fetchVendorQuarters, fetchAllVendors } from "./src/ds_fin.js";
+import { summarizeArticle } from "./src/summarize.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -110,6 +111,23 @@ app.get("/api/cadence", (req, res) => {
 app.get("/api/news", (req, res) => {
   (async () => { const { iso } = today(); let d = getDigest(iso); if (!d) d = await generateDaily(); return d; })()
     .then((d) => res.json(d)).catch(fail(res));
+});
+
+// 新闻 AI 摘要:有缓存直接给(免令牌);没有则生成(写操作,消耗额度,需令牌)
+app.get("/api/summary", (req, res) => {
+  const url = String(req.query.url || "");
+  const c = getSummary(url);
+  if (!c) return res.status(404).json({ error: "尚未生成", notGenerated: true });
+  res.json(c);
+});
+app.post("/api/summary", apiGuard, (req, res) => {
+  const { url, title, hint } = req.body || {};
+  if (!url) return res.status(400).json({ error: "缺少 url" });
+  const c = getSummary(url);
+  if (c) return res.json(c);
+  summarizeArticle({ url, title, hint })
+    .then((d) => { saveSummary(url, d); res.json(d); })
+    .catch(fail(res));
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
 

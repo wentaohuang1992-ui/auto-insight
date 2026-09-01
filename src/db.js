@@ -10,7 +10,7 @@ const FAILURE_KEEP = Math.max(10, Number(process.env.DIGEST_FAILURE_KEEP || 50))
 
 // 注意 digestFailures 是后加的键:老的 data.json 里没有它。下面 `{ ...blank(), ...readStore() }`
 // 的展开顺序保证了缺失的顶层键会被空结构补上,所以老文件可以直接读,不需要迁移。
-const blank = () => ({ subscribers: {}, digests: {}, snapshots: {}, digestFailures: [], headlines: {}, headlineArchive: {}, reports: {} });
+const blank = () => ({ subscribers: {}, digests: {}, snapshots: {}, digestFailures: [], headlines: {}, headlineArchive: {}, reports: {}, summaries: {} });
 let store = { ...blank(), ...readStore(FILE, blank) };
 
 function persist() {
@@ -144,4 +144,21 @@ export function recordDigestFailure(iso, message, extra = {}) {
 /** 最近 n 条失败记录,最新的在前。 */
 export function listDigestFailures(n = 10) {
   return store.digestFailures.slice(-Math.max(1, n)).reverse();
+}
+
+// 新闻 AI 摘要缓存(按 URL)。超出上限时丢弃最旧的,避免 data.json 无限增长。
+const SUMMARY_MAX = Math.max(100, Number(process.env.SUMMARY_MAX || 800));
+export function getSummary(url) {
+  const r = (store.summaries || {})[url];
+  return r || null;
+}
+export function saveSummary(url, payload) {
+  store.summaries = store.summaries || {};
+  store.summaries[url] = { ...payload, cachedAt: new Date().toISOString() };
+  const keys = Object.keys(store.summaries);
+  if (keys.length > SUMMARY_MAX) {
+    keys.sort((a, b) => (store.summaries[a].cachedAt || "").localeCompare(store.summaries[b].cachedAt || ""));
+    for (const k of keys.slice(0, keys.length - SUMMARY_MAX)) delete store.summaries[k];
+  }
+  persist();
 }

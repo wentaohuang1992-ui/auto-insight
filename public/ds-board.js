@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
-    const VER = "ds-v5";
+    const VER = "ds-v6";
     const old = document.getElementById("ds-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -21,6 +21,15 @@
     ${S} .dynlist .dm{font-size:11px;color:#94A3B8;margin-top:3px}
     ${S} .dynlist .dm a{color:#2E5BD8;text-decoration:none}
     ${S} .dynempty{font-size:12.5px;color:#94A3B8;padding:4px 0}
+    ${S} .sumbtn{appearance:none;border:0;background:none;padding:0;cursor:pointer;font:inherit;font-size:11.5px;color:#B5710E;font-weight:600}
+    ${S} .sumbtn:hover{text-decoration:underline}
+    ${S} .sumbtn:disabled{opacity:.6;cursor:default}
+    ${S} .sumbox{margin-top:9px;background:#FFFBF2;border:1px solid #F0E2C4;border-left:3px solid #E0A22B;border-radius:8px;padding:11px 13px}
+    ${S} .sumload{font-size:12.5px;color:#94A3B8}
+    ${S} .sumwarn{font-size:11.5px;color:#B5710E;margin-bottom:6px}
+    ${S} .sumtxt{font-size:13px;line-height:1.75;color:#3D4759}
+    ${S} .sumpts{margin:8px 0 0;padding-left:18px}
+    ${S} .sumpts li{font-size:12.5px;line-height:1.7;color:#4A5568;margin-bottom:3px}
     ${S} .nfeed{list-style:none;margin:0;padding:0}
     ${S} .nfeed li{display:flex;gap:18px;padding:18px 22px;border-bottom:1px solid #EEF1F5;border-top:0}
     ${S} .nfeed li:last-child{border-bottom:0}
@@ -226,7 +235,8 @@
     const items = fresh.length ? `<ul class="nfeed">` + fresh.map((x, i) => `<li><span class="no">${String(i + 1).padStart(2, "0")}</span><div class="ct">
         <div class="ti">${x.url ? `<a href="${ESC(x.url)}" target="_blank" rel="noopener">${ESC(x.title)}</a>` : ESC(x.title)}</div>
         ${x.insight ? `<div class="sm">${ESC(x.insight)}</div>` : ""}
-        <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}</div>
+        <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}${x.url ? `<span>·</span><button class="sumbtn" onclick="DSBOARD.summarize(this,'${encodeURIComponent(x.url)}','${encodeURIComponent(x.title || "")}','${encodeURIComponent(x.insight || "")}')">✨ AI 摘要</button>` : ""}</div>
+        <div class="sumbox" hidden></div>
       </div></li>`).join("") + `</ul>`
       : `<div class="empty">近 7 天暂无${kind === "cockpit" ? "座舱" : "智驾"}相关要闻。点右上「↻ AI 更新」抓取。</div>`;
     return `<div class="card"><div class="ch">今日要闻</div><div class="cb nopad">${head}<div class="feedbox">${items}</div></div></div>`;
@@ -285,6 +295,33 @@
           else { const s = Math.round((Date.now() - t0) / 1000); btn.textContent = st.total ? `抓取中 ${st.done || 0}/${st.total}…${s}s` : `抓取中…${s}s`; }
         }, 4000);
       } catch (e) { alert(e.message); reset(); }
+    },
+    // 新闻 AI 摘要:先查缓存,没有再生成(生成是写操作,由 api-auth 自动带令牌)
+    async summarize(btn, u, t, h) {
+      const url = decodeURIComponent(u), title = decodeURIComponent(t), hint = decodeURIComponent(h);
+      const box = btn.closest(".ct").querySelector(".sumbox");
+      if (!box.hidden) { box.hidden = true; btn.textContent = "✨ AI 摘要"; return; }
+      box.hidden = false; box.innerHTML = `<div class="sumload">正在读取原文并生成摘要…</div>`;
+      btn.disabled = true; btn.textContent = "生成中…";
+      const draw = (d) => {
+        box.innerHTML = `${d.degraded ? `<div class="sumwarn">未能取到原文正文,以下为基于标题的说明,仅供参考</div>` : ""}
+          <div class="sumtxt">${ESC(d.summary || "")}</div>
+          ${(d.points || []).length ? `<ul class="sumpts">${d.points.map(x => `<li>${ESC(x)}</li>`).join("")}</ul>` : ""}`;
+      };
+      try {
+        let r = await fetch("/api/summary?url=" + encodeURIComponent(url));
+        if (r.ok) { draw(await r.json()); }
+        else {
+          r = await fetch("/api/summary", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url, title, hint }) });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || "生成失败");
+          draw(d);
+        }
+        btn.textContent = "收起摘要";
+      } catch (e) {
+        box.innerHTML = `<div class="sumwarn">摘要生成失败:${ESC(e.message || "网络异常")}</div>`;
+        btn.textContent = "✨ AI 摘要";
+      } finally { btn.disabled = false; }
     },
     pickVendor(kind, id) { VSEL[kind] = id; rerender(); },
     addQ(kind, vendorId) { qForm(kind, vendorId, null); },
