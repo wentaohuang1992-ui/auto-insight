@@ -131,6 +131,20 @@ app.post("/api/summary", apiGuard, (req, res) => {
     .then((d) => { saveSummary(url, d); res.json(d); })
     .catch(fail(res));
 });
+
+// 预热:列表渲染后后台先把前几条的摘要做好,点开就是缓存(近似秒开)
+// 只做未缓存的,单次上限 4 条;PREWARM=0 可整个关掉
+app.post("/api/summary/prewarm", apiGuard, (req, res) => {
+  if (process.env.PREWARM === "0") return res.json({ skipped: "disabled" });
+  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 4) : [];
+  const todo = items.filter((x) => x && x.url && !getSummary(x.url));
+  res.json({ queued: todo.length });          // 立刻返回,不让前端等
+  for (const it of todo) {
+    summarizeArticle({ url: it.url, title: it.title || "" })
+      .then((d) => saveSummary(it.url, d))
+      .catch(() => { /* 预热失败不影响任何东西,用户点开时会再试一次 */ });
+  }
+});
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
 
 // —— 周报 / 月报(综合) ——

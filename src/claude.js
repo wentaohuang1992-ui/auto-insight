@@ -1,6 +1,7 @@
 // 数据任务层:财报 / 新闻 / 详情。博查搜索 + Google News 实时源 + DeepSeek 整理。
 import { research } from "./research.js";
 import { bochaSearch } from "./search.js";
+import { responsesWebSearch } from "./ds_search.js";
 import { chatJSON } from "./llm.js";
 import { googleNewsItems } from "./news_rss.js";
 import { today, recentIsos, isosBefore } from "./dates.js";
@@ -55,7 +56,31 @@ function stampDates(items, gnews, backfill) {
   return out;
 }
 
+// 默认走 DeepSeek 原生联网;设 SEARCH_PROVIDER=bocha 可切回博查。
+// 返回结构与 bochaSearch 一致:[{title,url,snippet,summary,site,date}]
+async function dsFresh(q, backfill = false) {
+  const win = backfill ? "最近一个月" : "最近两天(没有就放宽到一周)";
+  const instr = "你是资料检索助手。联网检索后,把结果按每行 `标题 ||| 来源 ||| 日期(YYYY-MM-DD) ||| URL ||| 两句摘要` 输出,一条一行,不要编号、不要评论、不要编造链接。";
+  const r = await responsesWebSearch(instr, `检索主题:${q}\n时间范围:${win}\n给 6 条。`, { timeoutMs: 60000 });
+  const text = String(r?.text || "");
+  const out = [];
+  for (const line of text.split("\n")) {
+    const p = line.split("|||").map((x) => x.trim());
+    if (p.length < 4 || !/^https?:\/\//i.test(p[3])) continue;
+    out.push({ title: p[0], site: p[1] || "", date: p[2] || "", url: p[3], summary: p[4] || "", snippet: p[4] || "" });
+  }
+  // 模型没按格式输出时,退而用引用列表,至少保住标题与链接
+  if (!out.length && Array.isArray(r?.citations)) {
+    for (const c of r.citations) if (c.url) out.push({ title: c.title || "", url: c.url, site: "", date: "", summary: "", snippet: "" });
+  }
+  return out;
+}
+
 async function bochaFresh(q, backfill = false) {
+  if ((process.env.SEARCH_PROVIDER || "deepseek").toLowerCase() !== "bocha") {
+    try { const r = await dsFresh(q, backfill); if (r.length) return r; } catch (_) {}
+    return [];
+  }
   // 补漏时目标日期已过去若干天,"近一天"必定搜不到,直接用更宽的窗口。
   if (backfill) {
     try { return await bochaSearch(q, { count: 6, freshness: "oneMonth" }); } catch (_) { return []; }

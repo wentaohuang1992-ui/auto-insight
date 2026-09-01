@@ -199,7 +199,19 @@ async function gather(entity, periods) {
   qs.push(`${entity.name} ${periods.map((p) => p.year).join(" ")} 海外 出口 毛利率 汇兑 净利润 下滑 原因`);
   const blocks = await pool(qs, 3, async (q) => {
     try {
-      const rs = await bochaSearch(q, { count: 8, freshness: "noLimit" });
+      const useBocha = (process.env.SEARCH_PROVIDER || "deepseek").toLowerCase() === "bocha";
+      let rs = [];
+      if (useBocha) rs = await bochaSearch(q, { count: 8, freshness: "noLimit" });
+      else {
+        // DeepSeek 原生联网,输出同样结构
+        const instr = "你是资料检索助手。联网检索后按每行 `标题 ||| 来源 ||| 日期 ||| URL ||| 两句摘要` 输出,不要编号与评论,不要编造链接。";
+        const r = await responsesWebSearch(instr, `检索主题:${q}\n给 8 条。`, { timeoutMs: 60000 });
+        for (const line of String(r?.text || "").split("\n")) {
+          const p = line.split("|||").map((x) => x.trim());
+          if (p.length < 4 || !/^https?:\/\//i.test(p[3])) continue;
+          rs.push({ title: p[0], site: p[1] || "", date: p[2] || "", url: p[3], summary: p[4] || "", snippet: p[4] || "" });
+        }
+      }
       if (!rs.length) return `### 检索:${q}\n(无结果)`;
       return `### 检索:${q}\n` + rs.map((r, i) =>
         `[${i + 1}] ${r.title || ""} | ${r.site || ""} | ${r.date || ""}\nURL: ${r.url || ""}\n摘要: ${String(r.summary || r.snippet || "").slice(0, 700)}`

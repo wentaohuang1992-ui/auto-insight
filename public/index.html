@@ -498,10 +498,10 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260901132257"></script>
-<script src="/fin-board.js?v=20260901132257"></script>
-<script src="/ds-board.js?v=20260901132257"></script>
-<script src="/storage-board.js?v=20260901132257"></script>
+<script src="/api-auth.js?v=20260901133432"></script>
+<script src="/fin-board.js?v=20260901133432"></script>
+<script src="/ds-board.js?v=20260901133432"></script>
+<script src="/storage-board.js?v=20260901133432"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -796,6 +796,17 @@ window.aiSummary=async function(u,t,h,force){
     body.innerHTML=`<div class="aisw">摘要生成失败</div><div class="aistx">${esc(e.message||"网络异常")}</div>
       <div class="aisf"><a href="${esc(url)}" target="_blank" rel="noopener">直接查看原文 ↗</a></div>`;
   }
+};
+
+// 预热:把当前列表前几条的摘要在后台先做好,点开时基本是秒开
+window.aiPrewarm=function(items){
+  try{
+    if(!window.hasAdminToken||!window.hasAdminToken())return;   // 非管理员不触发(会消耗额度)
+    const list=(items||[]).filter(x=>x&&x.url).slice(0,4).map(x=>({url:x.url,title:x.title||""}));
+    if(!list.length)return;
+    fetch("/api/summary/prewarm",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({items:list})}).catch(()=>{});
+  }catch(_){}
 };
 window.closeAiSum=function(){document.getElementById("ai-sum").classList.remove("on");};
 // 供列表复用的按钮片段
