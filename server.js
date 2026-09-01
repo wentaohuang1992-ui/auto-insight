@@ -458,8 +458,9 @@ app.post("/api/downshift/fin-fetch", (req, res) => {
   const jk = "ds-fin-all";
   if (jobs[jk] && jobs[jk].status === "running") return res.json({ status: "running" });
   const wait = tooSoon(jk); if (wait) return res.status(429).json({ error: `刚触发过,请 ${wait} 秒后再试` });
-  jobs[jk] = { status: "running", startedAt: Date.now() };
-  fetchAllVendors().then((r) => { jobs[jk] = { status: "done", finishedAt: Date.now(), ...r }; })
+  jobs[jk] = { status: "running", startedAt: Date.now(), done: 0, total: 0 };
+  fetchAllVendors({ onProgress: (p) => { jobs[jk] = { ...jobs[jk], status: "running", ...p }; } })
+    .then((r) => { jobs[jk] = { status: "done", finishedAt: Date.now(), ...r }; })
     .catch((e) => { jobs[jk] = { status: "error", finishedAt: Date.now(), error: e.message }; });
   res.status(202).json({ status: "started" });
 });

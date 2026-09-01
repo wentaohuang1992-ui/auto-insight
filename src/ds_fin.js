@@ -75,10 +75,14 @@ export async function fetchVendorQuarters(vendor, kind, { save = true, limit = 8
   // 复用车企模块:两个 build 函数只认 {name, ticker} 这两个字段
   const shim = { name: vendor.name, ticker: p.ticker };
   let rows;
+  const withTimeout = (pr, ms, label) => Promise.race([
+    pr, new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} 超时(${ms / 1000}s)`)), ms)),
+  ]);
   try {
-    rows = p.kind === "A" ? await buildQuartersEM(shim)
-      : p.kind === "US" ? await buildQuartersUS(p.ticker)
-      : await buildQuartersHK(shim, { halfYear: true });
+    const task = p.kind === "A" ? buildQuartersEM(shim)
+      : p.kind === "US" ? buildQuartersUS(p.ticker)
+      : buildQuartersHK(shim, { halfYear: true });
+    rows = await withTimeout(task, 60000, vendor.name);   // 单家最多 60 秒,防止一家挂起拖死整轮
   } catch (e) {
     return { ok: false, name: vendor.name, warn: e.message };
   }
@@ -113,18 +117,23 @@ export async function fetchVendorQuarters(vendor, kind, { save = true, limit = 8
 }
 
 /** 全量抓取:两个板块所有有 A股/港股代码的供应商。串行,避免打爆上游。 */
-export async function fetchAllVendors() {
+export async function fetchAllVendors({ onProgress, deadlineMs = 8 * 60 * 1000 } = {}) {
   const all = dsdb.getAll();
   const jobs = [
     ...(all.adas || []).map((v) => [v, "adas"]),
     ...(all.cockpit || []).map((v) => [v, "cockpit"]),
-  ];
+  ].filter(([v]) => pickTicker(v.listed));   // 未上市/中国台湾的直接跳过,不浪费时间
   const results = [];
-  for (const [v, kind] of jobs) {
+  const t0 = Date.now();
+  let stoppedBy = null;
+  for (let i = 0; i < jobs.length; i++) {
+    if (Date.now() - t0 > deadlineMs) { stoppedBy = "超过整体时限,剩余未抓"; break; }
+    const [v, kind] = jobs[i];
+    if (onProgress) onProgress({ done: i, total: jobs.length, current: v.name });
     try { results.push(await fetchVendorQuarters(v, kind)); }
     catch (e) { results.push({ ok: false, name: v.name, warn: e.message }); }
   }
   const okN = results.filter((x) => x.ok).length;
   const savedN = results.reduce((a, x) => a + (x.saved || 0), 0);
-  return { total: jobs.length, fetched: okN, saved: savedN, results };
+  return { total: jobs.length, done: results.length, fetched: okN, saved: savedN, stoppedBy, results };
 }

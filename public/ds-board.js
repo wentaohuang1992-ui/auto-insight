@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
-    const VER = "ds-v4";
+    const VER = "ds-v5";
     const old = document.getElementById("ds-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -260,17 +260,31 @@
       } catch (e) { alert(e.message); } finally { btn.disabled = false; btn.textContent = t; }
     },
     async finAll(btn) {
-      if (!confirm("对所有有 A股/港股代码的供应商抓取财务数据?\n手工改过的记录不会被覆盖。")) return;
+      if (!confirm("对所有有 A股/港股/美股代码的供应商抓取财务数据?\n手工改过的记录不会被覆盖。\n约需 1-3 分钟。")) return;
+      const reset = () => { btn.disabled = false; btn.textContent = "↻ 抓取财务"; };
       btn.disabled = true; btn.textContent = "抓取中…";
       try {
         const r = await fetch("/api/downshift/fin-fetch", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
         const j = await r.json(); if (!r.ok) throw new Error(j.error || "启动失败");
+        const t0 = Date.now(), MAX = 9 * 60 * 1000;   // 前端最多等 9 分钟,不再无限转
+        let miss = 0;
         const poll = setInterval(async () => {
-          const st = await (await fetch("/api/downshift/fin-fetch/status")).json();
-          if (st.status === "done") { clearInterval(poll); btn.disabled = false; btn.textContent = "↻ 抓取财务"; alert(`完成:${st.fetched}/${st.total} 家取到数据,共写入 ${st.saved} 期。`); reload(); }
-          else if (st.status === "error") { clearInterval(poll); btn.disabled = false; btn.textContent = "↻ 抓取财务"; alert("失败:" + st.error); }
+          if (Date.now() - t0 > MAX) { clearInterval(poll); reset(); alert("等待超时。任务可能仍在后台运行,请稍后刷新页面查看结果。"); return; }
+          let st;
+          try { const res = await fetch("/api/downshift/fin-fetch/status"); st = await res.json(); miss = 0; }
+          catch (_) { if (++miss >= 5) { clearInterval(poll); reset(); alert("无法获取任务状态,请稍后刷新页面查看。"); } return; }
+          if (st.status === "done") {
+            clearInterval(poll); reset();
+            const fails = (st.results || []).filter(x => !x.ok);
+            alert(`完成:${st.fetched}/${st.total} 家取到数据,共写入 ${st.saved} 期。`
+              + (st.stoppedBy ? `\n(${st.stoppedBy})` : "")
+              + (fails.length ? `\n未取到:${fails.map(x => x.name).join("、")}` : ""));
+            reload();
+          } else if (st.status === "error") { clearInterval(poll); reset(); alert("失败:" + st.error); }
+          else if (st.status === "idle") { clearInterval(poll); reset(); alert("任务未在运行(可能服务重启过),请重试。"); }
+          else { const s = Math.round((Date.now() - t0) / 1000); btn.textContent = st.total ? `抓取中 ${st.done || 0}/${st.total}…${s}s` : `抓取中…${s}s`; }
         }, 4000);
-      } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = "↻ 抓取财务"; }
+      } catch (e) { alert(e.message); reset(); }
     },
     pickVendor(kind, id) { VSEL[kind] = id; rerender(); },
     addQ(kind, vendorId) { qForm(kind, vendorId, null); },
