@@ -129,6 +129,7 @@
   .aisi{margin-top:12px;background:#FFFBF2;border:1px solid #F0E2C4;border-left:3px solid var(--amber);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.7;color:var(--ink-2)}
   .aisi .t{font-weight:700;color:var(--signal);margin-right:6px}
   .aisf{margin-top:14px;padding-top:11px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .aisms{color:#B0B8C4}
   .aisf a{color:var(--brand-2);text-decoration:none;margin-left:auto}
   .aisrf{appearance:none;border:1px solid var(--line-2);background:#fff;border-radius:6px;padding:3px 9px;font-family:var(--sans);font-size:11.5px;color:var(--ink-2);cursor:pointer}
   .aisrf:hover{border-color:var(--amber);color:var(--signal)}
@@ -506,10 +507,10 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260901135023"></script>
-<script src="/fin-board.js?v=20260901135023"></script>
-<script src="/ds-board.js?v=20260901135023"></script>
-<script src="/storage-board.js?v=20260901135023"></script>
+<script src="/api-auth.js?v=20260901135708"></script>
+<script src="/fin-board.js?v=20260901135708"></script>
+<script src="/ds-board.js?v=20260901135708"></script>
+<script src="/storage-board.js?v=20260901135708"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -543,6 +544,7 @@ function renderFin(d){const items=(d&&d.items)||[];if(!items.length)return `<div
 
 function renderNews(d){const items=(d&&d.items)||[];
   if(!viewingDate)document.getElementById("note-news").innerHTML=`日报 · ${esc(d.date||"")} · 每日 08:30 更新`;
+  if(window.aiPrewarm&&(d.items||[]).length)setTimeout(()=>window.aiPrewarm(d.items),600);
   let h=``;
   // 今日综述已移除(与今日要闻重复);"日报 日期"并入头部灰字,不再单占一行
   const hl=(d.highlights||[]).filter(x=>x&&x.text);
@@ -579,6 +581,7 @@ function renderHeadlines(d){
   const upd=d&&d.updated_at?` · 更新于 ${esc(fmtTime(d.updated_at))}`:"";
   let h=`<div class="hlcard"><div class="hlhead"><span class="hltt">今日要闻</span><button class="hlref" onclick="refreshHeadlines('${esc(d&&d.channel||"")}',this)">↻ 刷新</button></div>`;
   if(!items.length){h+=`<div class="hlempty">暂无今日要闻,点「刷新」用 DeepSeek 生成。</div></div>`;return h;}
+  if(window.aiPrewarm)setTimeout(()=>window.aiPrewarm(items),600);
   h+=`<ul class="news hlnews">`+items.map((it,i)=>`
     <li class="nostatic"><span class="no">${String(i+1).padStart(2,"0")}</span>
       <div class="ct"><div class="ti">${esc(it.title)}</div><div class="sm">${esc(it.summary||"")}</div>
@@ -787,7 +790,7 @@ window.aiSummary=async function(u,t,h,force){
       ${facts.length?`<div class="aisg">${facts.map(x=>`<div class="aisgi"><span class="k">${esc(x.k)}</span><span class="v">${esc(x.v)}</span></div>`).join("")}</div>`:""}
       ${(d.points||[]).length?`<div class="aish">要点</div><ul class="aisp">${d.points.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
       ${d.impact?`<div class="aisi"><span class="t">影响</span>${esc(d.impact)}</div>`:""}
-      <div class="aisf">${d.source?`依据:${esc(d.source)}`:""}
+      <div class="aisf">${d.source?`依据:${esc(d.source)}`:""}${d.timings?`<span class="aisms">取正文 ${(d.timings.fetchMs/1000).toFixed(1)}s · 生成 ${(d.timings.genMs/1000).toFixed(1)}s</span>`:""}
         <button class="aisrf" onclick="aiSummary('${encodeURIComponent(url)}','${encodeURIComponent(title)}','${encodeURIComponent(hint)}',1)">↻ 重新生成</button>
         <a href="${esc(url)}" target="_blank" rel="noopener">查看原文 ↗</a></div>`;
   };
@@ -813,14 +816,12 @@ window.aiSummary=async function(u,t,h,force){
 window.aiPrewarm=function(items){
   try{
     if(!window.hasAdminToken||!window.hasAdminToken())return;   // 非管理员不触发(会消耗额度)
-    const list=(items||[]).filter(x=>x&&x.url).slice(0,4).map(x=>({url:x.url,title:x.title||""}));
+    const list=(items||[]).filter(x=>x&&x.url).slice(0,14).map(x=>({url:x.url,title:x.title||""}));
     if(!list.length)return;
     fetch("/api/summary/prewarm",{method:"POST",headers:{"content-type":"application/json"},
       body:JSON.stringify({items:list})}).catch(()=>{});
   }catch(_){}
 };
-
-// 悬停/触摸即预热单条 —— 点开时多半已在缓存里,接近秒开
 window.aiWarmOne=function(u,t){
   try{
     if(!window.hasAdminToken||!window.hasAdminToken())return;

@@ -132,18 +132,30 @@ app.post("/api/summary", apiGuard, (req, res) => {
     .catch(fail(res));
 });
 
-// 预热:列表渲染后后台先把前几条的摘要做好,点开就是缓存(近似秒开)
-// 只做未缓存的,单次上限 4 条;PREWARM=0 可整个关掉
+// 预热:列表加载后在后台把**整页**条目的摘要都做好,点开时永远命中缓存(近似秒开)
+// 并发 3 条,避免打爆上游;只做未缓存的;PREWARM=0 可整个关掉
+const warming = new Set();
 app.post("/api/summary/prewarm", apiGuard, (req, res) => {
   if (process.env.PREWARM === "0") return res.json({ skipped: "disabled" });
-  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 4) : [];
-  const todo = items.filter((x) => x && x.url && !getSummary(x.url));
-  res.json({ queued: todo.length });          // 立刻返回,不让前端等
-  for (const it of todo) {
+  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 14) : [];
+  const todo = items.filter((x) => x && x.url && !getSummary(x.url) && !warming.has(x.url));
+  res.json({ queued: todo.length, warming: warming.size });   // 立刻返回,不让前端等
+  let i = 0;
+  const next = () => {
+    const it = todo[i++];
+    if (!it) return;
+    warming.add(it.url);
     summarizeArticle({ url: it.url, title: it.title || "" })
       .then((d) => saveSummary(it.url, d))
-      .catch(() => { /* 预热失败不影响任何东西,用户点开时会再试一次 */ });
-  }
+      .catch(() => { /* 预热失败无所谓,用户点开时会再试 */ })
+      .finally(() => { warming.delete(it.url); next(); });
+  };
+  for (let k = 0; k < Math.min(3, todo.length); k++) next();   // 并发 3
+});
+// 查询哪些已就绪:前端据此给已好的条目打标
+app.post("/api/summary/status", (req, res) => {
+  const urls = Array.isArray(req.body?.urls) ? req.body.urls.slice(0, 40) : [];
+  res.json({ ready: urls.filter((u) => !!getSummary(u)) });
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
 

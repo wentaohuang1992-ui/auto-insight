@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-downshift";
   function injectStyle() {
-    const VER = "ds-v10";
+    const VER = "ds-v11";
     const old = document.getElementById("ds-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -243,7 +243,7 @@
         <div class="meta">${x.source ? ESC(x.source) : ""}${x.date ? `${x.source ? "<span>·</span>" : ""}${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}${x.url && window.aiSumBtn ? window.aiSumBtn(x.url, x.title, x.insight) : ""}</div>
       </div></li>`).join("") + `</ul>`
       : `<div class="empty">近 7 天暂无${kind === "cockpit" ? "座舱" : "智驾"}相关要闻。点右上「↻ AI 更新」抓取。</div>`;
-    if (window.aiPrewarm && fresh.length) setTimeout(() => window.aiPrewarm(fresh.slice(0, 4)), 800);
+    if (window.aiPrewarm && fresh.length) setTimeout(() => window.aiPrewarm(fresh), 600);
     return `<div class="card"><div class="ch">今日要闻</div><div class="cb nopad">${head}<div class="feedbox">${items}</div></div></div>`;
   }
 

@@ -2,7 +2,7 @@
 (function () {
   const S = "#out-storage";
   function injectStyle() {
-    const VER = "st-v4";
+    const VER = "st-v5";
     const old = document.getElementById("storage-style");
     if (old) { if (old.dataset.ver === VER) return; old.remove(); }
     const css = `
@@ -111,6 +111,7 @@
         <div class="meta">${ESC(kn[x.source] || x.source || "")}${x.date ? `<span>·</span>${ESC(x.date)}` : ""}${x.url ? `<span>·</span><a href="${ESC(x.url)}" target="_blank" rel="noopener">查看原文 ↗</a>` : ""}${x.url && window.aiSumBtn ? window.aiSumBtn(x.url, x.title, x.insight) : ""}</div>
       </div></li>`).join("") + `</ul>`
       : `<div class="empty">暂无新闻。点右上"↻ AI 更新情报"抓取最新动向。</div>`;
+    if (window.aiPrewarm && (RAW.feed || []).length) setTimeout(() => window.aiPrewarm(RAW.feed.slice(0, 12)), 600);
     return tabs + op + kpis + `
       <div class="card"><div class="ch">价格趋势 · 合约价 vs 现货价<span class="n">${ESC(c.unit)} <button class="mini" onclick="STORAGEBOARD.editSeries('${c.id}')">✎ 编辑序列</button> <button class="mini" onclick="STORAGEBOARD.appendPoint('${c.id}')">＋ 追加月</button></span></div>
         <div class="cb"><div class="legend"><span><i class="c"></i>合约价(Contract)</span><span><i class="s"></i>现货价(Spot)</span></div>${lineChart(c.labels || [], ct, sp)}<div class="src"><b>数据来源:</b> ${ESC(c.source || "—")}</div></div></div>

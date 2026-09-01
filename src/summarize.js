@@ -115,10 +115,12 @@ export async function summarizeArticle({ url, title = "", hint = "" }) {
     if (!left) return resolve(null);
     for (const p of arr) p.then((r) => { if (r) resolve(r); else if (--left === 0) resolve(null); });
   });
+  const tFetch0 = Date.now();
   let got = await firstOf(pFast);
   if (!got) got = await pSlow;
   else pSlow.catch(() => {});          // 快路已中标,慢路结果丢弃,避免未处理的 rejection
 
+  const fetchMs = Date.now() - tFetch0;
   const text = got?.text || "", source = got?.name || "";
   if (!text) {
     const joined = tried.join(" / ");
@@ -147,7 +149,9 @@ ${text}
 只输出 JSON,不要解释或代码块标记:
 {"summary":"...","facts":[{"k":"...","v":"..."}],"points":["...","..."],"impact":"..."}`;
 
-  const d = await chatJSON(prompt, 1500);
+  const tGen0 = Date.now();
+  const d = await chatJSON(prompt, 1200);
+  const genMs = Date.now() - tGen0;
   return {
     url, title,
     summary: String(d.summary || "").trim(),
@@ -156,6 +160,7 @@ ${text}
     points: Array.isArray(d.points) ? d.points.map((x) => String(x).trim()).filter(Boolean).slice(0, 8) : [],
     impact: String(d.impact || "").trim(),
     source,
+    timings: { fetchMs, genMs, chars: text.length },
     generatedAt: new Date().toISOString(),
   };
 }
