@@ -19,7 +19,7 @@ async function fetchViaReader(url) {
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")      // 链接保留文字
     .split("\n").map((s) => s.trim()).filter((s) => s.length > 12).join("\n");
   if (t.length < 200) throw new Error("阅读器返回内容过短");
-  return t.slice(0, 3000);
+  return t.slice(0, 4500);
 }
 
 /** 第三来源:互联网档案馆快照。原站已下线或临时反爬时,快照往往仍可读。 */
@@ -36,14 +36,14 @@ async function fetchViaArchive(url) {
 
 /** 第四来源:DeepSeek 原生联网检索。让模型自己去读这条新闻,返回正文要点(不依赖博查额度)。 */
 async function fetchViaDeepSeek(url, title) {
-  const instr = "你是新闻资料整理助手。请联网打开给定链接(或检索同一条新闻的可靠来源),读取正文后,把正文的关键事实原样整理出来:时间、主体、数字、事件经过、各方表态。只输出事实,不要评论、不要总结成结论、不要编造。若确实找不到该新闻,只回复:NOTFOUND";
+  const instr = "你是新闻资料整理助手。请联网打开给定链接(或检索同一条新闻的可靠来源),读取正文后,把正文里的事实**尽量完整**地列出来:发生时间、涉及主体、**所有出现过的数字(销量/金额/同比环比/份额/排名/日期)**、事件经过、各方原话表态、背景与对比。宁可多列也不要漏,每条一行。只输出事实,不要评论、不要下结论、不要编造。若确实找不到该新闻,只回复:NOTFOUND";
   const input = `链接:${url}\n标题:${title || "(无)"}\n请读取这条新闻的正文内容。`;
   const r = await responsesWebSearch(instr, input, { timeoutMs: 45000 });
   const t = String(r?.text || "").trim();
   if (!t || /^NOTFOUND/i.test(t)) throw new Error("联网检索未找到该新闻");
   // 把检索到的证据片段一并带上,信息更全
   const ev = Array.isArray(r.evidence) ? r.evidence.join("\n").slice(0, 2000) : "";
-  const merged = (t + (ev ? "\n" + ev : "")).slice(0, 3000);
+  const merged = (t + (ev ? "\n" + ev : "")).slice(0, 4500);
   if (merged.length < 160) throw new Error("联网检索内容过短");
   return merged;
 }
@@ -86,7 +86,7 @@ async function fetchArticleText(url) {
     .split("\n").map((s) => s.trim()).filter((s) => s.length > 12)
     .join("\n");
   if (text.length < 160) throw new Error("正文过短或为脚本渲染");
-  return text.slice(0, 3000);
+  return text.slice(0, 4500);
 }
 
 /**
@@ -95,36 +95,31 @@ async function fetchArticleText(url) {
  */
 export async function summarizeArticle({ url, title = "", hint = "" }) {
   if (!/^https?:\/\//i.test(url || "")) throw new Error("URL 不合法");
-  // 取正文:三条快路**并行竞速**,谁先拿到可用正文就用谁(串行时第一级超时就要白等几秒)
-  // 慢路(DeepSeek 联网,几十秒)只在快路全灭时才走,不拖累常规链路
-  const fast = [
-    ["原文", () => fetchArticleText(url)],
-    ["阅读器", () => fetchViaReader(url)],
-    ["历史快照", () => fetchViaArchive(url)],
-  ];
+  // 取正文:四条**同时**发。快路(原文/阅读器/快照)谁先回就用谁;
+  // 慢路(DeepSeek 联网)也在 t=0 启动 —— 以前是等快路超时后才开始,时间白白叠加。
   const tried = [];
-  const race = () => new Promise((resolve) => {
-    let left = fast.length;
-    for (const [name, fn] of fast) {
-      fn().then((t) => {
-        if (t && t.length >= 160) resolve({ text: t, source: name });
-        else { tried.push(`${name}:内容过短`); if (--left === 0) resolve(null); }
-      }).catch((e) => {
-        tried.push(`${name}:${e.message}`);
-        if (--left === 0) resolve(null);
-      });
-    }
+  const wrap = (name, fn) => fn().then(
+    (t) => (t && t.length >= 160) ? { name, text: t } : (tried.push(`${name}:内容过短`), null),
+    (e) => (tried.push(`${name}:${e.message}`), null)
+  );
+  const pFast = [
+    wrap("原文", () => fetchArticleText(url)),
+    wrap("阅读器", () => fetchViaReader(url)),
+    wrap("历史快照", () => fetchViaArchive(url)),
+  ];
+  const pSlow = wrap("联网检索", () => fetchViaDeepSeek(url, title));
+
+  // 先等快路:任一成功立即返回;全失败才去看慢路(此时它已经跑了好几秒)
+  const firstOf = (arr) => new Promise((resolve) => {
+    let left = arr.length;
+    if (!left) return resolve(null);
+    for (const p of arr) p.then((r) => { if (r) resolve(r); else if (--left === 0) resolve(null); });
   });
-  let got = await race();
-  if (!got) {
-    // 快路都不行,再走慢路
-    try {
-      const t = await fetchViaDeepSeek(url, title);
-      if (t && t.length >= 160) got = { text: t, source: "联网检索" };
-      else tried.push("联网检索:内容过短");
-    } catch (e) { tried.push(`联网检索:${e.message}`); }
-  }
-  const text = got?.text || "", source = got?.source || "";
+  let got = await firstOf(pFast);
+  if (!got) got = await pSlow;
+  else pSlow.catch(() => {});          // 快路已中标,慢路结果丢弃,避免未处理的 rejection
+
+  const text = got?.text || "", source = got?.name || "";
   if (!text) {
     const joined = tried.join(" / ");
     // 额度/欠费类错误单独点明 —— 这类不是代码问题,改代码也没用
@@ -134,18 +129,32 @@ export async function summarizeArticle({ url, title = "", hint = "" }) {
     throw new Error(`四种途径都未取到正文,已跳过摘要生成 · ${joined}`);
   }
 
-  const prompt = `阅读下面的新闻内容,输出中文摘要。要求:summary 用 2-3 句概括核心事实(谁、做了什么、关键数字);points 给 3 条要点,每条不超过 25 字,尽量含数字或名称;只用下面内容中出现的信息,不得编造;用自己的话概括,不要照抄原文。
+  const prompt = `阅读下面的新闻内容,输出结构化中文摘要。严格只用内容中出现的信息,不得编造;内容里没有的字段留空或省略。
+
+要求:
+1. summary:3-4 句话讲清楚这件事 —— 谁、在什么时间、做了什么、关键数字、目前进展。
+2. facts:把内容里出现的**具体数据**逐条抽出来,每条 {"k":"指标名","v":"数值(含单位)"};
+   例如 {"k":"5月销量","v":"38.35万辆"}、{"k":"出口","v":"18.19万辆"}、{"k":"同比","v":"+21.8%"}。
+   有几条抽几条,尽量抽全(4-8 条);一个数字都没有就给空数组。
+3. points:4-6 条要点,每条一句完整的话(20-45 字),覆盖不同侧面(格局/原因/对比/进展/表态),不要与 summary 重复措辞。
+4. impact:一句话说明这件事对行业或相关公司意味着什么(只在内容里有依据时写,否则留空)。
+5. 用你自己的话组织,不要整段照抄原文。
+
 标题:${title}
 内容:
 ${text}
 
-只输出 JSON,不要解释或代码块标记:{"summary":"3-4句概括","points":["要点1","要点2","要点3"]}`;
+只输出 JSON,不要解释或代码块标记:
+{"summary":"...","facts":[{"k":"...","v":"..."}],"points":["...","..."],"impact":"..."}`;
 
-  const d = await chatJSON(prompt, 700);
+  const d = await chatJSON(prompt, 1500);
   return {
     url, title,
     summary: String(d.summary || "").trim(),
-    points: Array.isArray(d.points) ? d.points.map((x) => String(x).trim()).filter(Boolean).slice(0, 6) : [],
+    facts: Array.isArray(d.facts) ? d.facts.filter((x) => x && x.k && x.v)
+      .map((x) => ({ k: String(x.k).trim(), v: String(x.v).trim() })).slice(0, 10) : [],
+    points: Array.isArray(d.points) ? d.points.map((x) => String(x).trim()).filter(Boolean).slice(0, 8) : [],
+    impact: String(d.impact || "").trim(),
     source,
     generatedAt: new Date().toISOString(),
   };

@@ -120,6 +120,14 @@
   .aistx{font-size:13.5px;line-height:1.8;color:var(--ink-2)}
   .aisp{margin:10px 0 0;padding-left:18px}
   .aisp li{font-size:13px;line-height:1.75;color:var(--ink-2);margin-bottom:4px}
+  .aisg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
+  .aisgi{background:#F7F9FC;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .aisgi .k{display:block;font-size:11px;color:var(--muted)}
+  .aisgi .v{display:block;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink);margin-top:2px;letter-spacing:-.3px}
+  .aish{font-size:12px;font-weight:700;color:var(--brand);margin:14px 0 6px;display:flex;align-items:center;gap:7px}
+  .aish::before{content:"";width:3px;height:12px;background:var(--amber);border-radius:1px}
+  .aisi{margin-top:12px;background:#FFFBF2;border:1px solid #F0E2C4;border-left:3px solid var(--amber);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.7;color:var(--ink-2)}
+  .aisi .t{font-weight:700;color:var(--signal);margin-right:6px}
   .aisf{margin-top:14px;padding-top:11px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
   .aisf a{color:var(--brand-2);text-decoration:none;margin-left:auto}
   .aisrf{appearance:none;border:1px solid var(--line-2);background:#fff;border-radius:6px;padding:3px 9px;font-family:var(--sans);font-size:11.5px;color:var(--ink-2);cursor:pointer}
@@ -498,10 +506,10 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260901133432"></script>
-<script src="/fin-board.js?v=20260901133432"></script>
-<script src="/ds-board.js?v=20260901133432"></script>
-<script src="/storage-board.js?v=20260901133432"></script>
+<script src="/api-auth.js?v=20260901135023"></script>
+<script src="/fin-board.js?v=20260901135023"></script>
+<script src="/ds-board.js?v=20260901135023"></script>
+<script src="/storage-board.js?v=20260901135023"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -772,10 +780,13 @@ window.aiSummary=async function(u,t,h,force){
   box.classList.add("on");
   body.innerHTML=`<div class="aisl">正在读取原文并生成摘要…<div class="aist">首次生成约需 10-30 秒;之后再看是即时的。</div></div>`;
   const draw=(d)=>{
-    const stale=d.degraded;   // 旧版按标题生成的,标出来并允许重新生成
-    body.innerHTML=`${stale?`<div class="aisw">这是旧版按标题生成的说明,建议重新生成</div>`:""}
+    const stale=d.degraded||(!d.facts&&!d.impact&&(d.points||[]).length<3); // 旧版或过简的,提示可重做
+    const facts=(d.facts||[]).filter(x=>x&&x.k&&x.v);
+    body.innerHTML=`${stale?`<div class="aisw">这是旧版摘要,信息较简略,可点「重新生成」获取结构化版本</div>`:""}
       <div class="aistx">${esc(d.summary||"")}</div>
-      ${(d.points||[]).length?`<ul class="aisp">${d.points.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${facts.length?`<div class="aisg">${facts.map(x=>`<div class="aisgi"><span class="k">${esc(x.k)}</span><span class="v">${esc(x.v)}</span></div>`).join("")}</div>`:""}
+      ${(d.points||[]).length?`<div class="aish">要点</div><ul class="aisp">${d.points.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${d.impact?`<div class="aisi"><span class="t">影响</span>${esc(d.impact)}</div>`:""}
       <div class="aisf">${d.source?`依据:${esc(d.source)}`:""}
         <button class="aisrf" onclick="aiSummary('${encodeURIComponent(url)}','${encodeURIComponent(title)}','${encodeURIComponent(hint)}',1)">↻ 重新生成</button>
         <a href="${esc(url)}" target="_blank" rel="noopener">查看原文 ↗</a></div>`;
@@ -808,11 +819,27 @@ window.aiPrewarm=function(items){
       body:JSON.stringify({items:list})}).catch(()=>{});
   }catch(_){}
 };
+
+// 悬停/触摸即预热单条 —— 点开时多半已在缓存里,接近秒开
+window.aiWarmOne=function(u,t){
+  try{
+    if(!window.hasAdminToken||!window.hasAdminToken())return;
+    const url=decodeURIComponent(u||"");if(!/^https?:/i.test(url))return;
+    window.__warmed=window.__warmed||new Set();
+    if(window.__warmed.has(url))return; window.__warmed.add(url);
+    fetch("/api/summary?url="+encodeURIComponent(url)).then(r=>{
+      if(r.ok)return;                       // 已有缓存,不用做
+      fetch("/api/summary/prewarm",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({items:[{url,title:decodeURIComponent(t||"")}]})}).catch(()=>{});
+    }).catch(()=>{});
+  }catch(_){}
+};
 window.closeAiSum=function(){document.getElementById("ai-sum").classList.remove("on");};
 // 供列表复用的按钮片段
 window.aiSumBtn=function(url,title,hint){
   if(!url)return "";
-  return `<span>·</span><button class="aisbtn" onclick="event.stopPropagation();aiSummary('${encodeURIComponent(url)}','${encodeURIComponent(title||"")}','${encodeURIComponent(hint||"")}')">✨ AI 摘要</button>`;
+  const eu=encodeURIComponent(url),et=encodeURIComponent(title||""),eh=encodeURIComponent(hint||"");
+  return `<span>·</span><button class="aisbtn" onmouseenter="aiWarmOne('${eu}','${et}')" ontouchstart="aiWarmOne('${eu}','${et}')" onclick="event.stopPropagation();aiSummary('${eu}','${et}','${eh}')">✨ AI 摘要</button>`;
 };
 
 function closeModal(){scrim.classList.remove("on");}
