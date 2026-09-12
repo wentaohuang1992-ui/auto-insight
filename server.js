@@ -4,13 +4,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDetail } from "./src/claude.js";
 import { generateCadence } from "./src/cadence.js";
-import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, saveHeadlines, getHeadlines, saveReport, getReport, listReports, getSummary, saveSummary } from "./src/db.js";
+import { addSubscriber, getSnapshot, saveSnapshot, getDigest, listDigests, listDigestFailures, listSubscribers, saveHeadlines, getHeadlines, saveReport, getReport, listReports, getSummary, saveSummary } from "./src/db.js";
 import { genHeadlines, headlineChannels } from "./src/headlines.js";
 import { fetchReportLinks } from "./src/fin_reports.js";
 import { genReport, weeksOfMonth } from "./src/reports.js";
 import { fetchVendorQuarters, fetchAllVendors } from "./src/ds_fin.js";
 import { summarizeArticle } from "./src/summarize.js";
 import { searchQuotaState } from "./src/search.js";
+import { runProbe, probeStatus } from "./src/probe.js";
+import * as retail from "./src/retail_db.js";
+import { fetchCz, fetchCpcaMaker, fetchViaAI } from "./src/retail_fetch.js";
+import { buildReportEmail, mailToSubscribers } from "./src/notify.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
 import { listModels, getModel, putModel, addModel, deleteModel, dbMeta } from "./src/models_db.js";
@@ -156,6 +160,74 @@ app.post("/api/summary/prewarm", apiGuard, (req, res) => {
 app.post("/api/summary/status", (req, res) => {
   const urls = Array.isArray(req.body?.urls) ? req.body.urls.slice(0, 40) : [];
   res.json({ ready: urls.filter((u) => !!getSummary(u)) });
+});
+
+// —— 探针:手动巡检 / 状态 / 演练 ——
+app.get("/api/probe", (req, res) => { try { res.json(probeStatus()); } catch (e) { fail(res)(e); } });
+app.post("/api/probe/run", apiGuard, (req, res) => {
+  const dry = String(req.body?.dry || "") === "1" || req.body?.apply === false;
+  const jk = "probe-run";
+  if (jobs[jk] && jobs[jk].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(jk); if (wait) return res.status(429).json({ error: `刚触发过,请 ${wait} 秒后再试` });
+  jobs[jk] = { status: "running", startedAt: Date.now() };
+  runProbe({ apply: !dry, mail: !dry })
+    .then((r) => { jobs[jk] = { status: "done", finishedAt: Date.now(), ...r }; })
+    .catch((e) => { jobs[jk] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started", dry });
+});
+app.get("/api/probe/run/status", (req, res) => res.json(jobs["probe-run"] || { status: "idle" }));
+// 手动补发某期周报/月报邮件
+app.post("/api/reports/mail", apiGuard, (req, res) => {
+  const key = String(req.body?.key || "").trim();
+  const rep = getReport(key);
+  if (!rep) return res.status(404).json({ error: "该期报告尚未生成" });
+  mailToSubscribers(buildReportEmail(rep)).then((r) => res.json({ ok: true, ...r })).catch(fail(res));
+});
+
+// —— 车企销量速递(2C 零售/上牌口径,多源横向校验) ——
+app.get("/api/retail", (req, res) => {
+  const now = new Date();
+  const y = Number(req.query.year) || now.getFullYear();
+  const m = Number(req.query.month) || now.getMonth();     // 默认上月(本月通常还没出)
+  const kind = ["model", "brand", "maker"].includes(req.query.kind) ? req.query.kind : "model";
+  try { res.json(retail.compare(y, m || 12, kind)); } catch (e) { fail(res)(e); }
+});
+app.get("/api/retail/periods", (req, res) => { try { res.json({ items: retail.listPeriods() }); } catch (e) { fail(res)(e); } });
+// 抓取:三个来源逐个试,各存各的,互不影响
+app.post("/api/retail/fetch", apiGuard, (req, res) => {
+  const kind = ["model", "brand", "maker"].includes(req.body?.kind) ? req.body.kind : "model";
+  const jk = "retail-" + kind;
+  if (jobs[jk] && jobs[jk].status === "running") return res.json({ status: "running" });
+  const wait = tooSoon(jk); if (wait) return res.status(429).json({ error: `刚触发过,请 ${wait} 秒后再试` });
+  jobs[jk] = { status: "running", startedAt: Date.now() };
+  (async () => {
+    const done = [], errs = [];
+    // 源一:车主之家(覆盖最全)
+    let y = null, mo = null;
+    try {
+      const d = await fetchCz(kind, { pages: kind === "model" ? 4 : 2 });
+      y = d.year; mo = d.month;
+      done.push(retail.saveSnapshot({ year: y, month: mo, kind, source: d.source, items: d.items }));
+    } catch (e) { errs.push("车主之家:" + e.message); }
+    // 源二:乘联分会(仅厂商榜有)
+    if (kind === "maker" && y) {
+      try { const d = await fetchCpcaMaker(); done.push(retail.saveSnapshot({ year: y, month: mo, kind, source: d.source, items: d.items })); }
+      catch (e) { errs.push("乘联分会:" + e.message); }
+    }
+    // 源三:联网检索(兜底/补充,用于交叉校验)
+    if (y) {
+      try { const d = await fetchViaAI(kind, y, mo); done.push(retail.saveSnapshot({ year: y, month: mo, kind, source: d.source, items: d.items })); }
+      catch (e) { errs.push("联网检索:" + e.message); }
+    }
+    return { year: y, month: mo, kind, saved: done, errors: errs };
+  })()
+    .then((r) => { jobs[jk] = { status: "done", finishedAt: Date.now(), ...r }; })
+    .catch((e) => { jobs[jk] = { status: "error", finishedAt: Date.now(), error: e.message }; });
+  res.status(202).json({ status: "started", kind });
+});
+app.get("/api/retail/fetch/status", (req, res) => {
+  const k = ["model", "brand", "maker"].includes(req.query.kind) ? req.query.kind : "model";
+  res.json(jobs["retail-" + k] || { status: "idle" });
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
 
@@ -604,6 +676,13 @@ app.get("/api/health", (req, res) => {
   const failLimit = Math.min(50, Math.max(1, Number(req.query?.failures) || 10));
   res.json({
     searchQuota: quota.exhausted ? { ok: false, note: "博查搜索额度已用尽,日报/要闻/摘要都会受影响,请充值或续费", at: new Date(quota.at).toISOString() } : { ok: true },
+    mail: {
+      // 没配 RESEND_API_KEY 时发信会被静默跳过 —— 在这里显式暴露,避免"以为在发其实没发"
+      configured: Boolean(process.env.RESEND_API_KEY),
+      from: process.env.MAIL_FROM || "(默认 onboarding@resend.dev)",
+      subscribers: listSubscribers().length,
+      note: process.env.RESEND_API_KEY ? undefined : "未配置 RESEND_API_KEY,所有邮件(日报/周报月报/探针提醒)都不会真正发出",
+    },
     ok: locked.length === 0,
     model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
     search: "bocha",

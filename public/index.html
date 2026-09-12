@@ -136,6 +136,9 @@
   .mtbar{display:flex;align-items:center;gap:9px}
   .mtbar::before{content:"";width:3px;height:15px;background:var(--amber);border-radius:1px;flex:none}
   /* 周报 / 月报 */
+  .probebar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;background:#F7F9FC;border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:12px}
+  .probebar .pbt{font-size:12px;font-weight:700;color:var(--brand)}
+  .probebar .pbs{font-size:11.5px;color:var(--muted);flex:1 1 auto}
   .rptbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
   .rpthave{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
   .rpthave .rphl{font-size:11.5px;color:var(--muted)}
@@ -270,14 +273,14 @@
   .hlhead .hlref{margin-left:auto;appearance:none;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--line-2);border-radius:6px;padding:4px 10px}
   .hlhead .hlref:hover{border-color:var(--amber);color:var(--signal)}
   .hlhead .hlref:disabled{opacity:.5;cursor:default}
-  .hlnews{border:0;border-radius:0;box-shadow:none}
+  .hlnews{border:0;border-radius:0;box-shadow:none;max-height:300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .hlnews li{padding:14px 16px}
   .hlnews .ti{font-size:14.5px}
   .hlnews .sm{font-size:13px}
   .hlempty{padding:20px 16px;font-size:13px;color:var(--muted)}
   .hlsum{padding:12px 16px}
   .hlsum .hlsov{margin:0 0 9px;background:#F7F9FC;border:1px solid var(--line);border-left:3px solid var(--brand-2);border-radius:8px;padding:9px 11px;font-size:12.5px;color:var(--ink-2);line-height:1.6}
-  .hlsul{list-style:none;margin:0;padding:0}
+  .hlsul{list-style:none;margin:0;padding:0;max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .hlsul li{font-size:13px;color:var(--ink-2);line-height:1.45;padding:6px 0 6px 15px;position:relative;border-top:1px solid var(--line)}
   .hlsul li:first-child{border-top:0}
   .hlsul li::before{content:"\203A";position:absolute;left:2px;top:6px;color:var(--brand-2);font-weight:700}
@@ -395,7 +398,8 @@
         <button class="tab" role="tab" aria-selected="false" data-tab="fin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="5"/><rect x="12" y="8" width="3" height="9"/><rect x="17" y="5" width="3" height="12"/></svg><span class="idx">03</span>车企洞察</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="downshift"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/></svg><span class="idx">04</span>部件供应商洞察</button>
         <button class="tab" role="tab" aria-selected="false" data-tab="storage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg><span class="idx">05</span>存储洞察</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg><span class="idx">06</span>周报月报</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="retail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><circle cx="19" cy="6" r="1.6"/></svg><span class="idx">06</span>车企销量速递</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg><span class="idx">07</span>周报月报</button>
       </nav>
     </div>
   </header>
@@ -474,10 +478,24 @@
         <div class="note" id="note-storage"></div>
       </div>
       <div id="out-storage"></div>
-    </section>    <section class="sec" id="sec-report" hidden>
+    </section>    <section class="sec" id="sec-retail" hidden>
+      <div class="head">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><circle cx="19" cy="6" r="1.6"/></svg>车企销量速递<span class="src">零售 / 上牌口径 · 多源横向校验</span></h2>
+        <div class="note">2C 口径(消费者实际提车),不含批发与出口。同一榜单并排显示各来源数字,差异超 15% 自动标出。</div>
+      </div>
+      <div id="out-retail"></div>
+    </section>
+
+    <section class="sec" id="sec-report" hidden>
       <div class="head">
         <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>周报/月报<span class="src">基于本站日报与今日要闻归档汇总</span></h2>
         <div class="note">周报每周一自动生成上周,月报每月 1 号生成上月;也可手动生成任一周期。</div>
+      </div>
+      <div class="probebar">
+        <span class="pbt">📡 探针</span>
+        <span class="pbs" id="probe-state">读取中…</span>
+        <button class="chip" onclick="probeRun(this)">立即巡检</button>
+        <button class="chip" onclick="rptMail(this)">补发本期邮件</button>
       </div>
       <div class="rptbar">
         <select id="rpt-year" class="archsel" onchange="rptFillPeriods();rptLoad()"></select>
@@ -504,10 +522,11 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260901140557"></script>
-<script src="/fin-board.js?v=20260901140557"></script>
-<script src="/ds-board.js?v=20260901140557"></script>
-<script src="/storage-board.js?v=20260901140557"></script>
+<script src="/api-auth.js?v=20260909120704"></script>
+<script src="/fin-board.js?v=20260909120704"></script>
+<script src="/ds-board.js?v=20260909120704"></script>
+<script src="/storage-board.js?v=20260909120704"></script>
+<script src="/retail-board.js?v=20260909120704"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -613,6 +632,48 @@ async function refreshHeadlines(ch,btn){
 }
 
 // 往期日报
+
+// —— 探针状态与手动巡检 ——
+async function probeLoad(){
+  const el=document.getElementById("probe-state");if(!el)return;
+  try{
+    const d=await (await fetch("/api/probe")).json();
+    const n=(d.lastAlerts||[]).length;
+    el.innerHTML=d.lastRun
+      ? `上次巡检 ${esc(fmtTime(d.lastRun))} · 最近发现 <b>${n}</b> 条`
+      : "尚未巡检(每天 09:20、18:20 自动运行)";
+  }catch(_){el.textContent="状态不可用";}
+}
+async function probeRun(btn){
+  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken("refresh");return;}
+  btn.disabled=true;btn.textContent="巡检中…";
+  try{
+    const r=await fetch("/api/probe/run",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"启动失败");
+    const t0=Date.now();
+    const poll=setInterval(async()=>{
+      if(Date.now()-t0>6*60*1000){clearInterval(poll);btn.disabled=false;btn.textContent="立即巡检";alert("巡检仍在后台进行,稍后刷新查看。");return;}
+      const st=await (await fetch("/api/probe/run/status")).json();
+      if(st.status==="done"){clearInterval(poll);btn.disabled=false;btn.textContent="立即巡检";
+        alert(`巡检完成:发现 ${st.alerts?st.alerts.length:0} 条`
+          +(st.counts?`(销量${st.counts.sales}/报告${st.counts.report}/预告${st.counts.preannounce})`:"")
+          +(st.mailed?"\n已发送邮件通知。":"\n无新披露或无订阅者,未发信。")
+          +((st.errors||[]).length?"\n提示:"+st.errors.join(";"):""));
+        probeLoad();}
+      else if(st.status==="error"){clearInterval(poll);btn.disabled=false;btn.textContent="立即巡检";alert("巡检失败:"+st.error);}
+    },5000);
+  }catch(e){alert(e.message);btn.disabled=false;btn.textContent="立即巡检";}
+}
+async function rptMail(btn){
+  if(window.hasAdminToken&&!window.hasAdminToken()){if(window.setAdminToken)window.setAdminToken("refresh");return;}
+  const key=rptCurrentKey();if(!key){alert("请先选择一期报告");return;}
+  btn.disabled=true;btn.textContent="发送中…";
+  try{
+    const r=await fetch("/api/reports/mail",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"发送失败");
+    alert(d.skipped==="no-subscribers"?"当前没有订阅者,请先在首页订阅邮箱。":"邮件已发送。");
+  }catch(e){alert(e.message);}finally{btn.disabled=false;btn.textContent="补发本期邮件";}
+}
 // —— 周报 / 月报 ——
 function rptMonday(d){const x=new Date(d);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);return x;}
 function rptIso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
@@ -1272,7 +1333,8 @@ const loaded={};
 document.querySelectorAll(".tab").forEach(t=>{t.onclick=()=>{const tab=t.dataset.tab;
   document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
   document.querySelectorAll(".sec").forEach(s=>{s.hidden=s.id!=="sec-"+tab;});
-  if(!loaded[tab]){loaded[tab]=true; if(tab==="launch"){loadCadence();loadHeadlines("launch");}else if(tab==="report"){rptFillPeriods();rptLoadHave(true);}else{loadSection(tab);}}};});
+  if(!loaded[tab]){loaded[tab]=true; if(tab==="launch"){loadCadence();loadHeadlines("launch");}else if(tab==="retail"){window.RETAILBOARD&&window.RETAILBOARD.load();}
+    else if(tab==="report"){rptFillPeriods();rptLoadHave(true);probeLoad();}else{loadSection(tab);}}};});
 
 // Subscribe
 document.getElementById("sub-btn").onclick=async()=>{const inp=document.getElementById("email"),msg=document.getElementById("submsg");

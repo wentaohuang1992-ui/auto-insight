@@ -4,6 +4,8 @@ import { generateCadence } from "./cadence.js";
 import { getStorage } from "./storage.js";
 import { genHeadlines, headlineChannels } from "./headlines.js";
 import { genReport, prevWeekKey, prevMonthKey } from "./reports.js";
+import { buildReportEmail, mailToSubscribers } from "./notify.js";
+import { runProbe } from "./probe.js";
 import { today, isoToCn, isosBefore } from "./dates.js";
 import {
   saveSnapshot, saveDigest, getDigest, listSubscribers,
@@ -15,6 +17,9 @@ async function buildReport(key) {
   const d = await genReport(key);
   saveReport(key, d);
   console.log(`[cron] ${d.title} 已生成(素材 ${d.stats.days} 天)`);
+  // 生成完直接推邮件 —— 周期报告的价值就在时效
+  try { await mailToSubscribers(buildReportEmail(d)); console.log(`[cron] ${d.title} 已发送邮件`); }
+  catch (e) { console.error("[cron] 报告邮件发送失败:", e.message); }
   return d;
 }
 import { buildDigestEmail } from "./digest.js";
@@ -321,6 +326,10 @@ export function startCron() {
   cron.schedule("0 9 5 * *", () => fetchAllSales({ months: 3 }).catch((e) => console.error("[cron] 产销快报", e)), { timezone: TZ });
   cron.schedule("0 9 * * *", () => sendDaily().catch((e) => console.error("[cron] 发送", e)), { timezone: TZ });
   // 周一 09:30 出上周周报;每月 1 号 09:40 出上月月报
+  // 探针:09:20 与 18:20 各巡检一次(A股公告多在盘后披露)
+  cron.schedule("20 9,18 * * *", () => runProbe({ apply: true, mail: true })
+    .then((r) => console.log(`[cron] 探针:发现 ${r.alerts.length} 条(销量${r.counts.sales}/报告${r.counts.report}/预告${r.counts.preannounce}),邮件${r.mailed ? "已发" : "未发"}`))
+    .catch((e) => console.error("[cron] 探针", e.message)), { timezone: TZ });
   cron.schedule("30 9 * * 1", () => buildReport(prevWeekKey(today().iso)).catch((e) => console.error("[cron] 周报", e.message)), { timezone: TZ });
   cron.schedule("40 9 1 * *", () => buildReport(prevMonthKey(today().iso)).catch((e) => console.error("[cron] 月报", e.message)), { timezone: TZ });
   console.log(`[cron] 已排程:每月1号 08:00 财报 / 08:10 车型库 / 08:40 上市节奏;每周一 08:20 存储洞察;每天 08:30 日报(失败重试${RETRY_MAX}次)+ 补漏 / 09:00 邮件 (时区 ${TZ})`);
