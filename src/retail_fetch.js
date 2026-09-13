@@ -41,6 +41,42 @@ function rows(html) {
   return out;
 }
 
+/** 取页面文本:按 charset 解码(该站多为 GBK,按 UTF-8 解会乱码) */
+async function getHtml(url) {
+  const r = await fetchWithTimeout(url, { headers: UA }, 20000);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  let html = buf.toString("utf8");
+  const cs = (html.slice(0, 3000).match(/charset=["']?([\w-]+)/i) || [])[1];
+  if (cs && /gb2312|gbk|gb18030/i.test(cs)) {
+    try { html = new TextDecoder("gb18030").decode(buf); } catch (_) { /* 解不了就保持 utf8 */ }
+  }
+  return { html, status: r.status };
+}
+
+/** 阅读器代理兜底:直抓被拦或页面靠 JS 渲染时,它能拿到渲染后的内容(返回 markdown) */
+async function getViaReader(url) {
+  const prefix = process.env.READER_PREFIX || "https://r.jina.ai/";
+  const headers = { Accept: "text/plain", "User-Agent": "auto-insight/1.0" };
+  if (process.env.JINA_API_KEY) headers.Authorization = `Bearer ${process.env.JINA_API_KEY}`;
+  const r = await fetchWithTimeout(prefix + url, { headers }, 25000);
+  if (!r.ok) throw new Error(`阅读器 HTTP ${r.status}`);
+  return { html: await r.text(), status: r.status };
+}
+
+/** 阅读器返回的是 markdown 表格,按竖线切列 */
+function parseMdRows(md) {
+  const out = [];
+  for (const line of String(md).split("\n")) {
+    if (!line.includes("|")) continue;
+    let cells = line.split("|").map((x) => x.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").trim());
+    if (cells.length && !cells[0]) cells = cells.slice(1);
+    if (cells.length && !cells[cells.length - 1]) cells = cells.slice(0, -1);
+    if (cells.length >= 3 && !/^[-: ]+$/.test(cells[0])) out.push(cells);
+  }
+  return out;
+}
+
 /** 诊断:看清实际抓回来的是什么,避免再靠猜 */
 export function diagnose(html) {
   const h = String(html || "");
@@ -95,11 +131,32 @@ export async function fetchCz(kind = "model", { pages = 3 } = {}) {
   const all = [];
   let year = null, month = null;
   for (let p = 1; p <= pages; p++) {
-    const r = await fetchWithTimeout(mk(p), { headers: UA }, 20000);
-    if (!r.ok) { if (p === 1) throw new Error(`车主之家 HTTP ${r.status}(${mk(p)})`); break; }
-    const html = await r.text();
-    if (p === 1) lastDiag = { url: mk(p), status: r.status, ...diagnose(html) };
-    const d = parseCz(html);
+    const url = mk(p);
+    let html = "", via = "直抓";
+    try { html = (await getHtml(url)).html; }
+    catch (e) { if (p === 1) throw new Error(`车主之家 ${e.message}(${url})`); break; }
+    let d = parseCz(html);
+    // 直抓没解析出行 → 换阅读器代理再试一次(对付反爬与 JS 渲染)
+    if (!d.items.length) {
+      try {
+        const rd = await getViaReader(url);
+        const md = rd.html;
+        const mdRows = parseMdRows(md);
+        const items = [];
+        for (const c of mdRows) {
+          const rank = toNum(c[0]), sales = toNum(c[2]);
+          if (rank == null || sales == null || !c[1] || sales < 10) continue;
+          items.push({ rank, name: c[1], sales, maker: c[3] || "", price: c[4] || "" });
+        }
+        if (items.length) {
+          const pm = (String(md).match(/排行榜\s*\((\d{4})\.(\d{1,2})\)/) || []).slice(1, 3);
+          d = { year: pm[0] ? Number(pm[0]) : null, month: pm[1] ? Number(pm[1]) : null, items };
+          via = "阅读器";
+          if (p === 1) html = md;
+        }
+      } catch (_) { /* 阅读器也不行,下面按无数据处理 */ }
+    }
+    if (p === 1) lastDiag = { url, via, ...diagnose(html), parsed: d.items.length };
     if (!d.items.length) break;
     year = year || d.year; month = month || d.month;
     all.push(...d.items);

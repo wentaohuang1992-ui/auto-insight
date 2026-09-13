@@ -4,6 +4,13 @@ import { fetchWithTimeout } from "./http.js";
 const BASE = process.env.DEEPSEEK_BASE || "https://api.deepseek.com/v1";
 // 大模型生成慢,单独给一个更长的超时。
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 120000);
+let lastBalanceAt = 0;
+function noteBalance() { lastBalanceAt = Date.now(); }
+/** 最近一次余额不足的时间;24 小时内视为仍处于欠费状态 */
+export function llmBalanceState() {
+  return { exhausted: lastBalanceAt > 0 && Date.now() - lastBalanceAt < 24 * 3600e3, at: lastBalanceAt || null };
+}
+
 export const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 
 async function rawChat(body) {
@@ -14,7 +21,16 @@ async function rawChat(body) {
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify(body)
   }, LLM_TIMEOUT_MS);
-  if (!res.ok) { const t = await res.text().catch(() => ""); const e = new Error(`DeepSeek ${res.status}: ${t.slice(0, 220)}`); e.status = res.status; throw e; }
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    // 402/余额不足单独标记:这类不是代码问题,要的是充值提示而不是重试
+    if (res.status === 402 || /Insufficient Balance|余额不足/i.test(t)) {
+      noteBalance();
+      const e = new Error("DeepSeek 账户余额不足,请充值后再试");
+      e.status = 402; e.code = "BALANCE"; e.balance = true; throw e;
+    }
+    const e = new Error(`DeepSeek ${res.status}: ${t.slice(0, 220)}`); e.status = res.status; throw e;
+  }
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";
 }

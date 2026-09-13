@@ -11,7 +11,11 @@ import { genReport, weeksOfMonth } from "./src/reports.js";
 import { fetchVendorQuarters, fetchAllVendors } from "./src/ds_fin.js";
 import { summarizeArticle } from "./src/summarize.js";
 import { searchQuotaState } from "./src/search.js";
+import { llmBalanceState } from "./src/llm.js";
 import { runProbe, probeStatus } from "./src/probe.js";
+import { pullAll } from "./src/feeds.js";
+import { listSources, addSource, putSource, delSource, recordPull, pullStatus } from "./src/feeds_db.js";
+import { filterAndRank } from "./src/newsfilter.js";
 import * as retail from "./src/retail_db.js";
 import { fetchCz, fetchCpcaMaker, fetchViaAI, lastCzDiag } from "./src/retail_fetch.js";
 import { buildReportEmail, mailToSubscribers } from "./src/notify.js";
@@ -193,11 +197,24 @@ app.get("/api/retail", (req, res) => {
   try { res.json(retail.compare(y, m || 12, kind)); } catch (e) { fail(res)(e); }
 });
 // 诊断:直接看抓回来的是什么(是不是反爬页/结构变了),避免靠猜
-app.get("/api/retail/probe", apiGuard, (req, res) => {
+app.get("/api/retail/probe", (req, res) => {   // 只读诊断,免令牌:浏览器直接打开即可
   const kind = ["model", "brand", "maker"].includes(req.query.kind) ? req.query.kind : "model";
   fetchCz(kind, { pages: 1 })
     .then((d) => res.json({ ok: true, kind, year: d.year, month: d.month, count: d.items.length, sample: d.items.slice(0, 5), diag: lastCzDiag() }))
     .catch((e) => res.json({ ok: false, kind, error: e.message, diag: e.diag || lastCzDiag() }));
+});
+// 按车企看:集团→厂商→车型 三层
+app.get("/api/retail/company", (req, res) => {
+  const now = new Date();
+  const y = Number(req.query.year) || now.getFullYear();
+  const m = Number(req.query.month) || (now.getMonth() || 12);
+  try { res.json(retail.byCompany(y, m)); } catch (e) { fail(res)(e); }
+});
+app.get("/api/retail/trend", (req, res) => {
+  const g = String(req.query.group || "").trim();
+  if (!g) return res.status(400).json({ error: "缺少 group" });
+  try { res.json({ group: g, items: retail.trendOf(g, { months: Number(req.query.months) || 12 }) }); }
+  catch (e) { fail(res)(e); }
 });
 app.get("/api/retail/periods", (req, res) => { try { res.json({ items: retail.listPeriods() }); } catch (e) { fail(res)(e); } });
 // 抓取:三个来源逐个试,各存各的,互不影响
@@ -235,6 +252,29 @@ app.post("/api/retail/fetch", apiGuard, (req, res) => {
 app.get("/api/retail/fetch/status", (req, res) => {
   const k = ["model", "brand", "maker"].includes(req.query.kind) ? req.query.kind : "model";
   res.json(jobs["retail-" + k] || { status: "idle" });
+});
+// —— 一手信源订阅:清单管理 + 试拉 ——
+app.get("/api/feeds", (req, res) => {
+  try { res.json({ sources: listSources(), status: pullStatus() }); } catch (e) { fail(res)(e); }
+});
+app.post("/api/feeds", apiGuard, (req, res) => { try { res.json({ ok: true, source: addSource(req.body || {}) }); } catch (e) { fail(res)(e); } });
+app.put("/api/feeds/:id", apiGuard, (req, res) => {
+  const r = putSource(req.params.id, req.body || {});
+  if (!r) return res.status(404).json({ error: "未找到该信源" });
+  res.json({ ok: true, source: r });
+});
+app.delete("/api/feeds/:id", apiGuard, (req, res) => res.json({ ok: delSource(req.params.id) }));
+// 试拉:看每个源各能拉到几条、哪个源挂了,以及规则层筛掉了什么
+app.get("/api/feeds/probe", (req, res) => {
+  pullAll(listSources()).then((r) => {
+    const picked = filterAndRank(r.items, { limit: 20 });
+    const perSource = {};
+    for (const it of r.items) perSource[it.source] = (perSource[it.source] || 0) + 1;
+    recordPull(picked.stats, r.errors);
+    res.json({ perSource, errors: r.errors, stats: picked.stats,
+      kept: picked.kept.map((x) => ({ score: x.score, signals: x.signals, title: x.title, source: x.source, date: x.date, url: x.url, dupes: (x.dupes || []).length })),
+      droppedSample: picked.dropped.slice(0, 10).map((x) => ({ title: x.title, source: x.source, why: x.reasons[0] || "低分" })) });
+  }).catch(fail(res));
 });
 app.get("/api/news/archive", (req, res) => { try { res.json({ items: listDigests() }); } catch (e) { fail(res)(e); } });
 
@@ -680,8 +720,12 @@ app.get("/api/health", (req, res) => {
   const locked = lockedStores();
   const upSec = process.uptime();
   const quota = searchQuotaState();
+  const bal = llmBalanceState();
   const failLimit = Math.min(50, Math.max(1, Number(req.query?.failures) || 10));
   res.json({
+    llmBalance: bal.exhausted
+      ? { ok: false, note: "DeepSeek 账户余额不足,日报/要闻/摘要/周报月报等所有 AI 功能都会停摆,请前往 DeepSeek 平台充值", at: new Date(bal.at).toISOString() }
+      : { ok: true },
     searchQuota: quota.exhausted ? { ok: false, note: "博查搜索额度已用尽,日报/要闻/摘要都会受影响,请充值或续费", at: new Date(quota.at).toISOString() } : { ok: true },
     mail: {
       // 没配 RESEND_API_KEY 时发信会被静默跳过 —— 在这里显式暴露,避免"以为在发其实没发"

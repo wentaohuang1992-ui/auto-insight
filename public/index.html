@@ -132,6 +132,9 @@
   .aisrf:hover{border-color:var(--amber);color:var(--signal)}
   .aisbtn{appearance:none;border:0;background:none;padding:0;cursor:pointer;font-family:var(--sans);font-size:11.5px;color:var(--signal);font-weight:600}
   .aisbtn:hover{text-decoration:underline}
+  .sysalert{display:flex;align-items:flex-start;gap:10px;background:#FFF4F4;border:1px solid #F5C9C9;border-left:3px solid var(--up);border-radius:9px;padding:11px 14px;margin:14px 0 0;font-size:13px;line-height:1.7;color:var(--ink-2)}
+  .sysalert b{color:var(--up)}
+  .sysalert a{color:var(--brand-2);text-decoration:none}
   .archcnt{font-size:11.5px;color:var(--muted)}
   .mtbar{display:flex;align-items:center;gap:9px}
   .mtbar::before{content:"";width:3px;height:15px;background:var(--amber);border-radius:1px;flex:none}
@@ -405,6 +408,7 @@
   </header>
 
   <main class="wrap">
+    <div id="sys-alert" class="sysalert" hidden></div>
     <section class="sec" id="sec-fin" hidden>
       <div class="head">
         <div class="ref">SECTION 03 · FINANCIALS</div>
@@ -522,11 +526,11 @@
   </div>
 </div>
 
-<script src="/api-auth.js?v=20260909120704"></script>
-<script src="/fin-board.js?v=20260909120704"></script>
-<script src="/ds-board.js?v=20260909120704"></script>
-<script src="/storage-board.js?v=20260909120704"></script>
-<script src="/retail-board.js?v=20260909120704"></script>
+<script src="/api-auth.js?v=20260913062002"></script>
+<script src="/fin-board.js?v=20260913062002"></script>
+<script src="/ds-board.js?v=20260913062002"></script>
+<script src="/storage-board.js?v=20260913062002"></script>
+<script src="/retail-board.js?v=20260913062002"></script>
 <script>
 const EP={fin:"/api/fin",news:"/api/news",downshift:"/api/downshift",storage:"/api/storage"};
 (function(){const b=document.getElementById("keybtn"),t=document.getElementById("keytxt");
@@ -674,6 +678,23 @@ async function rptMail(btn){
     alert(d.skipped==="no-subscribers"?"当前没有订阅者,请先在首页订阅邮箱。":"邮件已发送。");
   }catch(e){alert(e.message);}finally{btn.disabled=false;btn.textContent="补发本期邮件";}
 }
+
+// 系统状态自检:余额/额度这类问题直接顶部提示,不必等某个功能报错才发现
+async function sysCheck(){
+  try{
+    const d=await (await fetch("/api/health")).json();
+    const msgs=[];
+    if(d.llmBalance&&d.llmBalance.ok===false)msgs.push(`<b>DeepSeek 余额不足</b> —— ${esc(d.llmBalance.note||"")}`);
+    if(d.searchQuota&&d.searchQuota.ok===false)msgs.push(`<b>搜索额度用尽</b> —— ${esc(d.searchQuota.note||"")}`);
+    if(d.mail&&d.mail.configured===false)msgs.push(`<b>邮件未配置</b> —— ${esc(d.mail.note||"")}`);
+    const el=document.getElementById("sys-alert");if(!el)return;
+    if(!msgs.length){el.hidden=true;return;}
+    el.innerHTML=`<span>⚠</span><div>${msgs.join("<br>")}</div>`;
+    el.hidden=false;
+  }catch(_){/* 自检失败不打扰 */}
+}
+setTimeout(sysCheck,1200);
+setInterval(sysCheck,10*60*1000);   // 每 10 分钟复查一次,恢复后自动消失
 // —— 周报 / 月报 ——
 function rptMonday(d){const x=new Date(d);const dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);return x;}
 function rptIso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}

@@ -2,6 +2,9 @@
 import { research } from "./research.js";
 import { bochaSearch } from "./search.js";
 import { responsesWebSearch } from "./ds_search.js";
+import { pullAll } from "./feeds.js";
+import { listSources } from "./feeds_db.js";
+import { filterAndRank } from "./newsfilter.js";
 import { chatJSON } from "./llm.js";
 import { googleNewsItems } from "./news_rss.js";
 import { today, recentIsos, isosBefore } from "./dates.js";
@@ -111,8 +114,8 @@ async function getNews(opts = {}) {
   // A:博查(去掉日期、近1天优先)
   const bochaQs = ["汽车 行业 新闻", "新能源汽车 新车 发布 上市", "车企 销量", "汽车 行业 政策 新规", "智能驾驶 自动驾驶", "车企 财报 投资 合作", "新能源汽车 出海 出口"];
 
-  // A、B 两路并发跑,内部各自限流;此前 7 次博查 + 5 次 Google 全串行,一次日报要等十几秒。
-  const [bochaBlocksRaw, gnews] = await Promise.all([
+  // A、B、C 三路并发:C 是一手源订阅(官方首发,不经转述),质量最高,单独成块并置顶。
+  const [bochaBlocksRaw, gnews, feed] = await Promise.all([
     pool(bochaQs, 4, async (q) => {
       const rs = await bochaFresh(q, backfill);
       if (!rs.length) return null;
@@ -123,13 +126,23 @@ async function getNews(opts = {}) {
     backfill
       ? Promise.resolve([])
       : googleNewsItems(["中国 新能源汽车", "新能源汽车 上市 发布", "车企 销量", "智能驾驶 汽车", "汽车 行业 政策"]).catch(() => []),
+    // C:一手源订阅(协会/主管部门/垂直媒体原文),失败不影响其它两路
+    pullAll(listSources()).catch(() => ({ items: [], errors: ["一手源整体失败"] })),
   ]);
+
+  // 规则层先筛:滤标题党与水文、同一件事去重、按信源权重与实质信息排序。
+  // 模型只处理筛完剩下的 —— 少喂一半,又快又省,而且规则可解释、可调。
+  const picked = filterAndRank(feed.items || [], { limit: 18 });
+  const feedBlock = picked.kept.length
+    ? "### 一手信源(协会/主管部门/垂直媒体原文,**最可信,请优先采用**)\n"
+      + picked.kept.map((it, i) => `[S${i + 1}] ${it.title} | ${it.source} | ${it.date || ""}${it.signals.length ? " | 类型:" + it.signals.join("/") : ""}\nURL: ${it.url}`).join("\n\n")
+    : "";
   const bochaBlocks = bochaBlocksRaw.filter(Boolean);
   const gnBlock = gnews.length
     ? "### 实时新闻(Google News,最近2天,发布时间最准,请优先采用)\n" + gnews.slice(0, 25).map((it, i) => `[G${i + 1}] ${it.title} | ${it.source || ""} | ${it.dateISO || it.date || ""}\nURL: ${it.url}`).join("\n\n")
     : "";
 
-  const ctx = [gnBlock, ...bochaBlocks].filter(Boolean).join("\n\n");
+  const ctx = [feedBlock, gnBlock, ...bochaBlocks].filter(Boolean).join("\n\n");
   const itemsDateRule = backfill
     ? `**只选 ${cn} 当天或前一天发布的新闻**,按发布时间从新到旧;资料里晚于 ${cn} 的一律不要,凑不够条数就少给`
     : `**只选最近 2 天(当天/昨天)**,按发布时间从新到旧,优先采用"实时新闻"里时间最新的;不足 10 条才往前补一两天,绝不纳入一周前的`;

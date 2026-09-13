@@ -37,7 +37,13 @@ export async function responsesWebSearch(instructions, input, { model = MODEL, t
   const raw = await res.text();
   let json;
   try { json = JSON.parse(raw); } catch { throw new Error("responses 返回非 JSON:" + raw.slice(0, 200)); }
-  if (!res.ok) throw new Error(`responses ${res.status}: ${raw.slice(0, 200)}`);
+  if (!res.ok) {
+    if (res.status === 402 || /Insufficient Balance|余额不足/i.test(raw)) {
+      const e = new Error("DeepSeek 账户余额不足,请充值后再试");
+      e.status = 402; e.code = "BALANCE"; e.balance = true; throw e;
+    }
+    throw new Error(`responses ${res.status}: ${raw.slice(0, 200)}`);
+  }
   return extract(json);
 }
 
