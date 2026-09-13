@@ -24,14 +24,37 @@ const toNum = (s) => {
   return /^\d+$/.test(t) ? Number(t) : null;
 };
 
-/** 把 HTML 里所有表格行解析成单元格文本数组 */
+/** 把 HTML 里所有表格行解析成单元格文本数组;没有 table 时退回按 div/li 行解析 */
 function rows(html) {
   const out = [];
   for (const m of String(html).matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => strip(c[1]));
     if (cells.length) out.push(cells);
   }
+  if (out.length) return out;
+  // 退路:不少榜单页用 div/li 排版,按"块内含多个文本片段"切分
+  for (const m of String(html).matchAll(/<(?:li|div)[^>]*class="[^"]*(?:item|row|tr|list|rank)[^"]*"[^>]*>([\s\S]*?)<\/(?:li|div)>/gi)) {
+    const parts = [...m[1].matchAll(/<(?:span|div|a|td|p|em|i|b)[^>]*>([\s\S]*?)<\/(?:span|div|a|td|p|em|i|b)>/gi)]
+      .map((c) => strip(c[1])).filter(Boolean);
+    if (parts.length >= 3) out.push(parts);
+  }
   return out;
+}
+
+/** 诊断:看清实际抓回来的是什么,避免再靠猜 */
+export function diagnose(html) {
+  const h = String(html || "");
+  const txt = strip(h);
+  return {
+    length: h.length,
+    hasTable: /<table/i.test(h),
+    trCount: (h.match(/<tr[^>]*>/gi) || []).length,
+    tdCount: (h.match(/<td[^>]*>/gi) || []).length,
+    looksBlocked: /验证码|滑动验证|安全检查|访问受限|人机|robot|captcha|Forbidden/i.test(txt.slice(0, 3000)),
+    title: ((h.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "").trim(),
+    textSample: txt.slice(0, 700),
+    rowSample: rows(h).slice(0, 4),
+  };
 }
 
 /* ---------------- 源一:车主之家 16888 ---------------- */
@@ -64,6 +87,8 @@ export function parseCz(html) {
 }
 
 /** 抓某一榜单的前 N 页。kind: model/brand/maker */
+let lastDiag = null;
+export function lastCzDiag() { return lastDiag; }
 export async function fetchCz(kind = "model", { pages = 3 } = {}) {
   const mk = CZ[kind];
   if (!mk) throw new Error("kind 必须是 model/brand/maker");
@@ -71,14 +96,20 @@ export async function fetchCz(kind = "model", { pages = 3 } = {}) {
   let year = null, month = null;
   for (let p = 1; p <= pages; p++) {
     const r = await fetchWithTimeout(mk(p), { headers: UA }, 20000);
-    if (!r.ok) { if (p === 1) throw new Error(`车主之家 HTTP ${r.status}`); break; }
-    const d = parseCz(await r.text());
+    if (!r.ok) { if (p === 1) throw new Error(`车主之家 HTTP ${r.status}(${mk(p)})`); break; }
+    const html = await r.text();
+    if (p === 1) lastDiag = { url: mk(p), status: r.status, ...diagnose(html) };
+    const d = parseCz(html);
     if (!d.items.length) break;
     year = year || d.year; month = month || d.month;
     all.push(...d.items);
     await new Promise((s) => setTimeout(s, 400));   // 轻微间隔,别把对方打疼
   }
-  if (!all.length) throw new Error("车主之家:未解析出数据(可能改版)");
+  if (!all.length) {
+    const e = new Error("车主之家:未解析出数据");
+    e.diag = lastDiag;          // 带上诊断,便于一次定位而不是反复猜
+    throw e;
+  }
   return { source: "车主之家", kind, year, month, items: all };
 }
 

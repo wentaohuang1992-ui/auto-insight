@@ -13,7 +13,7 @@ import { summarizeArticle } from "./src/summarize.js";
 import { searchQuotaState } from "./src/search.js";
 import { runProbe, probeStatus } from "./src/probe.js";
 import * as retail from "./src/retail_db.js";
-import { fetchCz, fetchCpcaMaker, fetchViaAI } from "./src/retail_fetch.js";
+import { fetchCz, fetchCpcaMaker, fetchViaAI, lastCzDiag } from "./src/retail_fetch.js";
 import { buildReportEmail, mailToSubscribers } from "./src/notify.js";
 import { startCron, refreshFinancials, refreshCadence, refreshStorage, generateDaily, backfillDigests, digestStatus } from "./src/cron.js";
 import { today } from "./src/dates.js";
@@ -191,6 +191,13 @@ app.get("/api/retail", (req, res) => {
   const m = Number(req.query.month) || now.getMonth();     // 默认上月(本月通常还没出)
   const kind = ["model", "brand", "maker"].includes(req.query.kind) ? req.query.kind : "model";
   try { res.json(retail.compare(y, m || 12, kind)); } catch (e) { fail(res)(e); }
+});
+// 诊断:直接看抓回来的是什么(是不是反爬页/结构变了),避免靠猜
+app.get("/api/retail/probe", apiGuard, (req, res) => {
+  const kind = ["model", "brand", "maker"].includes(req.query.kind) ? req.query.kind : "model";
+  fetchCz(kind, { pages: 1 })
+    .then((d) => res.json({ ok: true, kind, year: d.year, month: d.month, count: d.items.length, sample: d.items.slice(0, 5), diag: lastCzDiag() }))
+    .catch((e) => res.json({ ok: false, kind, error: e.message, diag: e.diag || lastCzDiag() }));
 });
 app.get("/api/retail/periods", (req, res) => { try { res.json({ items: retail.listPeriods() }); } catch (e) { fail(res)(e); } });
 // 抓取:三个来源逐个试,各存各的,互不影响
